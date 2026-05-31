@@ -1,0 +1,221 @@
+---
+title: Diophantine Equations
+description: Linear Diophantine equations ax+by=c, existence conditions, and finding all solutions
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Diophantine Equations
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "GCD & LCM", href: "/math/foundations/gcd-lcm" }
+]} />
+
+## Why This Topic Matters
+
+Linear Diophantine equations $ax + by = c$ model many CP problems: distributing items, counting lattice points, scheduling problems. Extended GCD gives the complete solution set.
+
+**Contest relevance**: CF Div.2 C–D, number theory problems, counting lattice points.
+
+---
+
+## Learning Objectives
+
+- Determine when $ax + by = c$ has integer solutions
+- Find one particular solution using extended GCD
+- Generate all solutions from the parametric family
+- Handle constraints on $x, y$ (e.g., $x, y \geq 0$)
+- Extend to $n$ variables
+
+---
+
+## Existence Condition
+
+**Bezout's Theorem**: The equation $ax + by = c$ has integer solutions iff $\gcd(a, b) \mid c$.
+
+**Proof**: Any integer linear combination of $a$ and $b$ is a multiple of $\gcd(a, b)$, and $\gcd(a, b)$ itself is achievable (by extended GCD).
+
+---
+
+## Finding a Particular Solution
+
+Use extended GCD to find $(x_0, y_0)$ with $ax_0 + by_0 = \gcd(a, b)$:
+
+```cpp
+long long ext_gcd(long long a, long long b, long long &x, long long &y) {
+    if (b == 0) { x = 1; y = 0; return a; }
+    long long x1, y1;
+    long long g = ext_gcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+
+// Solve ax + by = c
+// Returns false if no solution exists
+bool solve_linear(long long a, long long b, long long c,
+                  long long &x, long long &y) {
+    long long g = ext_gcd(a, b, x, y);
+    if (c % g != 0) return false;
+    long long scale = c / g;
+    x *= scale;
+    y *= scale;
+    return true;
+}
+```
+
+---
+
+## All Solutions
+
+If $(x_0, y_0)$ is one solution to $ax + by = c$, then **all** solutions are:
+
+$$x = x_0 + \frac{b}{g} \cdot t, \quad y = y_0 - \frac{a}{g} \cdot t, \quad t \in \mathbb{Z}$$
+
+where $g = \gcd(a, b)$.
+
+**Proof**: Substitute into $ax + by = c$ and verify; uniqueness follows from $\gcd(a/g, b/g) = 1$.
+
+```cpp
+// Given particular solution (x0, y0) to ax + by = c
+// Step sizes:
+long long dx = b / g;  // x increases by b/g per step
+long long dy = a / g;  // y decreases by a/g per step
+// General solution: (x0 + t*dx, y0 - t*dy) for any integer t
+```
+
+---
+
+## Finding Solutions with Constraints
+
+**Non-negative solutions** ($x \geq 0, y \geq 0$):
+
+```cpp
+// Find range of t such that x0 + t*dx >= 0 and y0 - t*dy >= 0
+// t >= ceil(-x0 / dx)  (if dx > 0)
+// t <= floor(y0 / dy)   (if dy > 0)
+
+long long t_min = (-x0 + dx - 1) / dx;  // ceil division for positive dx
+long long t_max = y0 / dy;
+if (t_min <= t_max) {
+    // solutions exist, count = t_max - t_min + 1
+}
+```
+
+**Minimum |x| + |y|** solution: the value of $t$ minimizing the objective.
+
+---
+
+## Special Cases
+
+**$a = 0$ or $b = 0$**:
+- $0 \cdot x + b \cdot y = c$: solution iff $b \mid c$, then $y = c/b$, $x$ arbitrary.
+- Similarly for $b = 0$.
+
+**$a = b$**:
+- $a(x + y) = c$: need $a \mid c$, then $x + y = c/a$, parametrize freely.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Check existence + find one solution", time: "O(log min(a,b))", space: "O(log n)" },
+  { operation: "Count non-negative solutions", time: "O(log min(a,b))", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Count lattice points in triangle**: count integer solutions to inequalities via Diophantine analysis
+2. **Coin problem (Frobenius)**: largest c with no non-negative solution = ab - a - b
+3. **Scheduling**: find when two periodic events align
+4. **GCD as linear combination**: foundation for CRT, modular inverse
+
+---
+
+## Common Mistakes
+
+1. **Not checking gcd | c**: attempting to solve when no solution exists.
+2. **Integer division direction**: ceiling division needs care — `(-x0 + dx - 1) / dx` only works for `dx > 0`.
+3. **Overflow**: solutions can be large; use `long long` throughout.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Coprime Integers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2183",
+    difficulty: "1000",
+    concepts: ["GCD", "counting"],
+    tier: "warmup"
+  },
+  {
+    name: "Diophantine equation",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1715",
+    difficulty: "1200",
+    concepts: ["extended GCD", "Diophantine"],
+    tier: "standard"
+  },
+  {
+    name: "Balls and Coins",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1010/C",
+    difficulty: "1700",
+    concepts: ["Diophantine", "constraints"],
+    tier: "standard"
+  },
+  {
+    name: "Pouring Rain",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/609/C",
+    difficulty: "1600",
+    concepts: ["Diophantine", "non-negative solutions"],
+    tier: "standard"
+  },
+  {
+    name: "Boxes and Balls",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1396/C",
+    difficulty: "1900",
+    concepts: ["Diophantine", "counting solutions"],
+    tier: "advanced"
+  },
+  {
+    name: "Power Sequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1060/D",
+    difficulty: "1800",
+    concepts: ["Diophantine", "GCD"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [GCD & LCM](/math/foundations/gcd-lcm) — extended GCD computes the particular solution
+- [Modular Inverse](/math/foundations/modular-inverse) — inverse is the $c=1$ case: $ax \equiv 1 \pmod{m}$
+- [Chinese Remainder Theorem](/math/number-theory/crt) — system of congruences reduces to Diophantine via CRT combination step
+- [Floor & Ceiling](/math/foundations/floor-ceil) — ceiling/floor division needed when constraining $x, y \geq 0$
+
+---
+
+## References
+
+1. cp-algorithms — [Linear Diophantine Equations](https://cp-algorithms.com/algebra/linear_diophantine_equation.html)
+2. Concrete Mathematics §4.4 — Integer solutions and the Chicken McNugget theorem
+3. Hardy & Wright, Introduction to the Theory of Numbers §2.9 — Bezout's Lemma
