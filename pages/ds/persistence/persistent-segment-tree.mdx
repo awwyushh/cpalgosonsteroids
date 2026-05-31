@@ -1,0 +1,273 @@
+---
+title: Persistent Segment Tree
+description: Version-based segment tree — query historical versions, kth number in range
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Persistent Segment Tree
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Basic Segment Tree", href: "/ds/segment-tree/basic" },
+  { title: "Coordinate Compression", href: "/ds/foundations/coordinate-compression" }
+]} />
+
+## Why This Topic Matters
+
+Persistent segment tree stores all historical versions of a segment tree, with each version sharing structure with previous versions via **path copying**.
+
+The killer application: **kth smallest element in a range $[l, r]$** in $O(\log n)$.
+
+**Contest relevance**: Codeforces Div.1 C/D, any offline query needing "answer for historical state".
+
+---
+
+## Key Idea
+
+When updating a segment tree, only $O(\log n)$ nodes change. Instead of modifying them in-place, **create new nodes** and link them.
+
+Each version has its own **root**. Versions share unchanged subtrees.
+
+**Space**: $O(n \log n)$ total for $n$ versions.
+
+---
+
+## Implementation
+
+```cpp
+struct Node {
+    int l, r;   // child indices (not pointers, for array-based impl)
+    int val;
+};
+
+const int MAXNODES = 20 * 200005;  // n * log(n) * 2
+Node tree[MAXNODES];
+int cnt = 0;
+
+int new_node() { tree[cnt] = {0, 0, 0}; return cnt++; }
+
+// Build initial version
+int build(int l, int r) {
+    int v = new_node();
+    if (l == r) return v;
+    int mid = (l + r) / 2;
+    tree[v].l = build(l, mid);
+    tree[v].r = build(mid + 1, r);
+    return v;
+}
+
+// Update: create new version with a[pos] += val
+int update(int prev, int l, int r, int pos, int val) {
+    int v = new_node();
+    tree[v] = tree[prev];  // copy from previous version
+    if (l == r) {
+        tree[v].val += val;
+        return v;
+    }
+    int mid = (l + r) / 2;
+    if (pos <= mid) tree[v].l = update(tree[prev].l, l, mid, pos, val);
+    else            tree[v].r = update(tree[prev].r, mid + 1, r, pos, val);
+    tree[v].val = tree[tree[v].l].val + tree[tree[v].r].val;
+    return v;
+}
+
+// Query sum [ql, qr] in version v
+int query(int v, int l, int r, int ql, int qr) {
+    if (!v || ql > r || qr < l) return 0;
+    if (ql <= l && r <= qr) return tree[v].val;
+    int mid = (l + r) / 2;
+    return query(tree[v].l, l, mid, ql, qr) +
+           query(tree[v].r, mid + 1, r, ql, qr);
+}
+```
+
+---
+
+## Kth Smallest in Range [l, r]
+
+**Build**: for each position $i$ from left to right, create a new segment tree version by inserting $a[i]$ into the frequency tree.
+
+Version $i$ represents the frequency array of $a[1..i]$ over coordinate-compressed values.
+
+**Query kth in $[l, r]$**: walk versions $l-1$ and $r$ simultaneously. At each node, the difference in values gives count in left subtree.
+
+```cpp
+// roots[i] = root after inserting a[1..i]
+vector<int> roots;
+
+// Build
+int N; // coordinate-compressed range size
+roots.push_back(build(1, N));
+for (int i = 0; i < n; i++) {
+    roots.push_back(update(roots.back(), 1, N, a[i], 1));
+}
+
+// Kth smallest in a[l..r] (1-indexed, coordinate-compressed values)
+int kth_smallest(int vl, int vr, int l, int r, int k) {
+    if (l == r) return l;  // leaf: this is the answer (coordinate)
+    int mid = (l + r) / 2;
+    int left_count = tree[tree[vr].l].val - tree[tree[vl].l].val;
+    if (left_count >= k)
+        return kth_smallest(tree[vl].l, tree[vr].l, l, mid, k);
+    else
+        return kth_smallest(tree[vl].r, tree[vr].r, mid + 1, r, k - left_count);
+}
+
+// Call: kth_smallest(roots[l-1], roots[r], 1, N, k)
+// Returns coordinate-compressed value; map back to original
+```
+
+---
+
+## Complete Example: K-th Order Statistics
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+const int MAXN = 2e5 + 5;
+const int LOG = 18;
+
+struct Node { int l, r, val; } tree[MAXN * LOG * 2];
+int cnt_nodes = 0, roots[MAXN], n, q;
+
+int new_node(int l = 0, int r = 0, int v = 0) {
+    tree[cnt_nodes] = {l, r, v};
+    return cnt_nodes++;
+}
+
+int build(int l, int r) {
+    int v = new_node();
+    if (l == r) return v;
+    int m = (l + r) / 2;
+    tree[v].l = build(l, m);
+    tree[v].r = build(m + 1, r);
+    return v;
+}
+
+int update(int prev, int l, int r, int pos) {
+    int v = new_node(tree[prev].l, tree[prev].r, tree[prev].val + 1);
+    if (l == r) return v;
+    int m = (l + r) / 2;
+    if (pos <= m) tree[v].l = update(tree[prev].l, l, m, pos);
+    else          tree[v].r = update(tree[prev].r, m + 1, r, pos);
+    return v;
+}
+
+int kth(int vl, int vr, int l, int r, int k) {
+    if (l == r) return l;
+    int m = (l + r) / 2;
+    int cnt = tree[tree[vr].l].val - tree[tree[vl].l].val;
+    if (cnt >= k) return kth(tree[vl].l, tree[vr].l, l, m, k);
+    return kth(tree[vl].r, tree[vr].r, m + 1, r, k - cnt);
+}
+
+int main() {
+    cin >> n >> q;
+    vector<int> a(n);
+    for (auto& x : a) cin >> x;
+
+    // Coordinate compress
+    vector<int> vals(a);
+    sort(vals.begin(), vals.end());
+    vals.erase(unique(vals.begin(), vals.end()), vals.end());
+    int N = vals.size();
+    auto compress = [&](int x) {
+        return lower_bound(vals.begin(), vals.end(), x) - vals.begin() + 1;
+    };
+
+    roots[0] = build(1, N);
+    for (int i = 0; i < n; i++)
+        roots[i + 1] = update(roots[i], 1, N, compress(a[i]));
+
+    while (q--) {
+        int l, r, k; cin >> l >> r >> k;
+        int ans_idx = kth(roots[l - 1], roots[r], 1, N, k);
+        cout << vals[ans_idx - 1] << "\n";
+    }
+}
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Build initial version", time: "O(n)", space: "O(n) nodes" },
+  { operation: "Insert one element (new version)", time: "O(log n)", space: "O(log n) new nodes" },
+  { operation: "Query on version", time: "O(log n)", space: "O(1)" },
+  { operation: "Kth smallest in range", time: "O(log n)", space: "O(1)" },
+  { operation: "Total space (n versions)", time: "—", space: "O(n log n)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Array size too small**: need at least $n \cdot \log_2(n) \cdot 2$ nodes. Use $n \cdot 20$ as safe bound.
+2. **Not sharing unchanged nodes**: must copy `tree[v] = tree[prev]` and only update the path.
+3. **Off-by-one in roots**: `roots[0]` = empty version. Query range $[l, r]$: use `roots[l-1]` and `roots[r]`.
+4. **Coordinate compression off-by-one**: compressed values should be 1-indexed for tree range $[1, N]$.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Static Range Kth Smallest",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1164",
+    difficulty: "2000",
+    concepts: ["persistent segment tree", "kth smallest"],
+    why: "Canonical PST application",
+    tier: "standard"
+  },
+  {
+    name: "K-th Number",
+    platform: "POI",
+    link: "https://szkopul.edu.pl/problemset/problem/",
+    difficulty: "2000",
+    concepts: ["persistent segment tree"],
+    tier: "standard"
+  },
+  {
+    name: "Persistent Segment Tree for Inversions",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/786C",
+    difficulty: "2300",
+    concepts: ["persistent segment tree", "offline"],
+    tier: "advanced"
+  },
+  {
+    name: "Salary Queries (Offline)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1144",
+    difficulty: "1600",
+    concepts: ["BIT or PST", "offline queries"],
+    tier: "standard"
+  },
+  {
+    name: "Distinct Colors",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/600E",
+    difficulty: "2400",
+    concepts: ["persistent segment tree", "small-to-large", "subtree queries"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Persistent Data Structures](https://cp-algorithms.com/data_structures/persistent-segment-tree.html)
+2. Codeforces EDU — Segment Tree Step 4 (Persistent)
+3. OI Wiki — 可持久化线段树

@@ -1,0 +1,341 @@
+---
+title: Sprague-Grundy Theorem
+description: The universal theory of combinatorial games — Grundy values, Nim-equivalence, composite games
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Sprague-Grundy Theorem
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Nim Game", href: "/math/game-theory/nim" },
+  { title: "Game DP (basics)", href: "/math/game-theory/game-dp" }
+]} />
+
+## Why This Topic Matters
+
+Sprague-Grundy is the **unification theorem for combinatorial game theory**. It says:
+
+> Every impartial game is equivalent to a single Nim heap of some size.
+
+This reduces any combinatorial game to Nim. Once you know Grundy values, you can solve multi-pile composite games by XOR-ing the Grundy values.
+
+**Contest relevance**: Codeforces Div.2 D/E, Div.1 B/C. Recognizing that a problem is a combinatorial game and computing Grundy values is often the entire solution.
+
+---
+
+## Learning Objectives
+
+- Define Grundy (Nim) values recursively via mex
+- Compute Grundy values for any impartial game
+- Apply Sprague-Grundy to reduce composite games to XOR
+- Recognize P-positions and N-positions
+- Solve problems involving Grundy values on DAGs
+
+---
+
+## P-positions and N-positions
+
+Any game state is either:
+
+- **P-position** (Previous player wins / current player **Loses**): all moves lead to N-positions
+- **N-position** (Next player wins / current player **Wins**): at least one move leads to a P-position
+
+Terminal positions (no moves available) are P-positions.
+
+**Recursive rule**:
+- State is **P** if all successors are **N**
+- State is **N** if some successor is **P**
+
+---
+
+## Nim Values (Grundy Numbers)
+
+**Theorem (Grundy Number)**: The **Grundy number** $G(s)$ of a game state $s$ is:
+
+$$G(s) = \text{mex}\{G(s') : s \to s' \text{ is a valid move}\}$$
+
+where $\text{mex}(S) = \min\{k \geq 0 : k \notin S\}$ is the minimum excludant.
+
+- $G(s) = 0$ iff $s$ is a P-position (current player loses).
+- $G(s) > 0$ iff $s$ is an N-position.
+
+### Example: Single Nim Heap of size $n$
+
+From a heap of size $n$, you can remove $1, 2, \ldots, n$ stones.
+
+$$G(0) = \text{mex}(\{\}) = 0$$
+$$G(1) = \text{mex}(\{G(0)\}) = \text{mex}(\{0\}) = 1$$
+$$G(2) = \text{mex}(\{G(0), G(1)\}) = \text{mex}(\{0, 1\}) = 2$$
+$$G(n) = n$$
+
+So a single Nim heap of size $n$ has Grundy value $n$. (This is where the name comes from.)
+
+---
+
+## The Sprague-Grundy Theorem
+
+**Theorem (Sprague-Grundy)**: For a composite game of independent games $G_1, G_2, \ldots, G_k$:
+
+$$G(G_1 + G_2 + \cdots + G_k) = G(G_1) \oplus G(G_2) \oplus \cdots \oplus G(G_k)$$
+
+where $\oplus$ is XOR. The combined game is a P-position iff the XOR of all Grundy values is 0.
+
+This is the key theorem. It reduces any composite game to Nim.
+
+**Proof sketch**: Induction using the fact that Grundy numbers are defined so that from any state with XOR $\neq 0$, you can move to XOR $= 0$, and from XOR $= 0$ every move leads to XOR $\neq 0$.
+
+---
+
+## Computing Grundy Values: Algorithm
+
+```cpp
+// Game state: integer (or encode more complex states)
+// moves[s] = set of states reachable from s
+
+unordered_map<int, int> memo;
+
+int grundy(int state) {
+    if (memo.count(state)) return memo[state];
+
+    set<int> reachable;
+    for (int next : get_moves(state)) {
+        reachable.insert(grundy(next));
+    }
+
+    // mex of reachable set
+    int mex_val = 0;
+    while (reachable.count(mex_val)) mex_val++;
+
+    return memo[state] = mex_val;
+}
+
+// Check if first player wins from initial state(s)
+bool first_player_wins(vector<int> initial_states) {
+    int xor_sum = 0;
+    for (int s : initial_states) xor_sum ^= grundy(s);
+    return xor_sum != 0;
+}
+```
+
+---
+
+## Examples
+
+### Example 1: Subtraction Game
+
+Players alternately remove 1, 2, or 3 stones from a heap of $n$.
+
+Grundy values:
+| $n$ | Moves to | Grundy |
+|-----|----------|--------|
+| 0 | {} | 0 |
+| 1 | {0} | mex{0} = 1 |
+| 2 | {0,1} | mex{0,1} = 2 |
+| 3 | {0,1,2} | mex{0,1,2} = 3 |
+| 4 | {1,2,3} | mex{1,2,3} = 0 |
+| 5 | {2,3,4} | mex{2,3,0} = 1 |
+
+Pattern: $G(n) = n \bmod 4$.
+
+**General subtraction game** with move set $S = \{s_1, \ldots, s_k\}$: Grundy values are eventually periodic.
+
+### Example 2: Nim
+
+$k$ heaps of sizes $n_1, n_2, \ldots, n_k$. First player wins iff $n_1 \oplus n_2 \oplus \cdots \oplus n_k \neq 0$.
+
+This follows directly from Sprague-Grundy since $G(\text{heap of size } n) = n$.
+
+### Example 3: Staircase Nim
+
+Stones on positions $0, 1, 2, \ldots$. Move: take $k$ stones from position $i > 0$ and put them on position $i-1$.
+
+**Result**: only odd-position heap sizes matter. XOR of odd-position heap sizes.
+
+---
+
+## Grundy Values on DAGs
+
+When the game state is a node in a DAG, compute Grundy values via topological sort:
+
+```cpp
+// Precompute Grundy values for DAG
+vector<vector<int>> adj(n);  // adjacency list
+vector<int> G(n, -1);
+
+int grundy_dag(int v) {
+    if (G[v] != -1) return G[v];
+    set<int> S;
+    for (int u : adj[v]) S.insert(grundy_dag(u));
+    int mex = 0;
+    while (S.count(mex)) mex++;
+    return G[v] = mex;
+}
+```
+
+**Application**: Each game piece is at some node. Players move pieces. All pieces are independent → XOR of Grundy values.
+
+---
+
+## Nim on Graphs
+
+**Problem**: $k$ tokens on nodes of a graph. Players move any one token along an edge. Last move wins.
+
+Solution: XOR of Grundy values of initial positions.
+
+Grundy value of a node = mex of Grundy values of its neighbors.
+
+---
+
+## Staircase Nim
+
+Heaps on positions $0, 1, \ldots, n$. Move: transfer any positive number of stones from position $i$ to position $i-1$. Goal: empty all heaps.
+
+<Callout type="theorem" title="Staircase Nim Theorem">
+Position is losing (P-position) iff XOR of stones on **odd** positions is 0.
+</Callout>
+
+**Intuition**: moving stones to an even position is "giving to the opponent" — they can mirror the move to put them back on odd positions. Only odd-position stones matter.
+
+---
+
+## Misère Nim
+
+Normal Nim but last move **loses**.
+
+<Callout type="theorem" title="Misère Nim Theorem">
+In misère Nim:
+- If all heaps have size ≤ 1: first player wins iff the number of heaps is even.
+- Otherwise: first player wins iff the XOR of heap sizes is **nonzero**.
+
+Combined: same as normal Nim, except when all heaps are size ≤ 1.
+</Callout>
+
+---
+
+## Green Hackenbush
+
+Edges on a rooted graph. Players alternately remove an edge; all edges disconnected from root also vanish.
+
+Grundy value = XOR over all paths of their lengths (modulo 2 for each edge).
+
+For trees: XOR of all edge counts in each connected subtree.
+
+---
+
+## Practical Pattern Recognition
+
+When you see a game theory problem, ask:
+
+1. Is it **impartial**? (Both players have the same moves available.) → Sprague-Grundy applies.
+2. Is it **partizan**? (Players have different moves.) → More complex (combinatorial game theory).
+3. Is the game a **sum of independent games**? → XOR Grundy values.
+4. Can you find a **pattern** in Grundy values? → Often periodic.
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Compute G(s) for one state (top-down)", time: "O(|moves| per state)", space: "O(states) memo" },
+  { operation: "Compute all G values on DAG (topological)", time: "O(V + E)", space: "O(V)" },
+  { operation: "mex computation (with hash set)", time: "O(|moves|)", space: "O(|moves|)" },
+  { operation: "Composite game XOR", time: "O(k)", note: "k = number of independent games" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Staircase Nim",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1730",
+    difficulty: "1400",
+    concepts: ["Nim", "staircase Nim"],
+    tier: "warmup"
+  },
+  {
+    name: "Nim Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/768/D",
+    difficulty: "1400",
+    concepts: ["Nim", "Sprague-Grundy"],
+    tier: "warmup"
+  },
+  {
+    name: "Alice and Bob Again",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/234/D",
+    difficulty: "1700",
+    concepts: ["Sprague-Grundy", "Nim on graph"],
+    tier: "standard"
+  },
+  {
+    name: "A and B and Game of Stones",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/451/E",
+    difficulty: "1900",
+    concepts: ["Sprague-Grundy", "subtraction game", "periodicity"],
+    tier: "standard"
+  },
+  {
+    name: "Yet Another Nim Problem",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1628/E",
+    difficulty: "2000",
+    concepts: ["Nim", "prime factorization", "Sprague-Grundy"],
+    trick: "Map each number to its factorization; treat prime exponents as independent Nim heaps",
+    tier: "advanced"
+  },
+  {
+    name: "Another Staircase Nim",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/327/E",
+    difficulty: "2200",
+    concepts: ["Staircase Nim", "tree"],
+    tier: "advanced"
+  },
+  {
+    name: "Divisor Game (advanced)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033D",
+    difficulty: "2100",
+    concepts: ["Grundy on DAG", "factorization"],
+    tier: "advanced"
+  },
+  {
+    name: "Green Hackenbush on Trees",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/850/C",
+    difficulty: "2400",
+    concepts: ["Green Hackenbush", "XOR of edge counts"],
+    tier: "killer"
+  },
+  {
+    name: "Turning Turtles",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/27/E",
+    difficulty: "2500",
+    concepts: ["Sprague-Grundy", "complex game"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. Sprague — *Equivalence of games* (1935)
+2. Grundy — *Mathematics and games* (1939)
+3. cp-algorithms — [Sprague-Grundy Theorem](https://cp-algorithms.com/game_theory/sprague-grundy-nim.html)
+4. Berlekamp, Conway, Guy — *Winning Ways for your Mathematical Plays*
+5. USACO Guide — [Intro to Game Theory](https://usaco.guide/gold/game-theory)

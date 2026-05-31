@@ -1,0 +1,67 @@
+---
+title: Disjoint Set Structures
+description: Union-Find variants from classic to DSU on trees
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Disjoint Set Structures
+
+<TopicGrid>
+  <TopicCard
+    title="Union-Find (DSU)"
+    href="/ds/dsu/classic"
+    description="Classic DSU with path compression and union by rank. Near O(1)."
+    difficulty="easy"
+    time="2h"
+    tags={["path compression", "union by rank", "O(α)"]}
+  />
+  <TopicCard
+    title="Weighted DSU"
+    href="/ds/dsu/weighted-dsu"
+    description="Store relative values along edges. XOR, sum, difference relationships."
+    difficulty="medium"
+    time="2h"
+    tags={["weighted", "relative values", "XOR"]}
+  />
+  <TopicCard
+    title="Bipartite DSU"
+    href="/ds/dsu/bipartite-dsu"
+    description="Track parity/color along edges. 2-colorability check."
+    difficulty="medium"
+    time="1h"
+    tags={["bipartite", "parity", "2-coloring"]}
+  />
+  <TopicCard
+    title="DSU with Rollback"
+    href="/ds/dsu/rollback-dsu"
+    description="Undo union operations. Required for offline dynamic connectivity."
+    difficulty="hard"
+    time="2h"
+    tags={["rollback", "offline", "dynamic connectivity"]}
+  />
+  <TopicCard
+    title="Persistent DSU"
+    href="/ds/dsu/persistent-dsu"
+    description="Version-based DSU using persistent arrays."
+    difficulty="hard"
+    time="3h"
+    tags={["persistent", "versions"]}
+  />
+  <TopicCard
+    title="DSU on Trees (Small-to-Large)"
+    href="/ds/dsu/dsu-on-trees"
+    description="Heavy-light merging for subtree queries. O(n log n) total."
+    difficulty="hard"
+    time="3h"
+    tags={["small-to-large", "subtree", "O(n log n)"]}
+  />
+  <TopicCard
+    title="Offline Dynamic Connectivity"
+    href="/ds/dsu/offline-connectivity"
+    description="Handle edge additions AND deletions offline using rollback DSU."
+    difficulty="expert"
+    time="4h"
+    tags={["dynamic", "delete", "offline"]}
+  />
+</TopicGrid>

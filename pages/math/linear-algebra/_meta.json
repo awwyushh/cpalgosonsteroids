@@ -1,0 +1,13 @@
+{
+  "index": "Overview",
+  "matrix-basics": "Matrix Basics",
+  "matrix-exponentiation": "Matrix Exponentiation",
+  "linear-recurrences": "Linear Recurrences",
+  "gaussian-elimination": "Gaussian Elimination",
+  "xor-basis": "XOR Basis & Linear Basis",
+  "gf2": "Linear Algebra over GF(2)",
+  "berlekamp-massey": "Berlekamp-Massey",
+  "kitamasa": "Kitamasa Algorithm",
+  "matrix-tree": "Matrix-Tree Theorem",
+  "kirchhoff": "Kirchhoff's Theorem"
+}

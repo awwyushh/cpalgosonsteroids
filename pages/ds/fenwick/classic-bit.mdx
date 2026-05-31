@@ -1,0 +1,367 @@
+---
+title: Classic Fenwick Tree (BIT)
+description: Binary Indexed Tree — elegant O(log n) prefix sums with minimal code
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Classic Fenwick Tree (BIT)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+  <span className="badge badge-easy">Core DS</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Arrays & Prefix Sums", href: "/ds/basic/arrays" },
+  { title: "Bit Operations", href: "/math/bitmask/bit-operations" }
+]} />
+
+## Why This Topic Matters
+
+The Fenwick tree (Binary Indexed Tree, BIT) is the most elegant data structure in competitive programming. It supports:
+- Point update in $O(\log n)$
+- Prefix query in $O(\log n)$
+
+With half the code of a segment tree and better cache performance.
+
+**Contest relevance**: Used whenever you need dynamic prefix sums — inversion count, offline range queries, frequency tables, coordinate compression applications.
+
+---
+
+## Learning Objectives
+
+- Understand the BIT's structure via binary representation
+- Implement point update and prefix query
+- Derive range queries from prefix queries
+- Implement 2D BIT
+- Apply BIT to inversion counting
+
+---
+
+## Intuition
+
+The key insight: represent the index in binary. Each index $i$ is responsible for a range of size equal to the **lowest set bit** of $i$.
+
+For example:
+- Index 6 = `110` in binary. Lowest set bit = 2. So BIT[6] stores sum of elements 5 and 6 (range of size 2).
+- Index 4 = `100`. Lowest set bit = 4. So BIT[4] stores sum of elements 1–4 (range of size 4).
+- Index 7 = `111`. Lowest set bit = 1. BIT[7] stores just element 7.
+
+The **lowbit** operation: `lowbit(i) = i & (-i)` extracts the lowest set bit.
+
+**To compute prefix sum $A[1..i]$**: follow links $i, i - \text{lowbit}(i), \ldots$ until reaching 0.
+
+**To update position $i$**: follow links $i, i + \text{lowbit}(i), \ldots$ until exceeding $n$.
+
+---
+
+## Implementation
+
+```cpp
+struct BIT {
+    int n;
+    vector<long long> tree;
+
+    BIT(int n) : n(n), tree(n + 1, 0) {}
+
+    // Add val to position i (1-indexed)
+    void update(int i, long long val) {
+        for (; i <= n; i += i & -i)
+            tree[i] += val;
+    }
+
+    // Prefix sum [1, i]
+    long long query(int i) {
+        long long sum = 0;
+        for (; i > 0; i -= i & -i)
+            sum += tree[i];
+        return sum;
+    }
+
+    // Range sum [l, r]
+    long long query(int l, int r) {
+        return query(r) - query(l - 1);
+    }
+
+    // Build from array in O(n)
+    void build(vector<int>& a) {
+        for (int i = 0; i < (int)a.size(); i++)
+            update(i + 1, a[i]);
+    }
+
+    // O(n) build (faster)
+    void build_fast(vector<int>& a) {
+        for (int i = 1; i <= n; i++) {
+            tree[i] += a[i-1];
+            int j = i + (i & -i);
+            if (j <= n) tree[j] += tree[i];
+        }
+    }
+};
+```
+
+---
+
+## Why It Works
+
+Trace `query(7)` ($= 111_2$):
+```
+query(7) = tree[7] + tree[6] + tree[4]
+         = A[7]   + A[5..6] + A[1..4]
+```
+
+Each step strips the lowest bit: $7 \to 6 \to 4 \to 0$.
+
+Trace `update(5)` ($= 101_2$):
+```
+update(5): tree[5] += val
+           tree[6] += val  (5 + 1 = 6 = 110₂)
+           tree[8] += val  (6 + 2 = 8 = 1000₂)
+           ...
+```
+
+Each step adds the lowest set bit.
+
+<Callout type="theorem" title="Correctness">
+The update and query paths are complementary: if $j$ is on the query path of $i$, then $i$ is on the update path of $j$. This ensures every update is reflected in exactly the prefix queries it should affect.
+</Callout>
+
+---
+
+## Finding $k$-th Element
+
+BIT supports finding the smallest index with prefix sum $\geq k$ in $O(\log n)$:
+
+```cpp
+int kth(long long k) {
+    int pos = 0;
+    for (int pw = 1 << __lg(n); pw; pw >>= 1) {
+        if (pos + pw <= n && tree[pos + pw] < k) {
+            pos += pw;
+            k -= tree[pos];
+        }
+    }
+    return pos + 1;
+}
+```
+
+This is a binary search on the BIT structure — equivalent to walking the implicit tree.
+
+---
+
+## 2D Fenwick Tree
+
+For 2D point update and prefix sum queries:
+
+```cpp
+struct BIT2D {
+    int n, m;
+    vector<vector<long long>> tree;
+
+    BIT2D(int n, int m) : n(n), m(m), tree(n+1, vector<long long>(m+1, 0)) {}
+
+    void update(int x, int y, long long val) {
+        for (int i = x; i <= n; i += i & -i)
+            for (int j = y; j <= m; j += j & -j)
+                tree[i][j] += val;
+    }
+
+    long long query(int x, int y) {
+        long long sum = 0;
+        for (int i = x; i > 0; i -= i & -i)
+            for (int j = y; j > 0; j -= j & -j)
+                sum += tree[i][j];
+        return sum;
+    }
+
+    // Rectangle sum [x1,x2] × [y1,y2]
+    long long query(int x1, int y1, int x2, int y2) {
+        return query(x2, y2) - query(x1-1, y2) - query(x2, y1-1) + query(x1-1, y1-1);
+    }
+};
+```
+
+**Complexity**: $O(\log^2 n)$ per operation.
+
+---
+
+## Range Update, Point Query
+
+By storing a difference array in the BIT:
+- `update(l, r, val)` → `bit.update(l, val)`, `bit.update(r+1, -val)`
+- `query(i)` → `bit.query(i)` gives $A[i]$
+
+```cpp
+// Range add: add val to a[l..r]
+void range_update(BIT& bit, int l, int r, long long val) {
+    bit.update(l, val);
+    bit.update(r + 1, -val);
+}
+
+// Point query: get a[i]
+long long point_query(BIT& bit, int i) {
+    return bit.query(i);
+}
+```
+
+---
+
+## Inversion Count
+
+Count pairs $(i, j)$ with $i < j$ and $A[i] > A[j]$:
+
+```cpp
+long long count_inversions(vector<int>& a) {
+    int n = a.size();
+    // Coordinate compress
+    vector<int> sorted_a = a;
+    sort(sorted_a.begin(), sorted_a.end());
+    sorted_a.erase(unique(sorted_a.begin(), sorted_a.end()), sorted_a.end());
+    int m = sorted_a.size();
+
+    BIT bit(m);
+    long long inversions = 0;
+    for (int i = n - 1; i >= 0; i--) {
+        int pos = lower_bound(sorted_a.begin(), sorted_a.end(), a[i]) - sorted_a.begin() + 1;
+        inversions += bit.query(pos - 1);  // count elements < a[i] seen so far
+        bit.update(pos, 1);
+    }
+    return inversions;
+}
+```
+
+---
+
+## BIT vs Segment Tree
+
+| Feature | BIT | Segment Tree |
+|---------|-----|-------------|
+| Code length | ~10 lines | ~30–50 lines |
+| Constant factor | ~2–3x faster | Baseline |
+| Memory | $n$ elements | $4n$ elements |
+| Range update | With difference arrays | Native (lazy) |
+| Point query | Native | Native |
+| Range query | Native (prefix diff) | Native |
+| 2D extension | Natural | Complex |
+| Arbitrary monoid | No (requires invertible) | Yes |
+
+**Use BIT when**: pure prefix sums, inversions, frequency tables.
+
+**Use Segment Tree when**: non-invertible operations (min, max, GCD), lazy propagation needed.
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Build from array", time: "O(n)", space: "O(n)" },
+  { operation: "Point update", time: "O(log n)", space: "O(1)" },
+  { operation: "Prefix query", time: "O(log n)", space: "O(1)" },
+  { operation: "Range query", time: "O(log n)", space: "O(1)" },
+  { operation: "Find k-th element", time: "O(log n)", space: "O(1)" },
+  { operation: "2D update / query", time: "O(log² n)", space: "O(n²)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **0-indexed vs 1-indexed**: BIT is traditionally 1-indexed. Never call `update(0, ...)`.
+2. **Array size**: must be `n+1` (or `n+2` if querying up to `n+1` after range update).
+3. **Overflow in `tree[i] += val`**: use `long long` if values are large.
+4. **Range update query forgetting to set `n+1`**: `update(r+1, -val)` must not go out of bounds.
+5. **kth element wrong**: must use correct power-of-2 starting point.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Range Sum Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1648",
+    difficulty: "1200",
+    concepts: ["BIT", "prefix sum", "point update"],
+    why: "Classic BIT application",
+    tier: "warmup"
+  },
+  {
+    name: "Dynamic Range Minimum Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1649",
+    difficulty: "1200",
+    concepts: ["segment tree (BIT is wrong for min)"],
+    tier: "warmup"
+  },
+  {
+    name: "Inversions",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1188",
+    difficulty: "1400",
+    concepts: ["BIT", "inversion count", "coordinate compression"],
+    tier: "warmup"
+  },
+  {
+    name: "Salary Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1144",
+    difficulty: "1400",
+    concepts: ["BIT", "offline coordinate compression"],
+    tier: "standard"
+  },
+  {
+    name: "Nested Ranges Count",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2169",
+    difficulty: "1700",
+    concepts: ["BIT", "sweep line", "coordinate compression"],
+    trick: "Sort by left endpoint, sweep; use BIT to count nested intervals",
+    tier: "standard"
+  },
+  {
+    name: "Counting Sorted Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/459/C",
+    difficulty: "1800",
+    concepts: ["BIT", "DP", "offline"],
+    tier: "standard"
+  },
+  {
+    name: "New Year Tree",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/620/problem/E",
+    difficulty: "2200",
+    concepts: ["BIT", "Euler tour", "bitset"],
+    trick: "Use BIT with bitset to track which colors are in a range",
+    tier: "advanced"
+  },
+  {
+    name: "Pashmak and Parmida's problem",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/459/E",
+    difficulty: "2200",
+    concepts: ["BIT", "LIS variant", "coordinate compression"],
+    tier: "advanced"
+  },
+  {
+    name: "The Minimal Pair",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1238/F",
+    difficulty: "2500",
+    concepts: ["BIT", "offline", "complex counting"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. Peter Fenwick — *A New Data Structure for Cumulative Frequency Tables* (1994)
+2. cp-algorithms — [Fenwick Tree](https://cp-algorithms.com/data_structures/fenwick.html)
+3. USACO Guide — [BIT](https://usaco.guide/gold/PURS)

@@ -1,0 +1,160 @@
+---
+title: Mathematics
+description: Complete CP Mathematics reference — from foundations to research-level topics
+---
+
+import { TopicCard, TopicGrid } from '../../components/TopicCard'
+
+# CP Mathematics
+
+Comprehensive coverage of every mathematical tool in competitive programming.
+
+---
+
+## Curriculum Overview
+
+<TopicGrid>
+  <TopicCard
+    title="Foundations"
+    href="/math/foundations"
+    description="Modular arithmetic, GCD/LCM, fast exponentiation, modular inverse. The non-negotiable basics."
+    difficulty="beginner"
+    tags={["mod", "gcd", "binary exponentiation"]}
+  />
+  <TopicCard
+    title="Number Theory"
+    href="/math/number-theory"
+    description="Primes, sieves, Euler phi, Möbius function, CRT, discrete log, Miller-Rabin, Pollard rho."
+    difficulty="medium"
+    tags={["primes", "phi", "CRT", "miller-rabin"]}
+  />
+  <TopicCard
+    title="Advanced Number Theory"
+    href="/math/advanced-number-theory"
+    description="Min-25 sieve, Du Jiao sieve, Garner's algorithm, GCD convolution, multiplicative function sums."
+    difficulty="expert"
+    tags={["min-25", "du-jiao", "garner"]}
+  />
+  <TopicCard
+    title="Combinatorics"
+    href="/math/combinatorics"
+    description="Binomial coefficients, inclusion-exclusion, Catalan numbers, Burnside, Pólya enumeration."
+    difficulty="medium"
+    tags={["C(n,k)", "PIE", "catalan", "burnside"]}
+  />
+  <TopicCard
+    title="Linear Algebra"
+    href="/math/linear-algebra"
+    description="Matrix exponentiation, Gaussian elimination, XOR basis, Berlekamp-Massey, Kirchhoff's theorem."
+    difficulty="medium"
+    tags={["matrix exp", "gaussian", "xor basis"]}
+  />
+  <TopicCard
+    title="Probability & EV"
+    href="/math/probability"
+    description="Expected value, probability DP, Markov chains, random walks, coupon collector."
+    difficulty="medium"
+    tags={["E[X]", "DP", "markov", "linearity"]}
+  />
+  <TopicCard
+    title="Geometry"
+    href="/math/geometry"
+    description="Vectors, convex hull, polygon area, half-plane intersection, Pick's theorem, 3D geometry."
+    difficulty="medium"
+    tags={["cross product", "convex hull", "shoelace"]}
+  />
+  <TopicCard
+    title="Polynomials & FFT"
+    href="/math/polynomials"
+    description="FFT, NTT, formal power series, subset convolution, Walsh-Hadamard transform."
+    difficulty="hard"
+    tags={["FFT", "NTT", "FPS", "FWHT"]}
+  />
+  <TopicCard
+    title="Game Theory"
+    href="/math/game-theory"
+    description="Nim, Sprague-Grundy theorem, Grundy values on graphs, composite games."
+    difficulty="medium"
+    tags={["nim", "grundy", "mex", "XOR"]}
+  />
+  <TopicCard
+    title="Optimization Math"
+    href="/math/optimization"
+    description="Convex hull trick, Li Chao tree, divide & conquer DP, Knuth, Aliens trick."
+    difficulty="expert"
+    tags={["CHT", "D&C DP", "aliens", "SMAWK"]}
+  />
+  <TopicCard
+    title="Algebraic Structures"
+    href="/math/algebra"
+    description="Groups, rings, finite fields, permutation groups, semirings, matrix exponentiation over semirings."
+    difficulty="expert"
+    tags={["GF(2)", "permutations", "semirings"]}
+  />
+  <TopicCard
+    title="Bitmask Mathematics"
+    href="/math/bitmask"
+    description="SOS DP, subset convolution, Zeta/Möbius transform, XOR basis, meet in the middle."
+    difficulty="medium"
+    tags={["SOS", "zeta", "mobius", "XOR"]}
+  />
+  <TopicCard
+    title="Sequences & Recurrences"
+    href="/math/sequences"
+    description="Linear recurrences, Berlekamp-Massey, Kitamasa, characteristic polynomials."
+    difficulty="hard"
+    tags={["BM", "kitamasa", "matrix exp"]}
+  />
+  <TopicCard
+    title="Graph Mathematics"
+    href="/math/graph-math"
+    description="Matrix-tree theorem, Cayley's formula, random walks, Laplacian matrix."
+    difficulty="expert"
+    tags={["kirchhoff", "cayley", "prüfer"]}
+  />
+  <TopicCard
+    title="Formula Sheets"
+    href="/math/formulas"
+    description="Quick-reference formula sheets for every topic area. Contest-ready."
+    tags={["reference", "cheat sheet"]}
+  />
+</TopicGrid>
+
+---
+
+## Dependency Graph
+
+```
+Foundations
+├── Number Theory → Advanced NT
+├── Combinatorics → Generating Functions → Polynomials/FFT
+├── Linear Algebra → Berlekamp-Massey → Sequences
+├── Probability → Markov Chains
+├── Geometry (standalone)
+├── Game Theory → Algebraic Structures
+├── Optimization → Bitmask Math
+└── Graph Math ← (Number Theory + Linear Algebra)
+```
+
+---
+
+## Mathematics Roadmaps
+
+| Level | Topics to Cover | Duration |
+|-------|----------------|----------|
+| **Beginner** | Foundations → Basic Number Theory → Basic Combinatorics | 3–4 weeks |
+| **Intermediate** | + Linear Algebra + Probability + Geometry basics | +6 weeks |
+| **Advanced** | + FFT/NTT + Game Theory + Optimization | +8 weeks |
+| **Expert** | + Advanced NT + Algebraic Structures + Graph Math | +12 weeks |
+| **ICPC/IOI** | + Research topics + Min-25 + Formal Power Series | +ongoing |
+
+---
+
+## References
+
+- Mikhail Emaxx's cp-algorithms (`cp-algorithms.com`)
+- USACO Guide — Math sections
+- OI Wiki — Mathematics
+- E. Maurer, P. Zanoni — *Competitive Programmer's Handbook*
+- KACTL (KTH Algorithm Competition Template Library)
+- Stanford ICPC Notebook

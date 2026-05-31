@@ -1,0 +1,18 @@
+{
+  "index": "Overview",
+  "foundations": "Foundations",
+  "number-theory": "Number Theory",
+  "advanced-number-theory": "Advanced Number Theory",
+  "combinatorics": "Combinatorics",
+  "linear-algebra": "Linear Algebra",
+  "probability": "Probability & Expected Value",
+  "geometry": "Geometry",
+  "polynomials": "Polynomials & FFT",
+  "game-theory": "Game Theory",
+  "algebra": "Algebraic Structures",
+  "optimization": "Optimization Mathematics",
+  "bitmask": "Bitmask Mathematics",
+  "sequences": "Sequences & Recurrences",
+  "graph-math": "Graph Mathematics",
+  "formulas": "Formula Sheets"
+}

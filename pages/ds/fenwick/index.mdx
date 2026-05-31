@@ -1,0 +1,57 @@
+---
+title: Fenwick Tree Family
+description: BIT variants from classic to 2D to persistent
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Fenwick Tree Family
+
+<TopicGrid>
+  <TopicCard
+    title="Classic BIT"
+    href="/ds/fenwick/classic-bit"
+    description="Point update, prefix query, kth element. The elegance benchmark."
+    difficulty="easy"
+    time="2h"
+    tags={["prefix sum", "inversion count", "kth"]}
+  />
+  <TopicCard
+    title="Range Update, Point Query"
+    href="/ds/fenwick/range-update"
+    description="Difference array stored in BIT for O(log n) range updates."
+    difficulty="easy"
+    time="1h"
+    tags={["difference array", "range add"]}
+  />
+  <TopicCard
+    title="Range Update, Range Query"
+    href="/ds/fenwick/range-range"
+    description="Two BITs to support both range add and range sum in O(log n)."
+    difficulty="medium"
+    time="1h"
+    tags={["two BITs", "range add + sum"]}
+  />
+  <TopicCard
+    title="2D Fenwick Tree"
+    href="/ds/fenwick/2d-bit"
+    description="Point update + rectangle sum in O(log² n) with minimal code."
+    difficulty="medium"
+    time="2h"
+    tags={["2D", "rectangle sum"]}
+  />
+  <TopicCard
+    title="Persistent BIT"
+    href="/ds/fenwick/persistent-bit"
+    description="Version-based BIT using persistent approach."
+    difficulty="hard"
+    time="3h"
+    tags={["persistent", "offline"]}
+  />
+  <TopicCard
+    title="BIT Applications"
+    href="/ds/fenwick/bit-applications"
+    description="Inversion count, offline coordinate compression, frequency tables."
+    tags={["inversions", "offline", "coordinate compression"]}
+  />
+</TopicGrid>

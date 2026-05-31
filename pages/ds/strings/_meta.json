@@ -1,0 +1,11 @@
+{
+  "index": "Overview",
+  "prefix-z": "Prefix Function & Z-Function",
+  "rolling-hash": "Rolling Hash",
+  "suffix-array": "Suffix Array",
+  "lcp-array": "LCP Array",
+  "suffix-automaton": "Suffix Automaton (SAM)",
+  "suffix-tree": "Suffix Tree",
+  "palindromic-tree": "Palindromic Tree (Eertree)",
+  "wavelet-strings": "Wavelet Tree for Strings"
+}

@@ -1,0 +1,8 @@
+{
+  "index": "Overview",
+  "sparse-table": "Sparse Table (RMQ)",
+  "disjoint-sparse-table": "Disjoint Sparse Table",
+  "sqrt-tree": "Sqrt Tree",
+  "cartesian-rmq": "Cartesian RMQ",
+  "fischer-heun": "Fischer-Heun RMQ"
+}

@@ -1,0 +1,78 @@
+---
+title: Graph-Oriented Structures
+description: Tree decomposition techniques — HLD, centroid, LCT, and beyond
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Graph-Oriented Structures
+
+<TopicGrid>
+  <TopicCard
+    title="Heavy-Light Decomposition"
+    href="/ds/graph-structures/hld"
+    description="Reduce path queries on trees to array range queries. O(log² n)."
+    difficulty="hard"
+    time="5h"
+    tags={["HLD", "path queries", "O(log² n)"]}
+  />
+  <TopicCard
+    title="Centroid Decomposition"
+    href="/ds/graph-structures/centroid"
+    description="Divide & conquer on trees. Count paths through centroids."
+    difficulty="hard"
+    time="5h"
+    tags={["centroid", "path counting", "divide and conquer"]}
+  />
+  <TopicCard
+    title="Virtual Trees"
+    href="/ds/graph-structures/virtual-trees"
+    description="Compress a tree to only key nodes and their LCAs."
+    difficulty="expert"
+    time="4h"
+    tags={["virtual tree", "key nodes", "LCA"]}
+  />
+  <TopicCard
+    title="Euler Tour Trees"
+    href="/ds/graph-structures/euler-tour-tree"
+    description="Represent forests as sequences. Support link/cut/root operations."
+    difficulty="expert"
+    time="6h"
+    tags={["ETT", "link-cut", "forest"]}
+  />
+  <TopicCard
+    title="Link-Cut Trees"
+    href="/ds/graph-structures/link-cut-tree"
+    description="Dynamic trees: link, cut, path queries in O(log n) amortized."
+    difficulty="legendary"
+    time="8h"
+    tags={["LCT", "splay", "dynamic tree"]}
+  />
+  <TopicCard
+    title="Top Trees"
+    href="/ds/graph-structures/top-trees"
+    description="Generalization of HLD and LCT for path and subtree info."
+    difficulty="legendary"
+    time="10h"
+    tags={["top tree", "path", "subtree"]}
+  />
+  <TopicCard
+    title="Dynamic Trees"
+    href="/ds/graph-structures/dynamic-trees"
+    description="Overview of dynamic tree structures and when to use each."
+    difficulty="expert"
+    tags={["comparison", "overview"]}
+  />
+</TopicGrid>
+
+---
+
+## When to Use Which
+
+| Need | Structure |
+|------|-----------|
+| Static path queries | HLD |
+| Count paths with property | Centroid Decomposition |
+| Sparse key-node queries | Virtual Trees |
+| Dynamic link/cut + path queries | Link-Cut Tree |
+| Dynamic subtree info | Euler Tour Trees |

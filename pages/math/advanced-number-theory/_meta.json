@@ -1,0 +1,13 @@
+{
+  "index": "Overview",
+  "min25-sieve": "Min-25 Sieve",
+  "du-jiao-sieve": "Du Jiao Sieve",
+  "powerful-number-sieve": "Powerful Number Sieve",
+  "mobius-inversion": "Möbius Inversion (Advanced)",
+  "dirichlet-series": "Dirichlet Series for CP",
+  "ntt-primes": "NTT-Friendly Primes & CRT",
+  "garner": "Garner's Algorithm",
+  "lucas-extended": "Extended Lucas Theorem",
+  "hensel": "Hensel's Lemma",
+  "gcd-convolution": "GCD & LCM Convolution"
+}

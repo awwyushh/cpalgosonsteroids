@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "kd-tree": "KD Tree",
+  "range-tree": "Range Tree",
+  "interval-tree": "Interval Tree",
+  "sweep-line": "Sweep Line Structures",
+  "convex-hull-trick-ds": "Convex Hull Trick (DS View)",
+  "dynamic-convex-hull": "Dynamic Convex Hull",
+  "lichao-ds": "Li Chao Tree (DS View)"
+}

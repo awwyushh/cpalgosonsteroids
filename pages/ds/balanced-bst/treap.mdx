@@ -1,0 +1,273 @@
+---
+title: Treap
+description: Randomized BST — elegant, fast, and persistent-friendly
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Treap
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binary Search Trees", href: "/ds/balanced-bst" },
+  { title: "Randomized Algorithms", href: "/math/probability/randomized-algorithms" }
+]} />
+
+## Why This Topic Matters
+
+Treap is a randomized BST that maintains $O(\log n)$ expected height. It's simpler to implement than AVL or Red-Black trees and supports split/merge operations that enable:
+- Implicit key (sequence maintenance)
+- Persistence
+- Range operations on ordered sequences
+
+**Contest relevance**: Codeforces Div.1 D/E. Any problem needing "ordered set with split/merge" or "maintain a sequence with range operations".
+
+---
+
+## Key Idea
+
+A treap is a BST on **keys** that also satisfies the **heap property** on random **priorities**.
+
+Each node has:
+- `key`: determines BST order (left < root < right)
+- `priority`: random value, satisfies max-heap property (parent.priority ≥ child.priority)
+
+By random priorities, expected tree height = $O(\log n)$.
+
+**Split and merge** are the two fundamental operations:
+- `split(t, k)`: split tree into nodes with key ≤ k and key > k
+- `merge(l, r)`: merge two trees where all keys in `l` < all keys in `r`
+
+---
+
+## Node Definition
+
+```cpp
+mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
+
+struct Node {
+    int key, priority, sz;
+    Node *l, *r;
+    Node(int key) : key(key), priority(rng()), sz(1), l(nullptr), r(nullptr) {}
+};
+
+int sz(Node* t) { return t ? t->sz : 0; }
+
+void upd(Node* t) {
+    if (t) t->sz = 1 + sz(t->l) + sz(t->r);
+}
+```
+
+---
+
+## Split and Merge
+
+```cpp
+// Split into (left with key <= k, right with key > k)
+pair<Node*, Node*> split(Node* t, int k) {
+    if (!t) return {nullptr, nullptr};
+    if (t->key <= k) {
+        auto [l, r] = split(t->r, k);
+        t->r = l; upd(t);
+        return {t, r};
+    } else {
+        auto [l, r] = split(t->l, k);
+        t->l = r; upd(t);
+        return {l, t};
+    }
+}
+
+// Merge (all keys in l < all keys in r)
+Node* merge(Node* l, Node* r) {
+    if (!l || !r) return l ? l : r;
+    if (l->priority > r->priority) {
+        l->r = merge(l->r, r);
+        upd(l); return l;
+    } else {
+        r->l = merge(l, r->l);
+        upd(r); return r;
+    }
+}
+```
+
+---
+
+## Insert and Delete
+
+```cpp
+Node* insert(Node* t, int key) {
+    auto [l, r] = split(t, key - 1);
+    return merge(merge(l, new Node(key)), r);
+}
+
+Node* erase(Node* t, int key) {
+    auto [l, mr] = split(t, key - 1);
+    auto [m, r]  = split(mr, key);
+    // m contains all nodes with key = key; delete the root of m
+    if (m) { Node* del = m; m = merge(m->l, m->r); delete del; }
+    return merge(l, merge(m, r));
+}
+
+bool contains(Node* t, int key) {
+    if (!t) return false;
+    if (t->key == key) return true;
+    if (key < t->key) return contains(t->l, key);
+    return contains(t->r, key);
+}
+```
+
+---
+
+## Implicit Treap
+
+The **implicit treap** uses the **subtree size as the implicit key** — enabling a balanced BST over a **sequence** rather than a value set.
+
+This is like a balanced version of a linked list that supports:
+- Random access in $O(\log n)$
+- Insert at position $k$ in $O(\log n)$
+- Delete at position $k$ in $O(\log n)$
+- Range operations (with lazy propagation)
+
+```cpp
+struct ImplicitNode {
+    int val, priority, sz;
+    int lazy;   // e.g., range add
+    ImplicitNode *l, *r;
+    ImplicitNode(int val) : val(val), priority(rng()), sz(1), lazy(0), l(nullptr), r(nullptr) {}
+};
+
+int sz(ImplicitNode* t) { return t ? t->sz : 0; }
+void upd(ImplicitNode* t) {
+    if (t) t->sz = 1 + sz(t->l) + sz(t->r);
+}
+
+void push(ImplicitNode* t) {
+    if (!t || !t->lazy) return;
+    auto apply = [&](ImplicitNode* u) {
+        if (u) { u->val += t->lazy; u->lazy += t->lazy; }
+    };
+    apply(t->l); apply(t->r); t->lazy = 0;
+}
+
+// Split by size: first k elements to left
+pair<ImplicitNode*, ImplicitNode*> split(ImplicitNode* t, int k) {
+    if (!t) return {nullptr, nullptr};
+    push(t);
+    int leftSz = sz(t->l);
+    if (leftSz >= k) {
+        auto [l, r] = split(t->l, k);
+        t->l = r; upd(t);
+        return {l, t};
+    } else {
+        auto [l, r] = split(t->r, k - leftSz - 1);
+        t->r = l; upd(t);
+        return {t, r};
+    }
+}
+
+ImplicitNode* merge(ImplicitNode* l, ImplicitNode* r) {
+    push(l); push(r);
+    if (!l || !r) return l ? l : r;
+    if (l->priority > r->priority) {
+        l->r = merge(l->r, r); upd(l); return l;
+    } else {
+        r->l = merge(l, r->l); upd(r); return r;
+    }
+}
+
+// Range add [l, r] (0-indexed)
+void range_add(ImplicitNode*& root, int l, int r, int val) {
+    auto [A, BC] = split(root, l);
+    auto [B, C]  = split(BC, r - l + 1);
+    if (B) { B->val += val; B->lazy += val; }
+    root = merge(A, merge(B, C));
+}
+
+// Reverse range [l, r]
+void reverse(ImplicitNode*& root, int l, int r) {
+    // Add a flip lazy tag: when pushed, swap left and right children
+    // Implementation with flip flag...
+}
+```
+
+---
+
+## FHQ Treap (Split-Merge Treap)
+
+Also called the **non-rotating treap**. Uses only split and merge — no rotations.
+
+More flexible than classic rotate-based treap. Easier to add lazy tags.
+
+```cpp
+// Same as above — split/merge IS the FHQ treap approach
+// "Rotating treap" uses rotations like AVL/RB trees
+// FHQ only uses split+merge (cleaner for persistent/lazy)
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Split / Merge", time: "O(log n) expected", space: "O(log n) stack" },
+  { operation: "Insert", time: "O(log n) expected", space: "O(1)" },
+  { operation: "Delete", time: "O(log n) expected", space: "O(1)" },
+  { operation: "Kth element", time: "O(log n) expected", space: "O(1)" },
+  { operation: "Range operation (lazy)", time: "O(log n) expected", space: "O(1)" },
+  { operation: "Expected tree height", time: "O(log n)", note: "With overwhelming probability" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Dynamic Array",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/896/C",
+    difficulty: "1900",
+    concepts: ["implicit treap", "sequence maintenance"],
+    tier: "standard"
+  },
+  {
+    name: "Sequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/580/E",
+    difficulty: "2300",
+    concepts: ["implicit treap", "range reverse", "lazy flip"],
+    trick: "Store flip lazy tag; push swaps left/right children",
+    tier: "advanced"
+  },
+  {
+    name: "Ynoi2016 - Necklace",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/896E",
+    difficulty: "2500",
+    concepts: ["treap", "split-merge", "persistent"],
+    tier: "killer"
+  },
+  {
+    name: "Editor",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1651/F",
+    difficulty: "2200",
+    concepts: ["implicit treap", "cursor operations"],
+    why: "Implicit treap as a text editor cursor",
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Treap](https://cp-algorithms.com/data_structures/treap.html)
+2. Codeforces Blog — *FHQ Treap / Non-rotating Treap*
+3. OI Wiki — 平衡树

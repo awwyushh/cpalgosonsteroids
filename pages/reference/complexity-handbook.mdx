@@ -1,0 +1,164 @@
+---
+title: Complexity Handbook
+description: Time and space complexity for every algorithm and data structure in CP
+---
+
+# Complexity Handbook
+
+Complete complexity reference. Every algorithm, every data structure.
+
+---
+
+## Data Structures
+
+### Basic Structures
+
+| Structure | Access | Search | Insert | Delete | Space |
+|-----------|--------|--------|--------|--------|-------|
+| Array | O(1) | O(n) | O(n) | O(n) | O(n) |
+| Dynamic array (vector) | O(1) | O(n) | O(1) amort | O(n) | O(n) |
+| Linked list | O(n) | O(n) | O(1) | O(1) | O(n) |
+| Stack | O(n) | O(n) | O(1) | O(1) | O(n) |
+| Queue | O(n) | O(n) | O(1) | O(1) | O(n) |
+| Deque | O(1) | O(n) | O(1) amort | O(1) amort | O(n) |
+
+### Associative Structures
+
+| Structure | Insert | Delete | Search | Successor | Space |
+|-----------|--------|--------|--------|-----------|-------|
+| Hash map | O(1) avg | O(1) avg | O(1) avg | O(n) | O(n) |
+| Balanced BST (RB/AVL) | O(log n) | O(log n) | O(log n) | O(log n) | O(n) |
+| Treap | O(log n) exp | O(log n) exp | O(log n) exp | O(log n) exp | O(n) |
+| Skip list | O(log n) exp | O(log n) exp | O(log n) exp | O(log n) exp | O(n log n) |
+
+### Range Query Structures
+
+| Structure | Build | Point Update | Range Query | Range Update | Space |
+|-----------|-------|--------------|-------------|--------------|-------|
+| Prefix sum | O(n) | O(n) rebuild | O(1) | O(n) rebuild | O(n) |
+| Fenwick tree | O(n) | O(log n) | O(log n) | O(log n)* | O(n) |
+| Segment tree | O(n) | O(log n) | O(log n) | O(n log n)† | O(n) |
+| Seg tree + lazy | O(n) | O(log n) | O(log n) | O(log n) | O(n) |
+| Sparse table | O(n log n) | — | O(1)‡ | — | O(n log n) |
+| Sqrt decomp | O(n) | O(1) | O(√n) | O(√n) | O(n) |
+
+*With difference array trick. †Without lazy. ‡Idempotent only.
+
+### Tree Structures
+
+| Structure | Build | Path Query | Subtree Query | Update | Space |
+|-----------|-------|------------|---------------|--------|-------|
+| Euler tour | O(n) | — | O(1) | O(log n) | O(n) |
+| Binary lifting (LCA) | O(n log n) | O(log n) | — | — | O(n log n) |
+| HLD + seg tree | O(n) | O(log² n) | O(log n) | O(log² n) | O(n) |
+| Centroid decomp | O(n log n) | O(log² n) | — | — | O(n log n) |
+| Link-cut tree | O(n) | O(log n) amort | O(log n) | O(log n) | O(n) |
+
+### Advanced Structures
+
+| Structure | Insert | Delete | Query | Space |
+|-----------|--------|--------|-------|-------|
+| Persistent seg tree | O(log n) | — | O(log n) | O(n log n) |
+| Wavelet tree | O(n log n) build | — | O(log n) | O(n log n) |
+| Suffix array | O(n log n) | — | O(m log n) | O(n) |
+| Suffix automaton | O(n) | — | O(m) | O(n) |
+| Van Emde Boas | O(log log U) | O(log log U) | O(log log U) | O(U) |
+
+---
+
+## Sorting Algorithms
+
+| Algorithm | Best | Average | Worst | Space | Stable |
+|-----------|------|---------|-------|-------|--------|
+| Bubble sort | O(n) | O(n²) | O(n²) | O(1) | Yes |
+| Insertion sort | O(n) | O(n²) | O(n²) | O(1) | Yes |
+| Merge sort | O(n log n) | O(n log n) | O(n log n) | O(n) | Yes |
+| Quicksort | O(n log n) | O(n log n) | O(n²) | O(log n) | No |
+| Heapsort | O(n log n) | O(n log n) | O(n log n) | O(1) | No |
+| Radix sort | O(n·d) | O(n·d) | O(n·d) | O(n+k) | Yes |
+| Counting sort | O(n+k) | O(n+k) | O(n+k) | O(k) | Yes |
+
+---
+
+## Graph Algorithms
+
+| Algorithm | Time | Space | Notes |
+|-----------|------|-------|-------|
+| BFS | O(V+E) | O(V) | — |
+| DFS | O(V+E) | O(V) | — |
+| Dijkstra (binary heap) | O((V+E) log V) | O(V) | No negative edges |
+| Dijkstra (Fibonacci heap) | O(E + V log V) | O(V) | Theoretical only |
+| Bellman-Ford | O(VE) | O(V) | Negative edges OK |
+| Floyd-Warshall | O(V³) | O(V²) | All pairs |
+| Kruskal MST | O(E log E) | O(V) | — |
+| Prim MST (heap) | O(E log V) | O(V) | — |
+| Tarjan SCC | O(V+E) | O(V) | — |
+| Hopcroft-Karp matching | O(E√V) | O(V) | Bipartite |
+| Dinic's max flow | O(V²E) | O(V+E) | General |
+| Dinic's (unit capacities) | O(E√V) | O(V+E) | — |
+
+---
+
+## String Algorithms
+
+| Algorithm | Preprocessing | Query | Space |
+|-----------|---------------|-------|-------|
+| KMP | O(m) pattern | O(n) text | O(m) |
+| Z-function | O(n) | — | O(n) |
+| Aho-Corasick | O(Σ·m) | O(n + occ) | O(Σ·m) |
+| Suffix array | O(n log n) | O(m log n) | O(n) |
+| Suffix automaton | O(n) | O(m) | O(n) |
+| Polynomial hash | O(n) | O(1) per range | O(n) |
+| Manacher | O(n) | O(1) | O(n) |
+
+---
+
+## Mathematical Algorithms
+
+| Algorithm | Time | Space | Notes |
+|-----------|------|-------|-------|
+| GCD (Euclidean) | O(log min(a,b)) | O(1) | — |
+| Extended GCD | O(log min(a,b)) | O(1) | — |
+| Modular inverse (Fermat) | O(log p) | O(1) | p prime |
+| Sieve of Eratosthenes | O(n log log n) | O(n) | — |
+| Linear sieve | O(n) | O(n) | + SPF table |
+| Trial division | O(√n) | O(1) | — |
+| Pollard rho | O(n^{1/4}) exp | O(1) | — |
+| Miller-Rabin (k rounds) | O(k log² n) | O(1) | — |
+| Baby-step Giant-step | O(√p) | O(√p) | — |
+| Matrix multiplication | O(n³) | O(n²) | n×n matrices |
+| Matrix exponentiation | O(n³ log k) | O(n²) | — |
+| FFT/NTT | O(n log n) | O(n) | — |
+| Formal power series ops | O(n log n) | O(n) | Inv, log, exp, sqrt |
+
+---
+
+## DP Optimizations
+
+| Technique | Condition | Before | After |
+|-----------|-----------|--------|-------|
+| Prefix max/min array | monotone structure | O(n²) | O(n) |
+| Convex Hull Trick | linear cost, monotone | O(n²) | O(n) or O(n log n) |
+| Li Chao tree | linear cost, any order | O(n²) | O(n log n) |
+| Divide & Conquer DP | opt monotone | O(n²) | O(n log n) |
+| Knuth optimization | quadrangle inequality | O(n³) | O(n²) |
+| Aliens trick | convex cost function | n/a | reduces k-partition to unconstrained |
+| SMAWK algorithm | Monge matrix | O(n²) | O(n) |
+| SOS DP | subset sum | O(3^n) | O(n·2^n) |
+
+---
+
+## Space Complexities
+
+| Structure | Nodes | Per Node | Total |
+|-----------|-------|----------|-------|
+| Segment tree (recursive) | 4n | O(1) | O(n) |
+| Segment tree (iterative) | 2n | O(1) | O(n) |
+| Sparse table | n log n | O(1) | O(n log n) |
+| Persistent seg tree | n log n new per update | O(1) | O(n log n) |
+| Suffix array | n | O(1) | O(n) |
+| Suffix automaton | 2n | O(Σ) | O(n·Σ) |
+| Trie (standard) | n·m | O(Σ) | O(n·m·Σ) |
+| Balanced BST | n | O(1) | O(n) |
+| HLD | n | O(1) | O(n) |
+| LCT | n | O(1) | O(n) |

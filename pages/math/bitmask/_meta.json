@@ -1,0 +1,11 @@
+{
+  "index": "Overview",
+  "bit-operations": "Bit Operations & Tricks",
+  "submask-enumeration": "Submask Enumeration",
+  "sos-dp": "SOS DP (Sum over Subsets)",
+  "zeta-mobius": "Zeta & Möbius Transform",
+  "subset-convolution": "Subset Convolution",
+  "xor-basis-bits": "XOR Basis",
+  "meet-in-middle": "Meet in the Middle",
+  "gray-code": "Gray Code"
+}

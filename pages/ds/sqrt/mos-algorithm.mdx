@@ -1,0 +1,250 @@
+---
+title: Mo's Algorithm
+description: O((n+q)√n) offline range queries — simple yet powerful
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Mo's Algorithm
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Arrays", href: "/ds/basic/arrays" },
+  { title: "Complexity Analysis", href: "/ds/foundations/complexity" }
+]} />
+
+## Why This Topic Matters
+
+Mo's algorithm answers offline range queries in $O((n+q)\sqrt{n})$ when:
+1. You can't answer queries online
+2. Moving the range endpoints by 1 costs $O(1)$
+
+This handles "distinct elements in range", "frequency", "XOR sum", and many other queries that segment trees can't directly handle.
+
+**Contest relevance**: Codeforces Div.1 C/D, any "offline range query with complex state".
+
+---
+
+## Core Idea
+
+Sort queries by $(l / \text{block}, r)$ — left endpoint block, then right endpoint.
+
+When moving from query $(l_1, r_1)$ to $(l_2, r_2)$:
+- Extend/shrink left/right endpoint one step at a time
+- Maintain the current "state" of the range
+
+The magic of the ordering:
+- Right pointer moves $O(n)$ times within each block → $O(n \sqrt{n} / \sqrt{n}) = O(n)$ per block, $O(n\sqrt{n})$ total
+- Left pointer moves at most $O(\sqrt{n})$ between consecutive queries in the same block → $O(q\sqrt{n})$ total
+
+---
+
+## Template
+
+```cpp
+int block_size;
+
+struct Query {
+    int l, r, idx;
+    bool operator<(const Query& o) const {
+        int bl = l / block_size, bo = o.l / block_size;
+        if (bl != bo) return bl < bo;
+        return (bl & 1) ? r > o.r : r < o.r;  // alternating for optimization
+    }
+};
+
+// State: current range [curL, curR], answer, freq array
+int freq[MAXV];
+long long cur_ans = 0;
+
+void add(int pos) {
+    // Update when pos is added to current range
+    // Example: distinct elements
+    if (freq[a[pos]]++ == 0) cur_ans++;
+}
+
+void remove(int pos) {
+    // Update when pos is removed from current range
+    if (--freq[a[pos]] == 0) cur_ans--;
+}
+
+vector<long long> mo_query(int n, vector<Query>& queries) {
+    block_size = max(1, (int)sqrt(n));
+    sort(queries.begin(), queries.end());
+
+    int curL = 0, curR = -1;
+    vector<long long> ans(queries.size());
+
+    for (auto& q : queries) {
+        while (curR < q.r) add(++curR);
+        while (curL > q.l) add(--curL);
+        while (curR > q.r) remove(curR--);
+        while (curL < q.l) remove(curL++);
+        ans[q.idx] = cur_ans;
+    }
+    return ans;
+}
+```
+
+**Alternating sort** (Hilbert curve order, or simpler: reverse $r$ order for odd blocks) reduces constant factor by ~$30\%$.
+
+---
+
+## Optimal Block Size
+
+Default: $\sqrt{n}$. For $q$ queries on $n$ elements, optimal is $n / \sqrt{q}$.
+
+Total complexity: $O(n / B \cdot n + q \cdot B)$, minimized at $B = n / \sqrt{q}$:
+$$O(n\sqrt{q})$$
+
+---
+
+## Mo with Updates
+
+Supports point updates (change value at position $i$).
+
+Add a third dimension: **time** (which updates have been applied).
+
+Sort queries by $(l/B, r/B, t)$. Block size becomes $n^{2/3}$.
+
+```cpp
+struct Query {
+    int l, r, t, idx;
+    bool operator<(const Query& o) const {
+        int bl = l/block_size, bo = o.l/block_size;
+        int br = r/block_size, bor = o.r/block_size;
+        if (bl!=bo) return bl<bo;
+        if (br!=bor) return (bl&1) ? br>bor : br<bor;
+        return ((bl+br)&1) ? t>o.t : t<o.t;
+    }
+};
+
+struct Update { int pos, old_val, new_val; };
+
+void apply_update(int t, bool forward) {
+    int pos = updates[t].pos;
+    int val = forward ? updates[t].new_val : updates[t].old_val;
+    // apply update: change a[pos] to val
+    if (pos >= curL && pos <= curR) {
+        remove_val(a[pos]);
+        add_val(val);
+    }
+    a[pos] = val;
+}
+```
+
+**Complexity**: $O(n^{5/3})$ with block size $n^{2/3}$.
+
+---
+
+## Mo on Trees
+
+For queries on tree paths.
+
+1. Flatten tree with Euler tour
+2. Each node appears twice (entry and exit)
+3. A path query $(u, v)$ maps to a range query on the Euler tour
+
+```cpp
+// For path (u, v) where tin[u] <= tin[v]:
+// If lca(u,v) == u: query [tin[u], tin[v]]
+// Otherwise: query [tout[u], tin[v]], then add lca separately
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Mo's algorithm (standard)", time: "O((n+q)√n)", space: "O(n + q)" },
+  { operation: "Mo's with optimal block", time: "O(n√q)", space: "O(n + q)" },
+  { operation: "Mo's with updates", time: "O(n^{5/3})", space: "O(n + q)" },
+  { operation: "Mo's on trees", time: "O((n+q)√n)", space: "O(n + q)" },
+  { operation: "add/remove operation", time: "O(1) each", note: "Must be O(1) for Mo's to work" },
+]} />
+
+---
+
+## When to Use Mo
+
+Use Mo's when:
+- Queries are offline (all queries known in advance)
+- Can add/remove elements from range endpoints in $O(1)$
+- Query is hard to answer online (e.g., distinct count, XOR, mode)
+- $q \approx n$ and $O(n\sqrt{n})$ is fast enough (~$10^7$–$10^8$ ops)
+
+Don't use when:
+- Queries are online
+- $O(n \log^k n)$ solution exists (segment tree, wavelet tree)
+- $n$ is very large and $q$ is small
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "DQUERY - D-Query",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/DQUERY/",
+    difficulty: "1500",
+    concepts: ["Mo's algorithm", "distinct elements"],
+    why: "Classic Mo's intro problem",
+    tier: "warmup"
+  },
+  {
+    name: "Powerful Array",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/86/D",
+    difficulty: "2000",
+    concepts: ["Mo's", "frequency squared sum"],
+    trick: "sum of c(v)^2 — when freq changes by 1, sum changes by ±(2*old_freq+1)",
+    tier: "standard"
+  },
+  {
+    name: "Colored Balls",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/566/C",
+    difficulty: "1900",
+    concepts: ["Mo's", "frequency tracking"],
+    tier: "standard"
+  },
+  {
+    name: "Love Triangles",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1442/F",
+    difficulty: "2200",
+    concepts: ["Mo's on trees", "parity tracking"],
+    tier: "advanced"
+  },
+  {
+    name: "Gerald and Giant Chess",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/704/D",
+    difficulty: "2200",
+    concepts: ["Mo's", "updates"],
+    tier: "advanced"
+  },
+  {
+    name: "Arpa's letter-marked tree",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/850/C",
+    difficulty: "2400",
+    concepts: ["Mo's on trees", "DSU on trees"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Mo's Algorithm](https://cp-algorithms.com/data_structures/sqrt_decomposition.html)
+2. CF Blog — *Mo's Algorithm* by Anudeep
+3. CF Blog — *Mo's Algorithm on Trees* by Ibtehaj

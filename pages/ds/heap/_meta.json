@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "binary-heap": "Binary Heap",
+  "d-ary-heap": "D-ary Heap",
+  "pairing-heap": "Pairing Heap",
+  "fibonacci-heap": "Fibonacci Heap",
+  "leftist-heap": "Leftist & Skew Heap",
+  "persistent-heap": "Persistent Heap",
+  "meldable-heap": "Meldable Heaps"
+}

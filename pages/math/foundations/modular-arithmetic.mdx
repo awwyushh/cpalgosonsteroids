@@ -1,0 +1,452 @@
+---
+title: Modular Arithmetic
+description: Complete guide to modular arithmetic for competitive programming — from basics to CRT
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Modular Arithmetic
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Essential</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Basic number theory intuition", href: "/math/foundations" }
+]} />
+
+## Why This Topic Matters
+
+Virtually every CP problem involving large numbers requires modular arithmetic. Answers modulo $10^9 + 7$ appear in 40%+ of Codeforces problems. Without a solid understanding of modular arithmetic, you cannot solve combinatorics problems, DP problems, or any problem involving big counts.
+
+**Contest relevance**: Appears in literally thousands of problems. Codeforces Div.2 B–E, AtCoder ABC B–F, CSES, IOI, ICPC.
+
+---
+
+## Learning Objectives
+
+After this page you will:
+- Understand what modular arithmetic is and why it works
+- Implement fast modular addition, subtraction, multiplication
+- Compute modular inverse via Fermat's little theorem and extended Euclidean
+- Handle negative modulo correctly (a common bug)
+- Apply CRT to combine residues
+
+---
+
+## Intuition
+
+Think of a clock. After 12 hours, the clock resets to 0. This is arithmetic modulo 12.
+
+More formally: two integers $a$ and $b$ are **congruent modulo $m$** if $m \mid (a - b)$. Written:
+
+$$
+a \equiv b \pmod{m}
+$$
+
+The **residue** of $a$ modulo $m$ is the remainder when $a$ is divided by $m$:
+
+$$
+a \bmod m = a - m \cdot \lfloor a/m \rfloor
+$$
+
+---
+
+## Formal Definitions
+
+**Congruence relation**: $a \equiv b \pmod{m}$ iff $m \mid (a - b)$.
+
+This is an equivalence relation (reflexive, symmetric, transitive).
+
+**Residue class**: $[a]_m = \{a + km : k \in \mathbb{Z}\}$. The set of all integers congruent to $a$ mod $m$.
+
+**Ring of integers modulo $m$**: $\mathbb{Z}/m\mathbb{Z} = \{0, 1, 2, \ldots, m-1\}$ with addition and multiplication mod $m$.
+
+---
+
+## Arithmetic Operations
+
+### Addition
+
+$$
+(a + b) \bmod m = ((a \bmod m) + (b \bmod m)) \bmod m
+$$
+
+### Subtraction
+
+$$
+(a - b) \bmod m = ((a \bmod m) - (b \bmod m) + m) \bmod m
+$$
+
+<Callout type="warning" title="Negative Modulo Bug">
+In C++, `a % m` can be negative when `a < 0`. Always use `((a % m) + m) % m` or add `m` after subtracting.
+</Callout>
+
+### Multiplication
+
+$$
+(a \cdot b) \bmod m = ((a \bmod m) \cdot (b \bmod m)) \bmod m
+$$
+
+**Overflow warning**: if $a, b < 10^9$ and $m \approx 10^9$, then $a \cdot b$ can be up to $10^{18}$, which overflows `int` but fits in `long long`. Always use `long long`.
+
+### Division (Modular Inverse)
+
+Division is not straightforward. $a / b \pmod{m}$ is computed as $a \cdot b^{-1} \pmod{m}$, where $b^{-1}$ is the **modular inverse** of $b$.
+
+$b^{-1}$ exists iff $\gcd(b, m) = 1$.
+
+---
+
+## Modular Inverse
+
+### Method 1: Fermat's Little Theorem
+
+If $m$ is **prime** and $\gcd(a, m) = 1$:
+
+$$
+a^{-1} \equiv a^{m-2} \pmod{m}
+$$
+
+This follows from Fermat's little theorem: $a^{m-1} \equiv 1 \pmod{m}$, so $a \cdot a^{m-2} \equiv 1$.
+
+**Complexity**: $O(\log m)$ via fast exponentiation.
+
+```cpp
+long long power(long long base, long long exp, long long mod) {
+    long long result = 1;
+    base %= mod;
+    while (exp > 0) {
+        if (exp & 1) result = result * base % mod;
+        base = base * base % mod;
+        exp >>= 1;
+    }
+    return result;
+}
+
+long long modinv(long long a, long long mod) {
+    return power(a, mod - 2, mod);
+}
+```
+
+### Method 2: Extended Euclidean Algorithm
+
+Works for **any** modulus (not necessarily prime), as long as $\gcd(a, m) = 1$.
+
+Extended GCD finds $x, y$ such that $ax + my = \gcd(a, m) = 1$.
+Then $ax \equiv 1 \pmod{m}$, so $x \equiv a^{-1} \pmod{m}$.
+
+```cpp
+long long extgcd(long long a, long long b, long long &x, long long &y) {
+    if (b == 0) { x = 1; y = 0; return a; }
+    long long x1, y1;
+    long long g = extgcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+
+long long modinv(long long a, long long mod) {
+    long long x, y;
+    long long g = extgcd(a, mod, x, y);
+    // assert(g == 1); // must be coprime
+    return (x % mod + mod) % mod;
+}
+```
+
+### Method 3: Linear Inverse Table
+
+Precompute inverses $1^{-1}, 2^{-1}, \ldots, n^{-1}$ in $O(n)$:
+
+$$
+\text{inv}[i] = -(m / i) \cdot \text{inv}[m \bmod i] \pmod{m}
+$$
+
+```cpp
+vector<long long> build_inv(int n, long long mod) {
+    vector<long long> inv(n + 1);
+    inv[1] = 1;
+    for (int i = 2; i <= n; i++)
+        inv[i] = (mod - mod / i) * inv[mod % i] % mod;
+    return inv;
+}
+```
+
+<Callout type="tip" title="When to use which method">
+- **Fermat**: when $m$ is prime (the usual CP case: $10^9+7$, $998244353$). One-shot inverse.
+- **Extended GCD**: when $m$ is not prime, or for general CRT.
+- **Linear table**: when you need inverses of all numbers $1 \ldots n$.
+</Callout>
+
+---
+
+## Common Moduli in CP
+
+| Modulus | Value | Notes |
+|---------|-------|-------|
+| $10^9 + 7$ | `1000000007` | Prime, Fermat inverse works |
+| $998244353$ | `998244353` | NTT-friendly prime ($= 119 \cdot 2^{23} + 1$) |
+| $10^9 + 9$ | `1000000009` | Prime, alternative to $10^9+7$ |
+| $2^{64}$ | — | Use unsigned 64-bit with natural overflow |
+
+---
+
+## Handling Negative Modulo
+
+In C++, the result of `a % m` has the same sign as `a`. So `-5 % 7 = -5` in C++, not `2`.
+
+**Safe wrapper**:
+
+```cpp
+inline long long mod(long long a, long long m) {
+    return ((a % m) + m) % m;
+}
+```
+
+Or for the modular constant case:
+
+```cpp
+const long long MOD = 1e9 + 7;
+
+// Safe subtraction
+long long sub(long long a, long long b) {
+    return (a - b % MOD + MOD) % MOD;
+}
+```
+
+---
+
+## Fast Modular Exponentiation
+
+See [Fast Exponentiation](/math/foundations/fast-exponentiation) for full treatment.
+
+Quick template:
+
+```cpp
+long long power(long long base, long long exp, long long mod) {
+    long long result = 1;
+    base %= mod;
+    if (base < 0) base += mod;
+    for (; exp > 0; exp >>= 1) {
+        if (exp & 1) result = result * base % mod;
+        base = base * base % mod;
+    }
+    return result;
+}
+```
+
+---
+
+## Chinese Remainder Theorem (CRT)
+
+Given a system of congruences:
+
+$$
+x \equiv a_1 \pmod{m_1}, \quad x \equiv a_2 \pmod{m_2}, \quad \ldots, \quad x \equiv a_k \pmod{m_k}
+$$
+
+If $m_1, m_2, \ldots, m_k$ are **pairwise coprime**, then there is a unique solution modulo $M = m_1 m_2 \cdots m_k$.
+
+**Construction**:
+
+$$
+x = \sum_{i=1}^{k} a_i \cdot M_i \cdot (M_i^{-1} \bmod m_i) \pmod{M}
+$$
+
+where $M_i = M / m_i$.
+
+```cpp
+// Two-moduli CRT: find x such that x ≡ a1 (mod m1), x ≡ a2 (mod m2)
+// Returns {x, lcm(m1, m2)}, or {-1, -1} if no solution
+pair<long long, long long> crt(long long a1, long long m1, long long a2, long long m2) {
+    long long g = __gcd(m1, m2);
+    if ((a2 - a1) % g != 0) return {-1, -1};
+    long long lcm = m1 / g * m2;
+    long long x, y;
+    extgcd(m1, m2, x, y);
+    long long diff = (a2 - a1) / g % (m2 / g);
+    long long ans = (a1 + m1 * (diff % (m2 / g) * (x % (m2 / g)) % (m2 / g))) % lcm;
+    return {(ans % lcm + lcm) % lcm, lcm};
+}
+```
+
+**General CRT (non-coprime moduli)**: solution exists iff $\gcd(m_1, m_2) \mid (a_2 - a_1)$.
+
+---
+
+## Invariants & Properties
+
+**Theorem (Fermat's Little Theorem)**: If $p$ is prime and $\gcd(a, p) = 1$:
+
+$$
+a^{p-1} \equiv 1 \pmod{p}
+$$
+
+**Theorem (Euler's Theorem)**: If $\gcd(a, m) = 1$:
+
+$$
+a^{\phi(m)} \equiv 1 \pmod{m}
+$$
+
+where $\phi(m)$ is Euler's totient function.
+
+**Theorem (Wilson's Theorem)**: $p$ is prime iff $(p-1)! \equiv -1 \pmod{p}$.
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Addition/Subtraction mod m", time: "O(1)", space: "O(1)" },
+  { operation: "Multiplication mod m", time: "O(1)", space: "O(1)" },
+  { operation: "Modular inverse (Fermat)", time: "O(log m)", space: "O(1)" },
+  { operation: "Modular inverse (extgcd)", time: "O(log m)", space: "O(1)" },
+  { operation: "Precompute n inverses", time: "O(n)", space: "O(n)" },
+  { operation: "CRT (k congruences)", time: "O(k log M)", space: "O(k)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Integer overflow**: Multiplying two `int` values before taking mod. Use `long long`.
+2. **Negative modulo**: `a % m` is negative in C++ when `a < 0`. Add `m` after.
+3. **Inverse doesn't exist**: Only exists when $\gcd(a, m) = 1$. Check for prime moduli.
+4. **Wrong Fermat condition**: Fermat's inverse requires $m$ to be **prime**.
+5. **Applying Euler's theorem wrong**: $a^{\phi(m)} \equiv 1$ requires $\gcd(a, m) = 1$.
+
+---
+
+## Contest Template
+
+```cpp
+const long long MOD = 1e9 + 7;
+
+long long power(long long b, long long e, long long m = MOD) {
+    long long r = 1; b %= m;
+    for (; e; e >>= 1, b = b*b%m) if (e & 1) r = r*b%m;
+    return r;
+}
+
+long long inv(long long a, long long m = MOD) { return power(a, m-2, m); }
+
+// Precomputed factorials
+vector<long long> fact, inv_fact;
+void precompute(int n) {
+    fact.resize(n+1); inv_fact.resize(n+1);
+    fact[0] = 1;
+    for (int i = 1; i <= n; i++) fact[i] = fact[i-1]*i%MOD;
+    inv_fact[n] = inv(fact[n]);
+    for (int i = n-1; i >= 0; i--) inv_fact[i] = inv_fact[i+1]*(i+1)%MOD;
+}
+
+long long C(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    return fact[n] % MOD * inv_fact[k] % MOD * inv_fact[n-k] % MOD;
+}
+```
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Modular Exponentiation",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1095",
+    difficulty: "800",
+    concepts: ["binary exponentiation"],
+    tier: "warmup"
+  },
+  {
+    name: "Exponentiation II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1712",
+    difficulty: "1000",
+    concepts: ["modular inverse", "Euler's theorem"],
+    trick: "When exponent is huge, use Euler's theorem to reduce it",
+    tier: "warmup"
+  },
+  {
+    name: "Factorial Queries",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1996/E",
+    difficulty: "1500",
+    concepts: ["factorial mod", "inverse"],
+    tier: "standard"
+  },
+  {
+    name: "Little Pony and Harmony Chest",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/577/C",
+    difficulty: "1900",
+    concepts: ["DP", "bitmask", "small primes"],
+    tier: "standard"
+  },
+  {
+    name: "Modular Fibonacci",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/FIBOSUM/",
+    difficulty: "1600",
+    concepts: ["matrix exponentiation", "modular arithmetic"],
+    tier: "standard"
+  },
+  {
+    name: "Chinese Remainder Theorem",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1698",
+    difficulty: "1400",
+    concepts: ["CRT", "extended GCD"],
+    tier: "standard"
+  },
+  {
+    name: "Life is a Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/822/C",
+    difficulty: "2000",
+    concepts: ["modular arithmetic", "combinatorics"],
+    tier: "advanced"
+  },
+  {
+    name: "Remainders Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/688/problem/D",
+    difficulty: "2200",
+    concepts: ["CRT", "LCM", "number theory"],
+    trick: "Condition: product over unique prime powers in c_i",
+    tier: "advanced"
+  },
+  {
+    name: "Garland",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/707/C",
+    difficulty: "2300",
+    concepts: ["modular inverse", "prefix sums"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — binary exponentiation, matrix exponentiation
+- [GCD & LCM](/math/foundations/gcd-lcm) — Euclidean algorithm, Bezout's identity
+- [Modular Inverse](/math/foundations/modular-inverse) — deeper treatment
+- [Euler Phi Function](/math/number-theory/euler-phi) — $\phi(m)$, Euler's theorem
+- [CRT (Advanced)](/math/number-theory/crt) — general CRT, Garner's algorithm
+- [Combinatorics](/math/combinatorics) — factorials, binomial coefficients mod prime
+
+---
+
+## References
+
+1. cp-algorithms — [Modular Arithmetic](https://cp-algorithms.com/algebra/module-inverse.html)
+2. USACO Guide — [Modular Arithmetic](https://usaco.guide/gold/modular)
+3. Knuth — *The Art of Computer Programming*, Vol. 2, Chapter 4
+4. Hardy & Wright — *An Introduction to the Theory of Numbers*

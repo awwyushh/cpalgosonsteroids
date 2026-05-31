@@ -1,0 +1,9 @@
+{
+  "index": "Overview",
+  "rmq": "Range Minimum Query",
+  "rsq": "Range Sum Query",
+  "range-frequency": "Range Frequency Query",
+  "kth-statistics": "Kth Order Statistics",
+  "range-trees": "Range Trees",
+  "interval-trees": "Interval Trees"
+}

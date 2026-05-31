@@ -1,0 +1,189 @@
+---
+title: Sparse Table
+description: O(1) range minimum queries after O(n log n) preprocessing
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Sparse Table
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Arrays", href: "/ds/basic/arrays" },
+  { title: "Bit Operations", href: "/math/bitmask/bit-operations" }
+]} />
+
+## Why This Topic Matters
+
+Sparse Table answers **Range Minimum (Maximum) Queries in $O(1)$** after $O(n \log n)$ preprocessing — with no updates. It's the fastest possible for static RMQ.
+
+**Contest relevance**: LCA (via Euler tour + RMQ), static frequency problems, any "no updates, many queries" range query.
+
+---
+
+## Intuition
+
+For any interval $[l, r]$, we can cover it with two overlapping intervals of length $2^k$ where $k = \lfloor \log_2(r - l + 1) \rfloor$:
+
+$$[l, r] = [l, l+2^k-1] \cup [r-2^k+1, r]$$
+
+If the operation is **idempotent** ($f(x, x) = x$, like $\min$ or $\max$), the overlap doesn't matter — we can query both and combine.
+
+**Preprocessing**: $\text{table}[k][i] = f(A[i], A[i+1], \ldots, A[i+2^k-1])$ — the answer for the interval of length $2^k$ starting at $i$.
+
+---
+
+## Implementation
+
+```cpp
+struct SparseTable {
+    int n, LOG;
+    vector<vector<int>> t;
+    vector<int> log2_;
+
+    SparseTable() {}
+    SparseTable(vector<int>& a) { build(a); }
+
+    void build(vector<int>& a) {
+        n = a.size();
+        LOG = __lg(n) + 1;
+        t.assign(LOG, vector<int>(n));
+        log2_.resize(n + 1);
+        log2_[1] = 0;
+        for (int i = 2; i <= n; i++)
+            log2_[i] = log2_[i/2] + 1;
+
+        t[0] = a;
+        for (int j = 1; j < LOG; j++)
+            for (int i = 0; i + (1 << j) <= n; i++)
+                t[j][i] = min(t[j-1][i], t[j-1][i + (1 << (j-1))]);
+    }
+
+    // O(1) range minimum query [l, r] (0-indexed, inclusive)
+    int query(int l, int r) {
+        int k = log2_[r - l + 1];
+        return min(t[k][l], t[k][r - (1 << k) + 1]);
+    }
+};
+```
+
+---
+
+## For Non-Idempotent Operations (Sum, GCD)
+
+For operations like **sum** or **GCD** that aren't idempotent, you can't use overlapping intervals. Use the **Disjoint Sparse Table** instead (see [Disjoint Sparse Table](/ds/sparse/disjoint-sparse-table)).
+
+Or: accept $O(\log n)$ queries for non-idempotent operations:
+
+```cpp
+long long range_sum(int l, int r) {
+    long long res = 0;
+    for (int j = LOG-1; j >= 0; j--)
+        if (l + (1<<j) - 1 <= r) { res += t[j][l]; l += (1<<j); }
+    return res;
+}
+```
+
+---
+
+## Applications
+
+### LCA via Sparse Table
+
+```cpp
+// Euler tour gives sequence of nodes; LCA(u,v) = node with minimum depth
+// in euler tour between first occurrences of u and v
+// This gives O(1) LCA after O(n log n) preprocessing
+```
+
+### Range GCD in O(log n)
+
+GCD is not idempotent ($\gcd(x, x) = x$ actually IS idempotent — so Sparse Table works for GCD too!).
+
+```cpp
+struct GCDSparseTable {
+    vector<vector<int>> t;
+    vector<int> log2_;
+    // Same as above but with __gcd instead of min
+    int query(int l, int r) {
+        int k = log2_[r - l + 1];
+        return __gcd(t[k][l], t[k][r - (1<<k) + 1]);
+    }
+};
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Build", time: "O(n log n)", space: "O(n log n)" },
+  { operation: "RMQ query", time: "O(1)", space: "O(1)" },
+  { operation: "Update", time: "O(n log n) rebuild", note: "Not supported — use Seg Tree for updates" },
+]} />
+
+---
+
+## Sparse Table vs Segment Tree
+
+| | Sparse Table | Segment Tree |
+|--|--|--|
+| Build | $O(n \log n)$ | $O(n)$ |
+| Query | $O(1)$ | $O(\log n)$ |
+| Update | Not supported | $O(\log n)$ |
+| Memory | $O(n \log n)$ | $O(n)$ |
+| Operations | Idempotent only | Any monoid |
+
+**Use Sparse Table when**: no updates, idempotent operation (min/max/gcd), maximum query speed needed.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Range Minimum Queries I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1647",
+    difficulty: "1000",
+    concepts: ["sparse table", "RMQ"],
+    tier: "warmup"
+  },
+  {
+    name: "Company Queries I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1687",
+    difficulty: "1400",
+    concepts: ["sparse table", "binary lifting", "LCA"],
+    tier: "standard"
+  },
+  {
+    name: "Distance Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1135",
+    difficulty: "1600",
+    concepts: ["sparse table", "LCA", "Euler tour"],
+    tier: "standard"
+  },
+  {
+    name: "Cyclic Array Maximum",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/319/C",
+    difficulty: "1800",
+    concepts: ["sparse table", "sliding window"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Sparse Table](https://cp-algorithms.com/data_structures/sparse-table.html)
+2. Bender, Farach-Colton — *The LCA Problem Revisited* (2000)

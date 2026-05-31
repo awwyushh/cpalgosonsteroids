@@ -1,0 +1,9 @@
+{
+  "index": "Overview",
+  "classic-bit": "Classic Fenwick Tree",
+  "range-update": "Range Update Point Query BIT",
+  "range-range": "Range Update Range Query BIT",
+  "2d-bit": "2D Fenwick Tree",
+  "persistent-bit": "Persistent BIT",
+  "bit-applications": "BIT Applications & Patterns"
+}

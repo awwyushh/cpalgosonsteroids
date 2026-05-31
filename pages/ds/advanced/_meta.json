@@ -1,0 +1,12 @@
+{
+  "index": "Overview",
+  "van-emde-boas": "Van Emde Boas Tree",
+  "x-fast-trie": "X-Fast Trie",
+  "y-fast-trie": "Y-Fast Trie",
+  "fusion-tree": "Fusion Trees",
+  "succinct-trees": "Succinct Data Structures",
+  "dynamic-wavelet": "Dynamic Wavelet Trees",
+  "dynamic-strings": "Dynamic String Structures",
+  "kinetic-ds": "Kinetic Data Structures",
+  "persistent-dc": "Persistent Dynamic Connectivity"
+}

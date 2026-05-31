@@ -1,0 +1,136 @@
+---
+title: Segment Tree Empire
+description: Complete guide to segment tree variants — from basics to beats and persistence
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Segment Tree Empire
+
+The segment tree is the most powerful general-purpose data structure in competitive programming.
+Master every variant.
+
+<TopicGrid>
+  <TopicCard
+    title="Basic Segment Tree"
+    href="/ds/segment-tree/basic"
+    description="Recursive and iterative implementations. Point update, range query."
+    difficulty="medium"
+    time="3h"
+    tags={["range sum", "range min/max", "point update"]}
+  />
+  <TopicCard
+    title="Lazy Propagation"
+    href="/ds/segment-tree/lazy-propagation"
+    description="Range updates in O(log n). Range add, range assign, mixed updates."
+    difficulty="medium"
+    time="3h"
+    tags={["range update", "lazy", "push down"]}
+  />
+  <TopicCard
+    title="Segment Tree Beats"
+    href="/ds/segment-tree/segment-tree-beats"
+    description="Range chmin/chmax with range sum queries. Ji driver segmentation."
+    difficulty="expert"
+    time="5h"
+    tags={["beats", "chmin", "chmax", "Ji driver"]}
+  />
+  <TopicCard
+    title="Merge Sort Tree"
+    href="/ds/segment-tree/merge-sort-tree"
+    description="Segment tree where each node stores a sorted array. Kth smallest queries."
+    difficulty="hard"
+    time="3h"
+    tags={["merge sort", "kth", "offline"]}
+  />
+  <TopicCard
+    title="Persistent Segment Tree"
+    href="/ds/segment-tree/persistent"
+    description="Version-based segment tree. Query historical versions. Kth number on range."
+    difficulty="hard"
+    time="4h"
+    tags={["persistent", "versions", "kth"]}
+  />
+  <TopicCard
+    title="Dynamic Segment Tree"
+    href="/ds/segment-tree/dynamic"
+    description="Sparse coordinate-free segment tree. For huge ranges with few updates."
+    difficulty="hard"
+    time="3h"
+    tags={["dynamic", "sparse", "huge range"]}
+  />
+  <TopicCard
+    title="Li Chao Tree"
+    href="/ds/segment-tree/lichao-tree"
+    description="Segment tree for line / convex hull trick queries. Static and dynamic."
+    difficulty="hard"
+    time="3h"
+    tags={["CHT", "lines", "DP optimization"]}
+  />
+  <TopicCard
+    title="Segment Tree on Trees"
+    href="/ds/segment-tree/seg-on-tree"
+    description="Combine segment tree with HLD for path queries on trees."
+    difficulty="hard"
+    time="2h"
+    tags={["HLD", "path queries", "tree"]}
+  />
+  <TopicCard
+    title="2D Segment Tree"
+    href="/ds/segment-tree/2d-segtree"
+    description="Segment tree of segment trees for 2D range queries."
+    difficulty="expert"
+    time="4h"
+    tags={["2D", "range", "offline"]}
+  />
+  <TopicCard
+    title="Wavelet Tree"
+    href="/ds/segment-tree/wavelet-tree"
+    description="Quantile queries, kth element in range, count smaller/larger."
+    difficulty="expert"
+    time="5h"
+    tags={["wavelet", "kth", "quantile"]}
+  />
+  <TopicCard
+    title="Segment Tree of Vectors"
+    href="/ds/segment-tree/seg-of-vectors"
+    description="Nodes store vectors for offline fractional cascading."
+    difficulty="expert"
+    time="4h"
+    tags={["vectors", "offline", "fractional cascading"]}
+  />
+  <TopicCard
+    title="Applications & Patterns"
+    href="/ds/segment-tree/applications"
+    description="Common segment tree problem patterns and tricks."
+    tags={["patterns", "contest", "tricks"]}
+  />
+</TopicGrid>
+
+---
+
+## Segment Tree Taxonomy
+
+```
+Segment Tree
+├── Basic (range query + point update)
+│   ├── Recursive
+│   └── Iterative (bottom-up)
+├── With Lazy Propagation (range update)
+│   ├── Range add
+│   ├── Range assign
+│   └── Multiple operations (compose)
+├── Advanced Variants
+│   ├── Segment Tree Beats (Ji driver)
+│   ├── Merge Sort Tree
+│   ├── Segment Tree of Vectors
+│   └── Li Chao Tree
+├── Persistent Segment Tree
+│   └── Persistent Wavelet Tree
+├── Dynamic Segment Tree (sparse)
+├── 2D Segment Tree
+└── Combining with other structures
+    ├── HLD + Seg Tree (path queries)
+    ├── Seg Tree + Hashing
+    └── Seg Tree + BIT (fractal cascading)
+```

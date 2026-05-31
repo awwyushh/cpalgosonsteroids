@@ -1,0 +1,23 @@
+{
+  "index": "Overview",
+  "foundations": "Foundations & Complexity",
+  "basic": "Basic Data Structures",
+  "associative": "Associative Containers",
+  "fenwick": "Fenwick Tree Family",
+  "segment-tree": "Segment Tree Empire",
+  "sparse": "Sparse Structures",
+  "sqrt": "Sqrt Decomposition",
+  "balanced-bst": "Balanced BST Universe",
+  "heap": "Heap Ecosystem",
+  "dsu": "Disjoint Set Structures",
+  "trie": "Trie Universe",
+  "strings": "String Data Structures",
+  "range-queries": "Range Query Structures",
+  "graph-structures": "Graph-Oriented Structures",
+  "geometry-structures": "Geometry Data Structures",
+  "persistence": "Persistence",
+  "dynamic-connectivity": "Dynamic Connectivity",
+  "bitwise": "Bitwise Structures",
+  "probabilistic": "Probabilistic Structures",
+  "advanced": "Research / Legendary Topics"
+}

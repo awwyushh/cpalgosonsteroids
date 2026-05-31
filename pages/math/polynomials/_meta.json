@@ -1,0 +1,15 @@
+{
+  "index": "Overview",
+  "polynomial-basics": "Polynomial Basics",
+  "fft": "FFT — Fast Fourier Transform",
+  "ntt": "NTT — Number Theoretic Transform",
+  "formal-power-series": "Formal Power Series",
+  "polynomial-operations": "Polynomial Operations (Inv, Log, Exp, Sqrt)",
+  "multipoint-eval": "Multipoint Evaluation & Interpolation",
+  "lagrange-interpolation": "Lagrange Interpolation",
+  "subset-convolution": "Subset Convolution",
+  "or-and-xor-conv": "OR / AND / XOR Convolutions",
+  "fwht": "Fast Walsh-Hadamard Transform",
+  "online-convolution": "Online Convolution",
+  "chirp-z": "Chirp-Z Transform & Bluestein FFT"
+}

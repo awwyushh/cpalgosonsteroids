@@ -1,0 +1,11 @@
+{
+  "index": "Overview",
+  "arithmetic-geometric": "Arithmetic & Geometric Progressions",
+  "prefix-sums-powers": "Prefix Sums of Powers",
+  "fibonacci": "Fibonacci & Golden Ratio",
+  "linear-recurrences-adv": "Linear Recurrences (Advanced)",
+  "characteristic-polynomial": "Characteristic Polynomials",
+  "berlekamp-massey-seq": "Berlekamp-Massey for Sequences",
+  "recurrence-guess": "Recurrence Guessing from Samples",
+  "catalan-recurrence": "Catalan & Stirling Recurrences"
+}

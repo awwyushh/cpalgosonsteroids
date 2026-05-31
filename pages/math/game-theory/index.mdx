@@ -1,0 +1,83 @@
+---
+title: Game Theory
+description: Combinatorial game theory for competitive programming
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Game Theory
+
+<TopicGrid>
+  <TopicCard
+    title="Nim & Misère Nim"
+    href="/math/game-theory/nim"
+    description="Classic Nim: XOR of heap sizes. Misère: same except terminal case."
+    difficulty="easy"
+    time="1h"
+    tags={["Nim", "XOR", "misère"]}
+  />
+  <TopicCard
+    title="Sprague-Grundy Theorem"
+    href="/math/game-theory/sprague-grundy"
+    description="Every impartial game equals a Nim heap. Grundy values, mex, composite games."
+    difficulty="medium"
+    time="3h"
+    tags={["Grundy", "mex", "composite"]}
+  />
+  <TopicCard
+    title="Grundy on Graphs & DAGs"
+    href="/math/game-theory/grundy-graphs"
+    description="Compute Grundy values via topological sort. Game on DAG."
+    difficulty="medium"
+    time="2h"
+    tags={["DAG", "topological", "Grundy"]}
+  />
+  <TopicCard
+    title="Game DP"
+    href="/math/game-theory/game-dp"
+    description="Win/lose state DP. Minimax for small games. Alpha-beta idea."
+    difficulty="easy"
+    time="2h"
+    tags={["P/N position", "minimax", "DP"]}
+  />
+  <TopicCard
+    title="Staircase Nim"
+    href="/math/game-theory/staircase-nim"
+    description="Only odd positions matter. Elegant reduction to standard Nim."
+    difficulty="medium"
+    time="1h"
+    tags={["staircase", "odd positions"]}
+  />
+  <TopicCard
+    title="Wythoff's Game"
+    href="/math/game-theory/wythoff"
+    description="Two piles, remove from one or equal from both. Golden ratio pattern."
+    difficulty="medium"
+    time="1h"
+    tags={["Wythoff", "golden ratio", "φ"]}
+  />
+  <TopicCard
+    title="Green Hackenbush"
+    href="/math/game-theory/green-hackenbush"
+    description="Remove edges from a graph. Grundy = XOR of cycle-independent values."
+    difficulty="hard"
+    time="3h"
+    tags={["Hackenbush", "graph", "XOR"]}
+  />
+  <TopicCard
+    title="Composite Games"
+    href="/math/game-theory/composite-games"
+    description="Sum of independent games. XOR Grundy values."
+    difficulty="medium"
+    time="1h"
+    tags={["composite", "sum", "XOR"]}
+  />
+  <TopicCard
+    title="Strategy Stealing"
+    href="/math/game-theory/strategy-stealing"
+    description="First player always has a winning strategy in symmetric games."
+    difficulty="medium"
+    time="1h"
+    tags={["strategy stealing", "symmetry", "existence"]}
+  />
+</TopicGrid>

@@ -1,0 +1,385 @@
+---
+title: Lazy Propagation
+description: Range updates in O(log n) — the most important segment tree technique
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Lazy Propagation
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Essential</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Basic Segment Tree", href: "/ds/segment-tree/basic" }
+]} />
+
+## Why This Topic Matters
+
+Without lazy propagation, range updates cost $O(n)$. With it: $O(\log n)$.
+
+This unlocks: range add, range assign, range multiply — all in $O(\log n)$ per operation.
+
+**Contest relevance**: Codeforces Div.1 B/C, virtually every problem with "range updates + range queries".
+
+---
+
+## The Core Idea
+
+**Problem**: We want to "add 5 to all elements in $[l, r]$". Without lazy, we'd update each leaf — $O(n)$ worst case.
+
+**Lazy idea**: Instead of propagating updates immediately, **defer** them. Store a pending update at each node: "when I eventually reach this node's children, add this value to them."
+
+When we **traverse** a node during query/update:
+1. Apply the pending lazy update to the node
+2. Push the lazy update down to children ("push down")
+3. Continue the traversal
+
+This way, we only actually propagate when needed — achieving $O(\log n)$ per operation.
+
+---
+
+## Invariant
+
+<Callout type="theorem" title="Lazy Invariant">
+At every point, the segment tree node $v$ covering interval $[l, r]$ stores the **correct value for $[l, r]$**, but the **lazy tag represents pending updates to its children** (not yet applied to them).
+
+When we visit a node, we must push down its lazy tag to children before recursing.
+</Callout>
+
+---
+
+## Implementation: Range Add + Range Sum
+
+```cpp
+struct LazySegTree {
+    int n;
+    vector<long long> tree, lazy;
+
+    LazySegTree(int n) : n(n), tree(4*n, 0), lazy(4*n, 0) {}
+
+    void build(vector<int>& a, int v, int l, int r) {
+        if (l == r) { tree[v] = a[l]; return; }
+        int mid = (l+r)/2;
+        build(a, 2*v, l, mid);
+        build(a, 2*v+1, mid+1, r);
+        tree[v] = tree[2*v] + tree[2*v+1];
+    }
+
+    // Apply a lazy update to node v covering [l, r]
+    void apply(int v, int l, int r, long long val) {
+        tree[v] += val * (r - l + 1);   // update aggregate
+        lazy[v] += val;                   // store for children
+    }
+
+    // Push lazy tag down to children
+    void push_down(int v, int l, int r) {
+        if (lazy[v] == 0) return;
+        int mid = (l+r)/2;
+        apply(2*v,   l,     mid, lazy[v]);
+        apply(2*v+1, mid+1, r,   lazy[v]);
+        lazy[v] = 0;
+    }
+
+    // Range update: add val to a[ql..qr]
+    void update(int v, int l, int r, int ql, int qr, long long val) {
+        if (ql > r || qr < l) return;
+        if (ql <= l && r <= qr) { apply(v, l, r, val); return; }
+        push_down(v, l, r);
+        int mid = (l+r)/2;
+        update(2*v, l, mid, ql, qr, val);
+        update(2*v+1, mid+1, r, ql, qr, val);
+        tree[v] = tree[2*v] + tree[2*v+1];
+    }
+
+    void update(int ql, int qr, long long val) { update(1, 0, n-1, ql, qr, val); }
+
+    // Range query: sum of a[ql..qr]
+    long long query(int v, int l, int r, int ql, int qr) {
+        if (ql > r || qr < l) return 0;
+        if (ql <= l && r <= qr) return tree[v];
+        push_down(v, l, r);
+        int mid = (l+r)/2;
+        return query(2*v, l, mid, ql, qr) + query(2*v+1, mid+1, r, ql, qr);
+    }
+
+    long long query(int ql, int qr) { return query(1, 0, n-1, ql, qr); }
+};
+```
+
+---
+
+## Range Assign + Range Sum
+
+"Set all elements in $[l, r]$ to $v$" is trickier — the lazy tag must track whether an assignment has happened.
+
+```cpp
+struct AssignSegTree {
+    const long long NONE = LLONG_MIN;  // sentinel: no pending assignment
+    int n;
+    vector<long long> tree, lazy;
+
+    AssignSegTree(int n) : n(n), tree(4*n, 0), lazy(4*n, NONE) {}
+
+    void apply(int v, int l, int r, long long val) {
+        tree[v] = val * (r - l + 1);
+        lazy[v] = val;
+    }
+
+    void push_down(int v, int l, int r) {
+        if (lazy[v] == NONE) return;
+        int mid = (l+r)/2;
+        apply(2*v,   l,     mid, lazy[v]);
+        apply(2*v+1, mid+1, r,   lazy[v]);
+        lazy[v] = NONE;
+    }
+
+    void update(int v, int l, int r, int ql, int qr, long long val) {
+        if (ql > r || qr < l) return;
+        if (ql <= l && r <= qr) { apply(v, l, r, val); return; }
+        push_down(v, l, r);
+        int mid = (l+r)/2;
+        update(2*v, l, mid, ql, qr, val);
+        update(2*v+1, mid+1, r, ql, qr, val);
+        tree[v] = tree[2*v] + tree[2*v+1];
+    }
+
+    long long query(int v, int l, int r, int ql, int qr) {
+        if (ql > r || qr < l) return 0;
+        if (ql <= l && r <= qr) return tree[v];
+        push_down(v, l, r);
+        int mid = (l+r)/2;
+        return query(2*v, l, mid, ql, qr) + query(2*v+1, mid+1, r, ql, qr);
+    }
+};
+```
+
+---
+
+## Combining Multiple Lazy Updates
+
+When you have **both** add and assign operations, the lazy composition is:
+
+| Existing lazy | New operation | Result |
+|---------------|---------------|--------|
+| Add $a$ | Add $b$ | Add $a+b$ |
+| Assign $a$ | Add $b$ | Assign $a+b$ |
+| Add $a$ | Assign $b$ | Assign $b$ (overrides!) |
+| Assign $a$ | Assign $b$ | Assign $b$ |
+
+```cpp
+struct Lazy {
+    long long add = 0;
+    long long assign = LLONG_MIN;  // NONE
+    bool has_assign = false;
+};
+
+Lazy compose(Lazy old_lazy, Lazy new_lazy) {
+    if (new_lazy.has_assign)
+        return new_lazy;   // new assign wipes everything
+    // new is add-only
+    Lazy result = old_lazy;
+    if (result.has_assign) result.assign += new_lazy.add;
+    else result.add += new_lazy.add;
+    return result;
+}
+```
+
+---
+
+## Range Add + Range Min/Max
+
+A common variant: range add, query range minimum.
+
+```cpp
+struct RangeAddRangeMin {
+    int n;
+    vector<long long> tree, lazy;
+
+    RangeAddRangeMin(int n) : n(n), tree(4*n, 0), lazy(4*n, 0) {}
+
+    void apply(int v, long long val) {
+        tree[v] += val;
+        lazy[v] += val;
+    }
+
+    void push_down(int v) {
+        if (lazy[v]) {
+            apply(2*v, lazy[v]);
+            apply(2*v+1, lazy[v]);
+            lazy[v] = 0;
+        }
+    }
+
+    void update(int v, int l, int r, int ql, int qr, long long val) {
+        if (ql > r || qr < l) return;
+        if (ql <= l && r <= qr) { apply(v, val); return; }
+        push_down(v);
+        int mid = (l+r)/2;
+        update(2*v, l, mid, ql, qr, val);
+        update(2*v+1, mid+1, r, ql, qr, val);
+        tree[v] = min(tree[2*v], tree[2*v+1]);
+    }
+
+    long long query(int v, int l, int r, int ql, int qr) {
+        if (ql > r || qr < l) return LLONG_MAX;
+        if (ql <= l && r <= qr) return tree[v];
+        push_down(v);
+        int mid = (l+r)/2;
+        return min(query(2*v, l, mid, ql, qr), query(2*v+1, mid+1, r, ql, qr));
+    }
+};
+```
+
+---
+
+## Lazy Tag Design Principle
+
+For any combination of operations, ask:
+
+1. **What does the aggregate store?** (sum, min, max, ...)
+2. **How does a lazy tag affect the aggregate?** (add $v \cdot \text{len}$ to sum, add $v$ to min, ...)
+3. **How do you compose two lazy tags?** (what happens when a new update arrives at a node with existing lazy?)
+
+If you can answer all three, you can implement lazy propagation for that operation set.
+
+<Callout type="theorem" title="Composability Requirement">
+For lazy propagation to work correctly, the lazy tag operations must form a **monoid** with a well-defined composition rule. Specifically: applying tag $A$ then tag $B$ must equal applying the composed tag $\text{compose}(A, B)$.
+</Callout>
+
+---
+
+## Iterative Lazy Propagation
+
+Harder but faster:
+
+```cpp
+struct IterativeLazy {
+    int n;
+    vector<long long> tree, lazy;
+
+    IterativeLazy(int n) : n(n), tree(2*n, 0), lazy(n, 0) {}
+
+    void apply(int p, long long val, int k) {
+        tree[p] += val * k;
+        if (p < n) lazy[p] += val;
+    }
+
+    void build(int p) {
+        while (p > 1) { p >>= 1; tree[p] = tree[2*p] + tree[2*p+1] + lazy[p] * /* len */ 0; }
+        // Iterative lazy needs careful length tracking — see full impl
+    }
+
+    void push(int p, int len) {
+        // Push from root down to p
+        for (int s = __lg(n); s > 0; s--) {
+            int i = p >> s;
+            if (lazy[i]) {
+                apply(2*i,   lazy[i], len - (len >> 1));  // left half len
+                apply(2*i+1, lazy[i], len >> 1);           // right half len
+                lazy[i] = 0;
+            }
+            len = (p >> (s-1)) & 1 ? len >> 1 : len - (len >> 1);
+        }
+    }
+};
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Build", time: "O(n)", space: "O(n)" },
+  { operation: "Range update (lazy)", time: "O(log n)", space: "O(log n) stack" },
+  { operation: "Range query (with lazy)", time: "O(log n)", space: "O(log n) stack" },
+  { operation: "Space (tree + lazy)", time: "—", space: "O(4n)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Forgetting `push_down` before recursing**: causes wrong answers.
+2. **Wrong `apply` function**: e.g., adding `val` (not `val * len`) to sum.
+3. **Lazy not cleared after push**: lazy[v] must be reset to 0/NONE after pushing.
+4. **Wrong composition order**: when combining old and new lazy, order matters.
+5. **Identity element wrong**: lazy tag identity must not modify the aggregate.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Range Update Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1651",
+    difficulty: "1400",
+    concepts: ["lazy propagation", "range add", "point query"],
+    tier: "warmup"
+  },
+  {
+    name: "Polynomial Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1736",
+    difficulty: "1800",
+    concepts: ["lazy propagation", "range add increasing"],
+    trick: "Add 1, 2, 3, ... to a range — store two lazy values: start value and increment",
+    tier: "standard"
+  },
+  {
+    name: "Flip and Query",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/914/D",
+    difficulty: "1900",
+    concepts: ["lazy propagation", "range assign", "range sum"],
+    tier: "standard"
+  },
+  {
+    name: "Transformation",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/588/E",
+    difficulty: "2100",
+    concepts: ["lazy propagation", "add + assign + multiply"],
+    trick: "Three operations need careful lazy composition: multiply, add, assign",
+    tier: "advanced"
+  },
+  {
+    name: "Vasya and Beautiful Arrays",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/296/problem/E",
+    difficulty: "2400",
+    concepts: ["lazy propagation", "range min", "sum", "complex update"],
+    tier: "advanced"
+  },
+  {
+    name: "Array Queries",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/364/E",
+    difficulty: "2200",
+    concepts: ["lazy segment tree", "offline"],
+    tier: "advanced"
+  },
+  {
+    name: "Okabe and Raspberry Dream",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/821/problem/F",
+    difficulty: "2500",
+    concepts: ["lazy propagation", "tricky lazy composition"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Segment Tree: Lazy Propagation](https://cp-algorithms.com/data_structures/segment_tree.html#lazy-propagation)
+2. Codeforces EDU — Segment Tree Part 2
+3. USACO Guide — [Lazy Segment Tree](https://usaco.guide/plat/segtree-ext)

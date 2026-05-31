@@ -1,0 +1,493 @@
+---
+title: Template Library (C++)
+description: Production-ready C++ templates for competitive programming contests
+---
+
+# Template Library
+
+Contest-ready C++ implementations. Copy and adapt.
+
+---
+
+## Contest Header
+
+```cpp
+#pragma GCC optimize("O2,unroll-loops")
+#pragma GCC target("avx2,bmi,bmi2,popcnt")
+#include <bits/stdc++.h>
+using namespace std;
+
+// Type aliases
+typedef long long ll;
+typedef unsigned long long ull;
+typedef long double ld;
+typedef pair<int,int> pii;
+typedef pair<ll,ll> pll;
+typedef vector<int> vi;
+typedef vector<ll> vll;
+typedef vector<pii> vpii;
+
+// Macros
+#define all(v) (v).begin(), (v).end()
+#define sz(v) (int)(v).size()
+#define pb push_back
+#define ff first
+#define ss second
+#define rep(i,a,b) for(int i=(a);i<(b);i++)
+#define per(i,a,b) for(int i=(b)-1;i>=(a);i--)
+
+// Constants
+const ll INF = 1e18;
+const int MOD = 1e9 + 7;
+const double PI = acos(-1.0);
+
+// Fast I/O
+void fast_io() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+}
+```
+
+---
+
+## Modular Arithmetic
+
+```cpp
+const ll MOD = 1e9 + 7;
+
+ll power(ll b, ll e, ll m = MOD) {
+    ll r = 1; b %= m;
+    for (; e; e >>= 1, b = b*b%m) if (e & 1) r = r*b%m;
+    return r;
+}
+ll inv(ll a, ll m = MOD) { return power(a, m-2, m); }
+
+struct Modular {
+    ll val;
+    Modular(ll v = 0) : val((v % MOD + MOD) % MOD) {}
+    Modular operator+(Modular o) { return (val + o.val) % MOD; }
+    Modular operator-(Modular o) { return (val - o.val + MOD) % MOD; }
+    Modular operator*(Modular o) { return val * o.val % MOD; }
+    Modular operator/(Modular o) { return *this * Modular(inv(o.val)); }
+};
+
+// Precomputed factorials
+struct Comb {
+    int n; vector<ll> f, fi;
+    Comb(int n) : n(n), f(n+1), fi(n+1) {
+        f[0] = 1;
+        for (int i = 1; i <= n; i++) f[i] = f[i-1]*i%MOD;
+        fi[n] = inv(f[n]);
+        for (int i = n-1; i >= 0; i--) fi[i] = fi[i+1]*(i+1)%MOD;
+    }
+    ll C(int a, int b) {
+        if (b < 0 || b > a) return 0;
+        return f[a] % MOD * fi[b] % MOD * fi[a-b] % MOD;
+    }
+    ll P(int a, int b) {
+        if (b < 0 || b > a) return 0;
+        return f[a] % MOD * fi[a-b] % MOD;
+    }
+};
+```
+
+---
+
+## Fenwick Tree (BIT)
+
+```cpp
+struct BIT {
+    int n; vector<ll> t;
+    BIT(int n) : n(n), t(n+1, 0) {}
+    void upd(int i, ll v) { for (; i <= n; i += i&-i) t[i] += v; }
+    ll qry(int i) { ll s = 0; for (; i > 0; i -= i&-i) s += t[i]; return s; }
+    ll qry(int l, int r) { return qry(r) - qry(l-1); }
+    // k-th element (1-indexed)
+    int kth(ll k) {
+        int pos = 0;
+        for (int pw = 1<<__lg(n); pw; pw >>= 1)
+            if (pos+pw <= n && t[pos+pw] < k) { pos += pw; k -= t[pos]; }
+        return pos + 1;
+    }
+};
+```
+
+---
+
+## Segment Tree
+
+```cpp
+// Generic segment tree with lazy propagation (range add, range sum)
+struct SegTree {
+    int n; vector<ll> t, lazy;
+    SegTree(int n) : n(n), t(4*n, 0), lazy(4*n, 0) {}
+    void push(int v, int l, int r) {
+        if (!lazy[v]) return;
+        int m = (l+r)/2;
+        auto apply = [&](int u, int lo, int hi) { t[u]+=lazy[v]*(hi-lo+1); lazy[u]+=lazy[v]; };
+        apply(2*v, l, m); apply(2*v+1, m+1, r); lazy[v] = 0;
+    }
+    void upd(int v, int l, int r, int ql, int qr, ll val) {
+        if (ql>r||qr<l) return;
+        if (ql<=l&&r<=qr) { t[v]+=val*(r-l+1); lazy[v]+=val; return; }
+        push(v,l,r); int m=(l+r)/2;
+        upd(2*v,l,m,ql,qr,val); upd(2*v+1,m+1,r,ql,qr,val);
+        t[v]=t[2*v]+t[2*v+1];
+    }
+    ll qry(int v, int l, int r, int ql, int qr) {
+        if (ql>r||qr<l) return 0;
+        if (ql<=l&&r<=qr) return t[v];
+        push(v,l,r); int m=(l+r)/2;
+        return qry(2*v,l,m,ql,qr)+qry(2*v+1,m+1,r,ql,qr);
+    }
+    void upd(int l, int r, ll v) { upd(1,0,n-1,l,r,v); }
+    ll qry(int l, int r) { return qry(1,0,n-1,l,r); }
+};
+```
+
+---
+
+## DSU (Union-Find)
+
+```cpp
+struct DSU {
+    vector<int> p, sz; int comp;
+    DSU(int n) : p(n), sz(n,1), comp(n) { iota(p.begin(),p.end(),0); }
+    int find(int x) { while(p[x]!=x){p[x]=p[p[x]];x=p[x];} return x; }
+    bool unite(int x, int y) {
+        x=find(x); y=find(y); if(x==y) return false;
+        if(sz[x]<sz[y]) swap(x,y);
+        p[y]=x; sz[x]+=sz[y]; comp--; return true;
+    }
+    bool same(int x, int y) { return find(x)==find(y); }
+};
+```
+
+---
+
+## Sparse Table (O(1) RMQ)
+
+```cpp
+struct SparseTable {
+    int n, LOG;
+    vector<vector<int>> t;
+    SparseTable(vector<int>& a) {
+        n = a.size(); LOG = __lg(n) + 1;
+        t.assign(LOG, vector<int>(n));
+        t[0] = a;
+        for (int j = 1; j < LOG; j++)
+            for (int i = 0; i + (1<<j) <= n; i++)
+                t[j][i] = min(t[j-1][i], t[j-1][i+(1<<(j-1))]);
+    }
+    int query(int l, int r) {
+        int k = __lg(r - l + 1);
+        return min(t[k][l], t[k][r-(1<<k)+1]);
+    }
+};
+```
+
+---
+
+## Suffix Array
+
+```cpp
+// O(n log n) suffix array construction
+vector<int> suffix_array(string s) {
+    s += '$';
+    int n = s.size();
+    vector<int> sa(n), rank_(n), tmp(n);
+    iota(sa.begin(), sa.end(), 0);
+    for (int i = 0; i < n; i++) rank_[i] = s[i];
+    for (int k = 1; k < n; k <<= 1) {
+        auto cmp = [&](int a, int b) {
+            if (rank_[a] != rank_[b]) return rank_[a] < rank_[b];
+            int ra = a+k < n ? rank_[a+k] : -1;
+            int rb = b+k < n ? rank_[b+k] : -1;
+            return ra < rb;
+        };
+        sort(sa.begin(), sa.end(), cmp);
+        tmp[sa[0]] = 0;
+        for (int i = 1; i < n; i++)
+            tmp[sa[i]] = tmp[sa[i-1]] + (cmp(sa[i-1], sa[i]) ? 1 : 0);
+        rank_ = tmp;
+    }
+    return {sa.begin()+1, sa.end()};  // exclude '$'
+}
+```
+
+---
+
+## FFT
+
+```cpp
+#include <complex>
+typedef complex<double> cd;
+const double PI = acos(-1.0);
+
+void fft(vector<cd>& a, bool inv) {
+    int n = a.size();
+    for (int i=1,j=0;i<n;i++) {
+        int b=n>>1; for(;j&b;b>>=1)j^=b; j^=b;
+        if(i<j) swap(a[i],a[j]);
+    }
+    for (int len=2;len<=n;len<<=1) {
+        double ang=2*PI/len*(inv?-1:1);
+        cd wl(cos(ang),sin(ang));
+        for(int i=0;i<n;i+=len){
+            cd w(1);
+            for(int j=0;j<len/2;j++){
+                cd u=a[i+j],v=a[i+j+len/2]*w;
+                a[i+j]=u+v; a[i+j+len/2]=u-v; w*=wl;
+            }
+        }
+    }
+    if(inv) for(auto& x:a) x/=n;
+}
+
+vector<ll> multiply(vector<ll>& a, vector<ll>& b) {
+    vector<cd> fa(all(a)), fb(all(b));
+    int n=1; while(n<sz(a)+sz(b)) n<<=1;
+    fa.resize(n); fb.resize(n);
+    fft(fa,0); fft(fb,0);
+    for(int i=0;i<n;i++) fa[i]*=fb[i];
+    fft(fa,1);
+    vector<ll> c(n);
+    for(int i=0;i<n;i++) c[i]=llround(fa[i].real());
+    return c;
+}
+```
+
+---
+
+## NTT (Number Theoretic Transform)
+
+```cpp
+const ll MOD_NTT = 998244353, g_NTT = 3;
+
+void ntt(vector<ll>& a, bool inv) {
+    int n = a.size();
+    for (int i=1,j=0;i<n;i++){
+        int b=n>>1; for(;j&b;b>>=1)j^=b; j^=b;
+        if(i<j) swap(a[i],a[j]);
+    }
+    for (int len=2;len<=n;len<<=1) {
+        ll w = inv ? power(g_NTT,(MOD_NTT-1)-(MOD_NTT-1)/len,MOD_NTT)
+                   : power(g_NTT,(MOD_NTT-1)/len,MOD_NTT);
+        for(int i=0;i<n;i+=len){
+            ll wn=1;
+            for(int j=0;j<len/2;j++){
+                ll u=a[i+j], v=a[i+j+len/2]*wn%MOD_NTT;
+                a[i+j]=(u+v)%MOD_NTT; a[i+j+len/2]=(u-v+MOD_NTT)%MOD_NTT;
+                wn=wn*w%MOD_NTT;
+            }
+        }
+    }
+    if(inv){ll ni=power(n,MOD_NTT-2,MOD_NTT); for(auto& x:a) x=x*ni%MOD_NTT;}
+}
+```
+
+---
+
+## Heavy-Light Decomposition
+
+```cpp
+struct HLD {
+    int n, timer=0;
+    vector<int> par, dep, sz, heavy, head, pos;
+    vector<vector<int>>& adj;
+    
+    HLD(int n, vector<vector<int>>& adj) : n(n), adj(adj),
+        par(n), dep(n), sz(n), heavy(n,-1), head(n), pos(n) {}
+    
+    int dfs(int v, int p, int d) {
+        par[v]=p; dep[v]=d; sz[v]=1; int mx=0;
+        for(int u:adj[v]) if(u!=p) {
+            sz[v]+=dfs(u,v,d+1);
+            if(sz[u]>mx){mx=sz[u];heavy[v]=u;}
+        }
+        return sz[v];
+    }
+    void decompose(int v, int h) {
+        head[v]=h; pos[v]=timer++;
+        if(heavy[v]!=-1) decompose(heavy[v],h);
+        for(int u:adj[v]) if(u!=par[v]&&u!=heavy[v]) decompose(u,u);
+    }
+    void build() { dfs(0,-1,0); decompose(0,0); }
+    
+    // Query path [u,v] with seg tree
+    ll path_query(int u, int v, SegTree& seg) {
+        ll res=0;
+        while(head[u]!=head[v]){
+            if(dep[head[u]]<dep[head[v]]) swap(u,v);
+            res+=seg.qry(pos[head[u]],pos[u]);
+            u=par[head[u]];
+        }
+        if(dep[u]>dep[v]) swap(u,v);
+        return res+seg.qry(pos[u],pos[v]);
+    }
+};
+```
+
+---
+
+## Graph Templates
+
+```cpp
+// Dijkstra
+vector<ll> dijkstra(int src, vector<vector<pii>>& adj, int n) {
+    vector<ll> dist(n, INF);
+    priority_queue<pll, vector<pll>, greater<>> pq;
+    dist[src] = 0; pq.push({0, src});
+    while (!pq.empty()) {
+        auto [d, u] = pq.top(); pq.pop();
+        if (d > dist[u]) continue;
+        for (auto [w, v] : adj[u])
+            if (dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
+                pq.push({dist[v], v});
+            }
+    }
+    return dist;
+}
+
+// Kruskal MST
+ll kruskal(int n, vector<tuple<ll,int,int>>& edges) {
+    sort(all(edges));
+    DSU dsu(n);
+    ll cost = 0;
+    for (auto [w, u, v] : edges)
+        if (dsu.unite(u, v)) cost += w;
+    return cost;
+}
+```
+
+---
+
+## String Templates
+
+```cpp
+// Z-function
+vector<int> z_function(string& s) {
+    int n = s.size();
+    vector<int> z(n, 0);
+    z[0] = n;
+    for (int i=1, l=0, r=0; i<n; i++) {
+        if (i < r) z[i] = min(r-i, z[i-l]);
+        while (i+z[i] < n && s[z[i]] == s[i+z[i]]) z[i]++;
+        if (i+z[i] > r) l=i, r=i+z[i];
+    }
+    return z;
+}
+
+// KMP failure function
+vector<int> kmp(string& s) {
+    int n = s.size();
+    vector<int> pi(n, 0);
+    for (int i=1; i<n; i++) {
+        int j = pi[i-1];
+        while (j && s[i] != s[j]) j = pi[j-1];
+        if (s[i] == s[j]) j++;
+        pi[i] = j;
+    }
+    return pi;
+}
+
+// Polynomial hashing
+struct Hash {
+    const ll B=131, M=1e9+7;
+    vector<ll> h, pw;
+    Hash(string& s) : h(s.size()+1,0), pw(s.size()+1,1) {
+        for (int i=0;i<(int)s.size();i++){
+            h[i+1]=(h[i]*B+s[i])%M;
+            pw[i+1]=pw[i]*B%M;
+        }
+    }
+    ll get(int l, int r) { return (h[r+1]-h[l]*pw[r-l+1]%M+M*M)%M; }
+};
+```
+
+---
+
+## Matrix Exponentiation
+
+```cpp
+typedef vector<vector<ll>> Matrix;
+
+Matrix multiply(Matrix& A, Matrix& B, ll mod) {
+    int n = A.size();
+    Matrix C(n, vector<ll>(n, 0));
+    for (int i=0;i<n;i++) for (int k=0;k<n;k++) if(A[i][k])
+        for (int j=0;j<n;j++) C[i][j]=(C[i][j]+A[i][k]*B[k][j])%mod;
+    return C;
+}
+
+Matrix matpow(Matrix A, ll p, ll mod) {
+    int n = A.size();
+    Matrix R(n, vector<ll>(n, 0));
+    for (int i=0;i<n;i++) R[i][i]=1;  // identity
+    for (; p; p>>=1) {
+        if (p & 1) R = multiply(R, A, mod);
+        A = multiply(A, A, mod);
+    }
+    return R;
+}
+```
+
+---
+
+## XOR Basis (Linear Basis)
+
+```cpp
+struct XorBasis {
+    ll basis[64] = {};
+    bool insert(ll x) {
+        for (int i=63;i>=0;i--) {
+            if (!((x>>i)&1)) continue;
+            if (!basis[i]) { basis[i]=x; return true; }
+            x ^= basis[i];
+        }
+        return false;  // linearly dependent
+    }
+    ll max_xor(ll x = 0) {
+        for (int i=63;i>=0;i--) x = max(x, x^basis[i]);
+        return x;
+    }
+};
+```
+
+---
+
+## Li Chao Tree (Convex Hull Trick)
+
+```cpp
+struct Line { ll m, b; ll eval(ll x) { return m*x+b; } };
+
+struct LiChao {
+    struct Node { Line line; int l=-1, r=-1; };
+    vector<Node> tree;
+    ll lo, hi;
+    LiChao(ll lo, ll hi) : lo(lo), hi(hi) { tree.push_back({{0, LLONG_MIN/2}}); }
+    void add(Line line, int v=0, ll l=-1, ll r=-1) {
+        if(l==-1){l=lo;r=hi;}
+        ll m=(l+r)/2;
+        bool left = line.eval(l) > tree[v].line.eval(l);
+        bool mid  = line.eval(m) > tree[v].line.eval(m);
+        if(mid) swap(tree[v].line, line);
+        if(l==r) return;
+        if(left != mid) {
+            if(tree[v].l==-1){tree[v].l=tree.size();tree.push_back({{0,LLONG_MIN/2}});}
+            add(line, tree[v].l, l, m);
+        } else {
+            if(tree[v].r==-1){tree[v].r=tree.size();tree.push_back({{0,LLONG_MIN/2}});}
+            add(line, tree[v].r, m+1, r);
+        }
+    }
+    ll query(ll x, int v=0, ll l=-1, ll r=-1) {
+        if(l==-1){l=lo;r=hi;}
+        ll res=tree[v].line.eval(x), m=(l+r)/2;
+        if(x<=m && tree[v].l!=-1) res=max(res,query(x,tree[v].l,l,m));
+        if(x> m && tree[v].r!=-1) res=max(res,query(x,tree[v].r,m+1,r));
+        return res;
+    }
+};
+```

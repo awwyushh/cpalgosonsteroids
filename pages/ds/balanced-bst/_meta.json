@@ -1,0 +1,12 @@
+{
+  "index": "Overview",
+  "avl": "AVL Tree",
+  "red-black": "Red-Black Tree",
+  "treap": "Treap",
+  "implicit-treap": "Implicit Treap",
+  "persistent-treap": "Persistent Treap",
+  "fhq-treap": "FHQ Treap (Split-Merge)",
+  "splay": "Splay Tree",
+  "rope": "Rope",
+  "scapegoat": "Scapegoat & Weight-Balanced Trees"
+}

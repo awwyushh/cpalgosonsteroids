@@ -1,0 +1,99 @@
+---
+title: Number Theory
+description: Complete number theory for CP — primes, sieves, Euler phi, CRT, discrete log
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Number Theory
+
+<TopicGrid>
+  <TopicCard
+    title="Primes & Sieves"
+    href="/math/number-theory/primes-sieve"
+    description="Trial division, Eratosthenes, segmented sieve, linear sieve with SPF table."
+    difficulty="easy"
+    time="2h"
+    tags={["primes", "sieve", "SPF", "segmented"]}
+  />
+  <TopicCard
+    title="Prime Factorization"
+    href="/math/number-theory/prime-factorization"
+    description="Trial division, Pollard rho, applications to divisor counting."
+    difficulty="medium"
+    time="2h"
+    tags={["factorization", "unique prime factors"]}
+  />
+  <TopicCard
+    title="Divisors & Multiplicative Functions"
+    href="/math/number-theory/divisors"
+    description="Counting divisors, sum of divisors, product of divisors. Multiplicativity."
+    difficulty="medium"
+    time="2h"
+    tags={["divisors", "multiplicative", "d(n)", "σ(n)"]}
+  />
+  <TopicCard
+    title="Euler Phi Function"
+    href="/math/number-theory/euler-phi"
+    description="φ(n), Euler's theorem, applications to orders and primitive roots."
+    difficulty="medium"
+    time="2h"
+    tags={["φ(n)", "Euler", "coprime", "order"]}
+  />
+  <TopicCard
+    title="Möbius Function & Inversion"
+    href="/math/number-theory/mobius"
+    description="μ(n), Möbius inversion formula, sum of multiplicative functions."
+    difficulty="hard"
+    time="3h"
+    tags={["μ(n)", "Möbius", "inversion", "squarefree"]}
+  />
+  <TopicCard
+    title="Chinese Remainder Theorem"
+    href="/math/number-theory/crt"
+    description="Solve systems of congruences. General CRT for non-coprime moduli."
+    difficulty="medium"
+    time="2h"
+    tags={["CRT", "congruences", "extgcd"]}
+  />
+  <TopicCard
+    title="Primitive Roots"
+    href="/math/number-theory/primitive-roots"
+    description="Generator of (Z/pZ)*, discrete logarithm basics."
+    difficulty="hard"
+    time="2h"
+    tags={["primitive root", "generator", "order"]}
+  />
+  <TopicCard
+    title="Discrete Logarithm"
+    href="/math/number-theory/discrete-log"
+    description="Baby-step giant-step: solve aˣ ≡ b (mod p) in O(√p)."
+    difficulty="hard"
+    time="3h"
+    tags={["BSGS", "discrete log", "O(√p)"]}
+  />
+  <TopicCard
+    title="Miller-Rabin Primality Test"
+    href="/math/number-theory/miller-rabin"
+    description="Probabilistic primality test in O(k log² n). Deterministic for n < 3.3×10²⁴."
+    difficulty="hard"
+    time="2h"
+    tags={["Miller-Rabin", "probabilistic", "primality"]}
+  />
+  <TopicCard
+    title="Pollard Rho Factorization"
+    href="/math/number-theory/pollard-rho"
+    description="Expected O(n^{1/4}) factorization. Factor 10¹⁸ in milliseconds."
+    difficulty="hard"
+    time="2h"
+    tags={["Pollard rho", "O(n^{1/4})", "factorization"]}
+  />
+  <TopicCard
+    title="Quadratic Residues"
+    href="/math/number-theory/quadratic-residues"
+    description="Legendre symbol, Tonelli-Shanks square root mod p."
+    difficulty="hard"
+    time="2h"
+    tags={["Legendre", "Tonelli-Shanks", "√mod p"]}
+  />
+</TopicGrid>

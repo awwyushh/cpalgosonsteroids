@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "modular-arithmetic": "Modular Arithmetic",
+  "gcd-lcm": "GCD & LCM",
+  "fast-exponentiation": "Fast Exponentiation",
+  "modular-inverse": "Modular Inverse",
+  "floor-ceil": "Floor & Ceiling Identities",
+  "diophantine": "Diophantine Equations",
+  "integer-overflow": "Integer Overflow & Precision"
+}

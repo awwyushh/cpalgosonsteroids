@@ -1,0 +1,235 @@
+---
+title: SOS DP (Sum over Subsets)
+description: Compute subset sums in O(n·2ⁿ). Zeta and Möbius transforms.
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# SOS DP (Sum over Subsets)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Bit Operations", href: "/math/bitmask/bit-operations" },
+  { title: "Submask Enumeration", href: "/math/bitmask/submask-enumeration" }
+]} />
+
+## Why This Topic Matters
+
+SOS DP computes $f[S] = \sum_{T \subseteq S} a[T]$ for all $2^n$ masks $S$ in $O(n \cdot 2^n)$ instead of $O(3^n)$ naive.
+
+**Contest relevance**: Any problem involving subset sums, OR-convolution, AND-convolution. Very common in Codeforces Div.1 C/D with bitmask DPs.
+
+---
+
+## The Problem
+
+Given $a[0], a[1], \ldots, a[2^n - 1]$, compute for all $S$:
+
+$$f[S] = \sum_{T \subseteq S} a[T]$$
+
+**Naive**: enumerate all submasks of $S$ → $O(3^n)$ total (since $\sum_S |subsets(S)| = 3^n$).
+
+**SOS DP**: $O(n \cdot 2^n)$.
+
+---
+
+## Algorithm
+
+Process one bit at a time:
+
+```
+dp[mask][i] = sum of a[T] for all T ⊆ mask, considering only bits 0..i-1 as "free"
+```
+
+Transition:
+- If bit $i$ of mask is 0: `dp[mask][i] = dp[mask][i-1]` (bit $i$ was never set → no change)
+- If bit $i$ of mask is 1: `dp[mask][i] = dp[mask][i-1] + dp[mask ^ (1<<i)][i-1]`
+  (subsets with bit $i$ unset)
+
+```cpp
+void sos_dp(vector<int>& f, int n) {
+    // f[S] after this = sum of a[T] for T ⊆ S
+    for (int i = 0; i < n; i++)
+        for (int mask = 0; mask < (1 << n); mask++)
+            if (mask >> i & 1)
+                f[mask] += f[mask ^ (1 << i)];
+}
+```
+
+This is the **subset sum zeta transform** (OR direction).
+
+---
+
+## Zeta and Möbius Transforms
+
+**Zeta transform** (OR direction): $\hat{f}[S] = \sum_{T \subseteq S} f[T]$
+
+```cpp
+// Superset sum (AND direction): f[S] = sum of a[T] for T ⊇ S
+void superset_sum(vector<int>& f, int n) {
+    for (int i = 0; i < n; i++)
+        for (int mask = 0; mask < (1 << n); mask++)
+            if (!(mask >> i & 1))
+                f[mask] += f[mask | (1 << i)];
+}
+```
+
+**Möbius inversion** (inverse of zeta):
+
+```cpp
+// Inverse of subset sum: recover a[S] from f[S]
+void sos_inverse(vector<int>& f, int n) {
+    for (int i = 0; i < n; i++)
+        for (int mask = 0; mask < (1 << n); mask++)
+            if (mask >> i & 1)
+                f[mask] -= f[mask ^ (1 << i)];
+}
+```
+
+---
+
+## OR-Convolution
+
+$(a \ast b)[S] = \sum_{A \cup B = S} a[A] \cdot b[B]$
+
+**Algorithm**:
+1. Compute zeta transform of $a$ and $b$: $\hat{a}[S] = \sum_{T \subseteq S} a[T]$, same for $b$.
+2. Pointwise multiply: $\hat{c}[S] = \hat{a}[S] \cdot \hat{b}[S]$.
+3. Inverse zeta (Möbius) on $\hat{c}$.
+
+```cpp
+void or_convolution(vector<long long>& a, vector<long long>& b, int n) {
+    sos_dp(a, n);
+    sos_dp(b, n);
+    for (int s = 0; s < (1 << n); s++) a[s] *= b[s];
+    sos_inverse(a, n);
+    // a is now a OR-convoluted with original b
+}
+```
+
+---
+
+## AND-Convolution
+
+Similar but with superset sums:
+
+$(a \ast b)[S] = \sum_{A \cap B = S} a[A] \cdot b[B]$
+
+Use `superset_sum` instead of `sos_dp`.
+
+---
+
+## XOR-Convolution (Walsh-Hadamard)
+
+$(a \ast b)[S] = \sum_{A \oplus B = S} a[A] \cdot b[B]$
+
+Uses Fast Walsh-Hadamard Transform (FWHT). See [FWHT](/math/polynomials/fwht).
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "SOS DP", time: "O(n·2ⁿ)", space: "O(2ⁿ)" },
+  { operation: "Naïve subset sum", time: "O(3ⁿ)", space: "O(2ⁿ)" },
+  { operation: "OR-convolution", time: "O(n·2ⁿ)", space: "O(2ⁿ)" },
+  { operation: "Möbius inversion", time: "O(n·2ⁿ)", space: "O(2ⁿ)" },
+]} />
+
+**Speedup**: $3^n / (n \cdot 2^n) = (3/2)^n / n \approx$ exponential improvement.
+
+For $n = 20$: naïve = $3.5 \times 10^9$ ops, SOS = $2 \times 10^7$ ops.
+
+---
+
+## Common Patterns
+
+### Pattern 1: Maximum XOR sum with subset constraint
+
+For each mask $S$, find the max XOR of a subset: first compute the XOR basis per subset.
+
+### Pattern 2: Count pairs with AND = 0
+
+$\sum_{A \& B = 0} f[A] \cdot f[B]$ = AND-convolution evaluated at $S = 0$.
+
+### Pattern 3: Shortest path covering all states (bitmask DP)
+
+SOS DP used to precompute which states are "covered" by a given subset.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Sum over Subsets (tutorial)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/blog/entry/72488",
+    difficulty: "1600",
+    concepts: ["SOS DP"],
+    tier: "warmup"
+  },
+  {
+    name: "Jewels and Stones",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1168/C",
+    difficulty: "1800",
+    concepts: ["SOS DP", "bitmask"],
+    tier: "standard"
+  },
+  {
+    name: "Covered Points Count",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1168/C",
+    difficulty: "1900",
+    concepts: ["SOS DP", "subset sum"],
+    tier: "standard"
+  },
+  {
+    name: "Maximum AND",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1285/E",
+    difficulty: "2000",
+    concepts: ["SOS DP", "AND-convolution"],
+    tier: "standard"
+  },
+  {
+    name: "Compatible Numbers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1285/F",
+    difficulty: "2200",
+    concepts: ["SOS DP", "pair AND = 0"],
+    trick: "For each mask, check if complement has any element using SOS DP",
+    tier: "advanced"
+  },
+  {
+    name: "Bitwise Magic",
+    platform: "AtCoder",
+    link: "https://atcoder.jp/contests/arc100/tasks/arc100_c",
+    difficulty: "2400",
+    concepts: ["OR-convolution", "counting"],
+    tier: "advanced"
+  },
+  {
+    name: "Subset Sum Counting (hard)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1336/F",
+    difficulty: "2600",
+    concepts: ["subset convolution", "SOS DP"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [SOS DP](https://cp-algorithms.com/algebra/all-submasks.html)
+2. Codeforces Blog — *SOS DP Tutorial* by YasserKhalifa
+3. Codeforces Blog — *Zeta and Möbius transforms* by bignob

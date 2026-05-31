@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "hld": "Heavy-Light Decomposition",
+  "centroid": "Centroid Decomposition",
+  "virtual-trees": "Virtual Trees",
+  "euler-tour-tree": "Euler Tour Trees",
+  "link-cut-tree": "Link-Cut Trees",
+  "top-trees": "Top Trees",
+  "dynamic-trees": "Dynamic Trees"
+}

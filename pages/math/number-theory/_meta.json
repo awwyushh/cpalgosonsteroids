@@ -1,0 +1,14 @@
+{
+  "index": "Overview",
+  "primes-sieve": "Primes & Sieves",
+  "prime-factorization": "Prime Factorization",
+  "divisors": "Divisors & Multiplicative Functions",
+  "euler-phi": "Euler Phi Function",
+  "mobius": "Möbius Function & Inversion",
+  "crt": "Chinese Remainder Theorem",
+  "primitive-roots": "Primitive Roots",
+  "discrete-log": "Discrete Logarithm",
+  "miller-rabin": "Miller-Rabin Primality Test",
+  "pollard-rho": "Pollard Rho Factorization",
+  "quadratic-residues": "Quadratic Residues"
+}

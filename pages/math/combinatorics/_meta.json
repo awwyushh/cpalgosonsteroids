@@ -1,0 +1,16 @@
+{
+  "index": "Overview",
+  "binomial-coefficients": "Binomial Coefficients",
+  "stars-bars": "Stars & Bars",
+  "inclusion-exclusion": "Inclusion-Exclusion",
+  "derangements": "Derangements",
+  "catalan": "Catalan Numbers",
+  "bell-stirling": "Bell & Stirling Numbers",
+  "partition": "Integer Partitions",
+  "burnside": "Burnside's Lemma",
+  "polya": "Pólya Enumeration Theorem",
+  "generating-functions": "Generating Functions",
+  "combinatorics-dp": "Combinatorics with DP",
+  "lattice-paths": "Lattice Paths & Reflection Principle",
+  "lucas": "Lucas Theorem"
+}

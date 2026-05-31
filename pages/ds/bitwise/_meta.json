@@ -1,0 +1,9 @@
+{
+  "index": "Overview",
+  "binary-trie-ds": "Binary Trie",
+  "xor-basis": "XOR Basis",
+  "persistent-xor-basis": "Persistent XOR Basis",
+  "sos-ds": "SOS DP Structures",
+  "bitset-optimizations": "Bitset Optimizations",
+  "compressed-bitsets": "Compressed Bitsets"
+}

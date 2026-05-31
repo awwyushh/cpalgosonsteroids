@@ -1,0 +1,245 @@
+---
+title: CP Algorithms on Steroids
+description: The Definitive Competitive Programming Mathematics & Data Structures Handbook
+---
+
+import { TopicCard, TopicGrid } from '../components/TopicCard'
+
+# CP Algorithms on Steroids
+
+**The most comprehensive Competitive Programming reference ever built.**
+
+Covers everything from Codeforces Div.4 basics to ICPC World Finals and IOI gold-level topics.
+Built as a learning platform _and_ a contest reference handbook.
+
+---
+
+## What Is This?
+
+A brutally complete encyclopedia of **Competitive Programming Mathematics** and **Data Structures** — structured for progressive learning, contest preparation, and on-the-fly reference during training.
+
+Think: cp-algorithms + USACO Guide + KACTL + OI Wiki + ICPC Notebook, but unified, improved, and extended.
+
+**Covers:**
+- Every mathematical tool used in competitive programming
+- Every data structure from beginner to research level  
+- Proofs, implementations, complexity analyses, and contest patterns
+- Curated problem ladders from warmup to legendary
+- Learning roadmaps for every competition tier
+
+---
+
+## Start Here
+
+<TopicGrid>
+  <TopicCard
+    title="Mathematics"
+    href="/math"
+    description="Number theory, combinatorics, linear algebra, polynomials, game theory, geometry, and more."
+    tags={["modular arithmetic", "FFT", "Sprague-Grundy", "Burnside"]}
+  />
+  <TopicCard
+    title="Data Structures"
+    href="/ds"
+    description="From arrays and stacks to link-cut trees, persistent structures, and Van Emde Boas trees."
+    tags={["segment tree", "treap", "LCT", "wavelet tree"]}
+  />
+  <TopicCard
+    title="Roadmaps"
+    href="/roadmaps"
+    description="Structured learning paths from beginner to ICPC World Finals level."
+    tags={["beginner", "ICPC", "IOI", "Codeforces"]}
+  />
+  <TopicCard
+    title="Reference"
+    href="/reference"
+    description="Formula sheets, complexity tables, template library, contest notebook."
+    tags={["formulas", "templates", "cheat sheets"]}
+  />
+</TopicGrid>
+
+---
+
+## Quick Jump — Mathematics
+
+<TopicGrid>
+  <TopicCard
+    title="Modular Arithmetic"
+    href="/math/foundations/modular-arithmetic"
+    description="mod, inverse, CRT — the backbone of every CP problem."
+    difficulty="beginner"
+    time="2h"
+  />
+  <TopicCard
+    title="Primes & Sieves"
+    href="/math/number-theory/primes-sieve"
+    description="Trial division, Eratosthenes, segmented sieve, linear sieve."
+    difficulty="easy"
+    time="2h"
+  />
+  <TopicCard
+    title="Combinatorics"
+    href="/math/combinatorics"
+    description="Binomial coefficients, inclusion-exclusion, Catalan numbers, Burnside."
+    difficulty="medium"
+    time="6h"
+  />
+  <TopicCard
+    title="Matrix Exponentiation"
+    href="/math/linear-algebra/matrix-exponentiation"
+    description="Linear recurrences in O(k³ log n). Essential contest tool."
+    difficulty="medium"
+    time="3h"
+  />
+  <TopicCard
+    title="FFT & NTT"
+    href="/math/polynomials/fft"
+    description="Polynomial multiplication in O(n log n). Convolutions, NTT primes."
+    difficulty="hard"
+    time="6h"
+  />
+  <TopicCard
+    title="Sprague-Grundy"
+    href="/math/game-theory/sprague-grundy"
+    description="The universal theory of combinatorial games. Grundy values, XOR."
+    difficulty="medium"
+    time="3h"
+  />
+  <TopicCard
+    title="Convex Hull Trick"
+    href="/math/optimization/convex-hull-trick"
+    description="O(n log n) → O(n) DP optimization. Li Chao tree variant."
+    difficulty="hard"
+    time="4h"
+  />
+  <TopicCard
+    title="Aliens Trick"
+    href="/math/optimization/aliens-trick"
+    description="Lagrangian relaxation for DP with cardinality constraints."
+    difficulty="expert"
+    time="5h"
+  />
+  <TopicCard
+    title="SOS DP"
+    href="/math/bitmask/sos-dp"
+    description="Sum over subsets in O(n·2ⁿ). Zeta and Möbius transforms."
+    difficulty="medium"
+    time="2h"
+  />
+</TopicGrid>
+
+---
+
+## Quick Jump — Data Structures
+
+<TopicGrid>
+  <TopicCard
+    title="Fenwick Tree"
+    href="/ds/fenwick/classic-bit"
+    description="Binary Indexed Tree — the most elegant range query structure."
+    difficulty="easy"
+    time="2h"
+  />
+  <TopicCard
+    title="Segment Tree"
+    href="/ds/segment-tree/basic"
+    description="The universal range query engine. Lazy propagation and variants."
+    difficulty="medium"
+    time="5h"
+  />
+  <TopicCard
+    title="Lazy Propagation"
+    href="/ds/segment-tree/lazy-propagation"
+    description="Range updates in O(log n). The most important segment tree technique."
+    difficulty="medium"
+    time="3h"
+  />
+  <TopicCard
+    title="Segment Tree Beats"
+    href="/ds/segment-tree/segment-tree-beats"
+    description="Range chmin/chmax with sum queries. Ji driver segmentation."
+    difficulty="expert"
+    time="5h"
+  />
+  <TopicCard
+    title="Union-Find (DSU)"
+    href="/ds/dsu/classic"
+    description="Path compression + union by rank = near O(1) per operation."
+    difficulty="easy"
+    time="2h"
+  />
+  <TopicCard
+    title="Sparse Table"
+    href="/ds/sparse/sparse-table"
+    description="O(n log n) build, O(1) RMQ. Idempotent operations only."
+    difficulty="easy"
+    time="1h"
+  />
+  <TopicCard
+    title="Treap"
+    href="/ds/balanced-bst/treap"
+    description="Randomized BST. Elegant, fast, persistent-friendly."
+    difficulty="hard"
+    time="4h"
+  />
+  <TopicCard
+    title="Heavy-Light Decomp"
+    href="/ds/graph-structures/hld"
+    description="Path queries on trees in O(log² n). The tree query workhorse."
+    difficulty="hard"
+    time="5h"
+  />
+  <TopicCard
+    title="Mo's Algorithm"
+    href="/ds/sqrt/mos-algorithm"
+    description="O((n+q)√n) offline range queries. Simple yet powerful."
+    difficulty="medium"
+    time="3h"
+  />
+</TopicGrid>
+
+---
+
+## Learning Paths
+
+| Goal | Path | Duration |
+|------|------|----------|
+| First contest (Div.4/Div.3) | [Beginner](/roadmaps/beginner) | 4–6 weeks |
+| Reach Codeforces Expert | [Intermediate](/roadmaps/intermediate) | 3–4 months |
+| Reach Codeforces Master | [Advanced](/roadmaps/advanced) | 6–12 months |
+| ICPC Regional qualifier | [ICPC](/roadmaps/icpc) | 8–12 months |
+| IOI / ICPC World Finals | [Expert](/roadmaps/expert) | 1–2 years |
+
+---
+
+## Problem Difficulty Scale
+
+| Label | Codeforces rating | USACO level | IOI level |
+|-------|-------------------|-------------|-----------|
+| **Beginner** | 800–1200 | Bronze | — |
+| **Easy** | 1200–1600 | Silver | — |
+| **Medium** | 1600–2100 | Gold | Easy |
+| **Hard** | 2100–2500 | Platinum | Medium |
+| **Expert** | 2500–3000 | — | Hard |
+| **Legendary** | 3000+ | — | IOI Gold |
+
+---
+
+## Why This Exists
+
+Existing resources are excellent but fragmented:
+- **cp-algorithms**: great explanations, missing many contest tricks
+- **USACO Guide**: US-centric, limited math depth
+- **KACTL**: template-focused, no teaching
+- **OI Wiki**: Chinese-primary, translation gaps
+- **Codeforces blogs**: scattered, inconsistent quality
+
+This handbook consolidates, extends, and improves all of them.
+
+---
+
+## Sources & Credits
+
+Built by synthesizing knowledge from: cp-algorithms, USACO Guide, OI Wiki, KACTL, Stanford ICPC Notebook, Codeforces EDU, AtCoder Library, top Codeforces blogs, IOI/ICPC problem archives.
+
+Every page includes citations. No content is copied verbatim — everything is consolidated, improved, and extended.

@@ -1,0 +1,99 @@
+---
+title: Polynomials & FFT
+description: Polynomial operations, FFT, NTT, and formal power series
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Polynomials & FFT
+
+<TopicGrid>
+  <TopicCard
+    title="Polynomial Basics"
+    href="/math/polynomials/polynomial-basics"
+    description="Representation, evaluation, arithmetic. Coefficient vs value form."
+    difficulty="easy"
+    time="1h"
+    tags={["polynomial", "evaluation", "roots"]}
+  />
+  <TopicCard
+    title="FFT — Fast Fourier Transform"
+    href="/math/polynomials/fft"
+    description="Polynomial multiplication in O(n log n). Cooley-Tukey algorithm."
+    difficulty="hard"
+    time="5h"
+    tags={["FFT", "DFT", "convolution", "complex"]}
+  />
+  <TopicCard
+    title="NTT — Number Theoretic Transform"
+    href="/math/polynomials/ntt"
+    description="Exact FFT over integer moduli. NTT-friendly primes."
+    difficulty="hard"
+    time="3h"
+    tags={["NTT", "998244353", "modular FFT"]}
+  />
+  <TopicCard
+    title="Formal Power Series"
+    href="/math/polynomials/formal-power-series"
+    description="Polynomial inverse, log, exp, sqrt. All O(n log n)."
+    difficulty="expert"
+    time="8h"
+    tags={["FPS", "poly inv", "poly log", "poly exp"]}
+  />
+  <TopicCard
+    title="Polynomial Operations"
+    href="/math/polynomials/polynomial-operations"
+    description="Division, GCD, power, composition using FPS primitives."
+    difficulty="expert"
+    time="4h"
+    tags={["poly div", "poly GCD", "composition"]}
+  />
+  <TopicCard
+    title="Multipoint Evaluation & Interpolation"
+    href="/math/polynomials/multipoint-eval"
+    description="Evaluate degree-n poly at n points in O(n log² n)."
+    difficulty="expert"
+    time="5h"
+    tags={["multipoint eval", "interpolation", "subproduct tree"]}
+  />
+  <TopicCard
+    title="Lagrange Interpolation"
+    href="/math/polynomials/lagrange-interpolation"
+    description="Recover polynomial from n+1 points. O(n²) naive, O(n log n) FPS."
+    difficulty="hard"
+    time="3h"
+    tags={["Lagrange", "interpolation", "reconstructing polynomial"]}
+  />
+  <TopicCard
+    title="Subset Sum Convolution"
+    href="/math/polynomials/subset-convolution"
+    description="Sum over subsets with cardinality constraint. O(n² 2^n)."
+    difficulty="expert"
+    time="4h"
+    tags={["subset sum conv", "ranked zeta", "OR conv"]}
+  />
+  <TopicCard
+    title="OR / AND / XOR Convolutions"
+    href="/math/polynomials/or-and-xor-conv"
+    description="Zeta, Möbius transforms for OR/AND. Walsh-Hadamard for XOR."
+    difficulty="hard"
+    time="3h"
+    tags={["OR conv", "AND conv", "XOR conv", "FWHT"]}
+  />
+  <TopicCard
+    title="Online Convolution"
+    href="/math/polynomials/online-convolution"
+    description="Compute convolution where each term depends on previous results."
+    difficulty="expert"
+    time="4h"
+    tags={["online conv", "CDQ", "divide-conquer"]}
+  />
+  <TopicCard
+    title="Chirp-Z & Bluestein FFT"
+    href="/math/polynomials/chirp-z"
+    description="FFT on non-power-of-2 sizes. Evaluate poly at geometric progression."
+    difficulty="expert"
+    time="3h"
+    tags={["Bluestein", "chirp-Z", "arbitrary n FFT"]}
+  />
+</TopicGrid>

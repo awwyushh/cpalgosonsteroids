@@ -1,0 +1,237 @@
+---
+title: Matrix Exponentiation
+description: Compute linear recurrences in O(k³ log n) — essential contest tool
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Matrix Exponentiation
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Matrix exponentiation computes the $n$-th term of any linear recurrence in $O(k^3 \log n)$ where $k$ is the recurrence order.
+
+Without it: computing $F_n$ (Fibonacci) for $n = 10^{18}$ is impossible naively. With it: trivial.
+
+**Contest relevance**: Codeforces Div.2 D/E, any problem with "linear recurrence + huge $n$" or "counting walks in graph of length $n$".
+
+---
+
+## Linear Recurrences
+
+A **linear recurrence** of order $k$:
+
+$$f(n) = c_1 f(n-1) + c_2 f(n-2) + \cdots + c_k f(n-k)$$
+
+with initial values $f(0), f(1), \ldots, f(k-1)$.
+
+**Example**: Fibonacci: $F(n) = F(n-1) + F(n-2)$, $F(0) = 0$, $F(1) = 1$.
+
+We can write this as a **matrix recurrence**:
+
+$$\begin{pmatrix} F(n+1) \\ F(n) \end{pmatrix} = \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix} \begin{pmatrix} F(n) \\ F(n-1) \end{pmatrix}$$
+
+Then:
+
+$$\begin{pmatrix} F(n+1) \\ F(n) \end{pmatrix} = \begin{pmatrix} 1 & 1 \\ 1 & 0 \end{pmatrix}^n \begin{pmatrix} F(1) \\ F(0) \end{pmatrix}$$
+
+Computing $M^n$ via fast exponentiation: $O(k^3 \log n)$.
+
+---
+
+## General Framework
+
+For recurrence $f(n) = c_1 f(n-1) + \cdots + c_k f(n-k)$:
+
+**Transition matrix** $M$ (size $k \times k$):
+
+$$M = \begin{pmatrix} c_1 & c_2 & c_3 & \cdots & c_{k-1} & c_k \\ 1 & 0 & 0 & \cdots & 0 & 0 \\ 0 & 1 & 0 & \cdots & 0 & 0 \\ \vdots & & \ddots & & & \vdots \\ 0 & 0 & \cdots & 1 & 0 & 0 \end{pmatrix}$$
+
+**State vector** $v = (f(n-1), f(n-2), \ldots, f(n-k))^T$.
+
+**Recurrence**: $v(n) = M \cdot v(n-1)$, so $v(n) = M^{n-k+1} \cdot v(k-1)$.
+
+---
+
+## Implementation
+
+```cpp
+typedef long long ll;
+typedef vector<vector<ll>> Matrix;
+const ll MOD = 1e9 + 7;
+
+Matrix multiply(const Matrix& A, const Matrix& B) {
+    int n = A.size();
+    Matrix C(n, vector<ll>(n, 0));
+    for (int i = 0; i < n; i++)
+        for (int k = 0; k < n; k++)
+            if (A[i][k])
+                for (int j = 0; j < n; j++)
+                    C[i][j] = (C[i][j] + A[i][k] % MOD * B[k][j]) % MOD;
+    return C;
+}
+
+Matrix matpow(Matrix A, ll p) {
+    int n = A.size();
+    Matrix R(n, vector<ll>(n, 0));
+    for (int i = 0; i < n; i++) R[i][i] = 1;  // identity
+    for (; p; p >>= 1) {
+        if (p & 1) R = multiply(R, A);
+        A = multiply(A, A);
+    }
+    return R;
+}
+
+// Fibonacci: F(n) for huge n
+ll fibonacci(ll n) {
+    if (n <= 1) return n;
+    Matrix M = {{1, 1}, {1, 0}};
+    Matrix Mn = matpow(M, n - 1);
+    return Mn[0][0];  // F(n) = Mn[0][0] * F(1) + Mn[0][1] * F(0) = Mn[0][0]
+}
+```
+
+---
+
+## Beyond Simple Recurrences
+
+Matrix exponentiation handles:
+
+### Recurrence with Non-Constant Terms
+
+$f(n) = 2f(n-1) + n$
+
+Add $n$ as part of the state: augment the vector with $\{f(n), n, 1\}$.
+
+Transition:
+$$\begin{pmatrix} f(n+1) \\ n+1 \\ 1 \end{pmatrix} = \begin{pmatrix} 2 & 1 & 0 \\ 0 & 1 & 1 \\ 0 & 0 & 1 \end{pmatrix} \begin{pmatrix} f(n) \\ n \\ 1 \end{pmatrix}$$
+
+### Counting Walks of Length $n$
+
+Number of walks of length $n$ from node $i$ to node $j$ in graph = $A^n[i][j]$ where $A$ is the adjacency matrix.
+
+```cpp
+// Count paths of length n from src to dst
+ll count_paths(vector<vector<int>>& adj, int n, ll steps, int src, int dst) {
+    Matrix A(n, vector<ll>(n, 0));
+    for (int i = 0; i < n; i++)
+        for (int j : adj[i]) A[i][j]++;
+    Matrix An = matpow(A, steps);
+    return An[src][dst];
+}
+```
+
+### Multiple Recurrences (System)
+
+For multiple interdependent sequences, stack them all into one big state vector.
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Matrix multiply (k×k)", time: "O(k³)", space: "O(k²)" },
+  { operation: "Matrix exponentiation M^n", time: "O(k³ log n)", space: "O(k²)" },
+  { operation: "Fibonacci F(n)", time: "O(log n)", space: "O(1)", note: "k=2, so k³=8" },
+  { operation: "Order-k recurrence", time: "O(k³ log n)", space: "O(k²)" },
+  { operation: "Graph walks (n nodes)", time: "O(n³ log steps)", space: "O(n²)" },
+]} />
+
+---
+
+## Common Patterns
+
+### Tiling Problems
+
+Count ways to tile a $k \times n$ grid: state = last column's fill pattern.
+
+### Counting Strings with Forbidden Patterns
+
+Build automaton (DFA), transition matrix is DFA's transition function.
+
+### DP with Recurrence
+
+Any DP where $dp[i]$ depends linearly on $dp[i-1], \ldots, dp[i-k]$ → matrix exponentiation.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Fibonacci Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1722",
+    difficulty: "1200",
+    concepts: ["matrix exponentiation", "Fibonacci"],
+    tier: "warmup"
+  },
+  {
+    name: "Josephus Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2164",
+    difficulty: "1600",
+    concepts: ["matrix exponentiation"],
+    tier: "standard"
+  },
+  {
+    name: "Count Paths",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1422/F",
+    difficulty: "2100",
+    concepts: ["matrix exponentiation", "graph walks"],
+    tier: "standard"
+  },
+  {
+    name: "Vasya and Magic Matrix",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1042/E",
+    difficulty: "2000",
+    concepts: ["matrix exponentiation", "linear recurrence"],
+    tier: "standard"
+  },
+  {
+    name: "Working out",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/196/E",
+    difficulty: "2300",
+    concepts: ["matrix exponentiation", "DP", "segment tree"],
+    tier: "advanced"
+  },
+  {
+    name: "Permutations of length n",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033F",
+    difficulty: "2400",
+    concepts: ["matrix exponentiation", "counting permutations"],
+    tier: "advanced"
+  },
+  {
+    name: "Number of Sequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/233/E",
+    difficulty: "2500",
+    concepts: ["matrix exponentiation", "complex recurrence"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Matrix Exponentiation](https://cp-algorithms.com/algebra/matrix-exp.html)
+2. USACO Guide — [Matrix Exponentiation](https://usaco.guide/plat/matrix-expo)
+3. Codeforces Blog — *Matrix Exponentiation for DP Optimization*

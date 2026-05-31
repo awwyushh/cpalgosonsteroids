@@ -1,0 +1,22 @@
+{
+  "index": {
+    "title": "Home",
+    "display": "hidden"
+  },
+  "math": {
+    "title": "⚡ Mathematics",
+    "type": "page"
+  },
+  "ds": {
+    "title": "🌲 Data Structures",
+    "type": "page"
+  },
+  "roadmaps": {
+    "title": "🗺️ Roadmaps",
+    "type": "page"
+  },
+  "reference": {
+    "title": "📖 Reference",
+    "type": "page"
+  }
+}

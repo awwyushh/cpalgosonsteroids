@@ -1,0 +1,424 @@
+---
+title: Basic Segment Tree
+description: Complete guide to segment trees — recursive and iterative implementations, range queries
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Basic Segment Tree
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-easy">Core DS</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Arrays & Prefix Sums", href: "/ds/basic/arrays" },
+  { title: "Complexity Analysis", href: "/ds/foundations/complexity" }
+]} />
+
+## Why This Topic Matters
+
+The segment tree is the most powerful general-purpose range query data structure. It handles queries and updates on intervals in $O(\log n)$ — far better than the $O(n)$ naive approach.
+
+**Contest relevance**: Appears in hundreds of Codeforces problems from Div.2 D to Div.1 F. Any time you see "range query + point update" or "range update + range query", think segment tree.
+
+---
+
+## Learning Objectives
+
+- Understand the recursive structure of segment trees
+- Build a segment tree for range sum, range minimum queries
+- Implement point updates in $O(\log n)$
+- Implement range queries in $O(\log n)$
+- Write both recursive and iterative (bottom-up) implementations
+
+---
+
+## Intuition
+
+A **segment tree** stores aggregate information for intervals of an array.
+
+For an array of $n$ elements:
+- The **root** stores the aggregate for the whole array $[0, n-1]$
+- Each node's **left child** covers the left half, **right child** covers the right half
+- **Leaf nodes** store individual elements
+- Any segment $[l, r]$ can be decomposed into $O(\log n)$ nodes of the tree
+
+**Key insight**: at each level of the tree, the segments cover the entire array without overlap. There are $O(\log n)$ levels. Any range $[l, r]$ intersects at most 2 segments per level → $O(\log n)$ nodes per query.
+
+---
+
+## Formal Structure
+
+For array $A[0 \ldots n-1]$, the segment tree is a complete binary tree:
+- Node 1 covers $[0, n-1]$
+- Node $v$ covering $[l, r]$ has:
+  - Left child $2v$ covering $[l, \text{mid}]$ where $\text{mid} = (l+r)/2$
+  - Right child $2v+1$ covering $[\text{mid}+1, r]$
+- Node $v$ stores $f(A[l], A[l+1], \ldots, A[r])$ for some function $f$
+
+The function $f$ must be a **monoid** operation: associative, with an identity element. Examples:
+- Sum: $f = +$, identity = 0
+- Minimum: $f = \min$, identity = $\infty$
+- Maximum: $f = \max$, identity = $-\infty$
+- GCD: $f = \gcd$, identity = 0
+- Bitwise OR: $f = \text{or}$, identity = 0
+- Product: $f = \times$, identity = 1
+
+---
+
+## Recursive Implementation (Range Sum)
+
+```cpp
+struct SegTree {
+    int n;
+    vector<long long> tree;
+
+    SegTree(int n) : n(n), tree(4 * n, 0) {}
+
+    // Build from array
+    void build(vector<int>& a, int v, int l, int r) {
+        if (l == r) { tree[v] = a[l]; return; }
+        int mid = (l + r) / 2;
+        build(a, 2*v, l, mid);
+        build(a, 2*v+1, mid+1, r);
+        tree[v] = tree[2*v] + tree[2*v+1];
+    }
+
+    void build(vector<int>& a) { build(a, 1, 0, n-1); }
+
+    // Point update: set a[pos] = val
+    void update(int v, int l, int r, int pos, long long val) {
+        if (l == r) { tree[v] = val; return; }
+        int mid = (l + r) / 2;
+        if (pos <= mid) update(2*v, l, mid, pos, val);
+        else update(2*v+1, mid+1, r, pos, val);
+        tree[v] = tree[2*v] + tree[2*v+1];
+    }
+
+    void update(int pos, long long val) { update(1, 0, n-1, pos, val); }
+
+    // Range query: sum of a[ql..qr]
+    long long query(int v, int l, int r, int ql, int qr) {
+        if (ql > r || qr < l) return 0;           // out of range
+        if (ql <= l && r <= qr) return tree[v];   // fully covered
+        int mid = (l + r) / 2;
+        return query(2*v, l, mid, ql, qr) +
+               query(2*v+1, mid+1, r, ql, qr);
+    }
+
+    long long query(int ql, int qr) { return query(1, 0, n-1, ql, qr); }
+};
+```
+
+**Why `4 * n`?** The tree has at most $4n$ nodes. A safe upper bound. (Actual: $2 \cdot 2^{\lceil \log_2 n \rceil} \leq 4n$.)
+
+---
+
+## Generic Segment Tree
+
+A template for any monoid operation:
+
+```cpp
+template<typename T>
+struct SegTree {
+    int n;
+    vector<T> tree;
+    T identity;
+    function<T(T, T)> combine;
+
+    SegTree(int n, T identity, function<T(T,T)> combine)
+        : n(n), tree(4*n, identity), identity(identity), combine(combine) {}
+
+    void build(vector<T>& a, int v = 1, int l = 0, int r = -1) {
+        if (r == -1) r = n - 1;
+        if (l == r) { tree[v] = a[l]; return; }
+        int mid = (l + r) / 2;
+        build(a, 2*v, l, mid);
+        build(a, 2*v+1, mid+1, r);
+        tree[v] = combine(tree[2*v], tree[2*v+1]);
+    }
+
+    void update(int pos, T val, int v = 1, int l = 0, int r = -1) {
+        if (r == -1) r = n - 1;
+        if (l == r) { tree[v] = val; return; }
+        int mid = (l + r) / 2;
+        if (pos <= mid) update(pos, val, 2*v, l, mid);
+        else update(pos, val, 2*v+1, mid+1, r);
+        tree[v] = combine(tree[2*v], tree[2*v+1]);
+    }
+
+    T query(int ql, int qr, int v = 1, int l = 0, int r = -1) {
+        if (r == -1) r = n - 1;
+        if (ql > r || qr < l) return identity;
+        if (ql <= l && r <= qr) return tree[v];
+        int mid = (l + r) / 2;
+        return combine(query(ql, qr, 2*v, l, mid),
+                       query(ql, qr, 2*v+1, mid+1, r));
+    }
+};
+
+// Usage examples:
+// Range sum: SegTree<long long>(n, 0, [](long long a, long long b){ return a+b; })
+// Range min: SegTree<int>(n, INT_MAX, [](int a, int b){ return min(a,b); })
+// Range max: SegTree<int>(n, INT_MIN, [](int a, int b){ return max(a,b); })
+// Range GCD: SegTree<int>(n, 0, __gcd<int>)
+```
+
+---
+
+## Iterative (Bottom-Up) Segment Tree
+
+Faster in practice due to no recursion overhead. More cache-friendly.
+
+```cpp
+struct SegTreeIter {
+    int n;
+    vector<long long> tree;
+
+    SegTreeIter(int n) : n(n), tree(2 * n, 0) {}
+
+    // Build from array (1-indexed leaves: n..2n-1)
+    void build(vector<int>& a) {
+        for (int i = 0; i < n; i++) tree[n + i] = a[i];
+        for (int i = n - 1; i >= 1; i--) tree[i] = tree[2*i] + tree[2*i+1];
+    }
+
+    // Point update
+    void update(int pos, long long val) {
+        pos += n;
+        tree[pos] = val;
+        for (pos >>= 1; pos >= 1; pos >>= 1)
+            tree[pos] = tree[2*pos] + tree[2*pos+1];
+    }
+
+    // Range sum query [l, r]
+    long long query(int l, int r) {
+        long long res = 0;
+        for (l += n, r += n + 1; l < r; l >>= 1, r >>= 1) {
+            if (l & 1) res += tree[l++];
+            if (r & 1) res += tree[--r];
+        }
+        return res;
+    }
+};
+```
+
+**Advantage over recursive**: constant factor ~2–3x faster, simpler stack usage.
+
+**Disadvantage**: lazy propagation is harder to implement iteratively (see [Lazy Propagation](/ds/segment-tree/lazy-propagation)).
+
+---
+
+## Segment Tree with Coordinates
+
+For queries on indices that aren't dense integers, use coordinate compression first:
+
+```cpp
+// Compress coordinates
+vector<int> coords = {/* all relevant values */};
+sort(coords.begin(), coords.end());
+coords.erase(unique(coords.begin(), coords.end()), coords.end());
+auto compress = [&](int x) {
+    return lower_bound(coords.begin(), coords.end(), x) - coords.begin();
+};
+```
+
+Then build the segment tree on compressed coordinates.
+
+---
+
+## Walking the Segment Tree
+
+A powerful technique: instead of querying a fixed range, **descend** based on stored values.
+
+**Example**: Find the leftmost position where prefix sum exceeds $k$.
+
+```cpp
+int find_kth(int v, int l, int r, long long k) {
+    if (l == r) return l;
+    int mid = (l + r) / 2;
+    if (tree[2*v] >= k) return find_kth(2*v, l, mid, k);
+    return find_kth(2*v+1, mid+1, r, k - tree[2*v]);
+}
+```
+
+Applications:
+- Find $k$-th element in a frequency array
+- Binary search on prefix sums
+- Online order statistics
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Build", time: "O(n)", space: "O(n)" },
+  { operation: "Point update", time: "O(log n)", space: "O(1)" },
+  { operation: "Range query", time: "O(log n)", space: "O(log n) stack" },
+  { operation: "Walk / binary search on tree", time: "O(log n)", space: "O(log n) stack" },
+  { operation: "Space (node array)", time: "—", space: "O(4n)" },
+]} />
+
+---
+
+## When NOT to Use a Segment Tree
+
+- **Static range queries (no updates)**: use Sparse Table for $O(1)$ queries
+- **Only prefix queries**: use Fenwick tree (simpler, smaller constant)
+- **Very small $n$** ($n \leq 1000$): brute force is fine
+- **Point queries only**: just an array
+- **Memory-critical**: BIT uses $2\times$ less memory
+
+---
+
+## Common Patterns
+
+### Pattern 1: Range Min/Max + Argmin/Argmax
+
+```cpp
+struct Node { int val, idx; };
+Node combine(Node a, Node b) {
+    return a.val <= b.val ? a : b;
+}
+// Tree of {value, index} pairs
+```
+
+### Pattern 2: Multiple Values per Node
+
+```cpp
+struct Node {
+    long long sum, min_val, max_val;
+};
+Node combine(Node a, Node b) {
+    return {a.sum + b.sum, min(a.min_val, b.min_val), max(a.max_val, b.max_val)};
+}
+```
+
+### Pattern 3: Segment Tree for 2D Prefix Queries
+
+Build a segment tree where each node stores a sorted array or BIT (merge sort tree).
+
+---
+
+## Common Mistakes
+
+1. **Wrong identity element**: for range min, identity is `INT_MAX` (not 0).
+2. **1-indexed vs 0-indexed**: be consistent. Iterative is usually 0-indexed.
+3. **Out-of-bounds update**: querying or updating outside $[0, n-1]$.
+4. **Off-by-one in iterative**: the range `[l, r+1)` convention in iterative implementations.
+5. **Forgetting to rebuild**: after changing the function, must rebuild.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Range Sum Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1648",
+    difficulty: "1200",
+    concepts: ["segment tree", "point update", "range sum"],
+    why: "Classic intro problem",
+    tier: "warmup"
+  },
+  {
+    name: "Range Minimum Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1649",
+    difficulty: "1200",
+    concepts: ["segment tree", "range min"],
+    tier: "warmup"
+  },
+  {
+    name: "Ynoi2015 — No-Go Queries",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/940/F",
+    difficulty: "1800",
+    concepts: ["segment tree", "offline queries"],
+    tier: "standard"
+  },
+  {
+    name: "Distinct Values Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1734",
+    difficulty: "1700",
+    concepts: ["segment tree", "offline", "last occurrence"],
+    trick: "Process queries sorted by right endpoint; for each element keep only its last occurrence",
+    tier: "standard"
+  },
+  {
+    name: "Increasing Subsequence II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1748",
+    difficulty: "1600",
+    concepts: ["segment tree", "LIS", "coordinate compression"],
+    tier: "standard"
+  },
+  {
+    name: "A Simple Task",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/558/problem/E",
+    difficulty: "2200",
+    concepts: ["segment tree", "sort", "26 segment trees"],
+    trick: "One segment tree per character; range sort = count chars then refill",
+    tier: "advanced"
+  },
+  {
+    name: "The Queue",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/949/E",
+    difficulty: "2400",
+    concepts: ["segment tree", "walk on tree", "offline"],
+    tier: "advanced"
+  },
+  {
+    name: "Kth Order Statistics",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1093/G",
+    difficulty: "2500",
+    concepts: ["segment tree", "walk", "kth element"],
+    tier: "killer"
+  },
+  {
+    name: "Sereja and Brackets",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/380/C",
+    difficulty: "2100",
+    concepts: ["segment tree", "bracket sequences", "complex merge"],
+    trick: "Node stores (matched, open, close) — merge two nodes = combine bracket counts",
+    tier: "killer"
+  },
+  {
+    name: "Ynoi2011 — D4",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1093/G",
+    difficulty: "2700",
+    concepts: ["segment tree", "merge sort tree", "offline"],
+    tier: "legendary"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Lazy Propagation](/ds/segment-tree/lazy-propagation) — range updates
+- [Segment Tree Beats](/ds/segment-tree/segment-tree-beats) — range chmin/chmax
+- [Persistent Segment Tree](/ds/segment-tree/persistent) — versioned queries
+- [Fenwick Tree](/ds/fenwick/classic-bit) — simpler, for pure prefix sums
+- [Sparse Table](/ds/sparse/sparse-table) — $O(1)$ RMQ, no updates
+
+---
+
+## References
+
+1. cp-algorithms — [Segment Tree](https://cp-algorithms.com/data_structures/segment_tree.html)
+2. USACO Guide — [Segment Tree](https://usaco.guide/gold/segtree-intro)
+3. Codeforces EDU — Segment Tree Step 1 & 2
+4. OI Wiki — 线段树

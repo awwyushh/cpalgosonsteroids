@@ -1,0 +1,186 @@
+---
+title: Data Structures
+description: Complete CP Data Structures reference — from arrays to link-cut trees
+---
+
+import { TopicCard, TopicGrid } from '../../components/TopicCard'
+
+# CP Data Structures
+
+Every data structure a competitive programmer needs — from beginner to ICPC World Finals level.
+
+---
+
+## Curriculum Overview
+
+<TopicGrid>
+  <TopicCard
+    title="Foundations"
+    href="/ds/foundations"
+    description="Complexity theory, amortized analysis, memory models, cache friendliness, generic programming."
+    difficulty="beginner"
+    tags={["complexity", "amortized", "cache", "templates"]}
+  />
+  <TopicCard
+    title="Basic Structures"
+    href="/ds/basic"
+    description="Arrays, prefix sums, difference arrays, stacks, queues, monotonic stacks/queues."
+    difficulty="beginner"
+    tags={["array", "prefix sum", "stack", "monotone"]}
+  />
+  <TopicCard
+    title="Associative Containers"
+    href="/ds/associative"
+    description="Sets, maps, policy-based structures, order statistics, custom hash maps."
+    difficulty="easy"
+    tags={["set", "map", "PBDS", "hash"]}
+  />
+  <TopicCard
+    title="Fenwick Tree"
+    href="/ds/fenwick"
+    description="BIT variants: classic, range update, 2D, persistent. Inversions, offline counting."
+    difficulty="easy"
+    tags={["BIT", "prefix sum", "inversions"]}
+  />
+  <TopicCard
+    title="Segment Tree"
+    href="/ds/segment-tree"
+    description="Core to advanced: lazy propagation, beats, persistent, Li Chao, wavelet, 2D."
+    difficulty="medium"
+    tags={["segtree", "lazy", "beats", "persistent"]}
+  />
+  <TopicCard
+    title="Sparse Structures"
+    href="/ds/sparse"
+    description="Sparse table for O(1) RMQ, disjoint sparse table, sqrt tree, Fischer-Heun."
+    difficulty="easy"
+    tags={["RMQ", "O(1) query", "sparse table"]}
+  />
+  <TopicCard
+    title="Sqrt Decomposition"
+    href="/ds/sqrt"
+    description="Sqrt buckets, Mo's algorithm, Mo with updates, Mo on trees, Hilbert order."
+    difficulty="medium"
+    tags={["sqrt", "Mo's", "offline"]}
+  />
+  <TopicCard
+    title="Balanced BST"
+    href="/ds/balanced-bst"
+    description="Treap, implicit treap, FHQ treap, splay tree, rope, AVL, red-black."
+    difficulty="hard"
+    tags={["treap", "splay", "rope", "implicit"]}
+  />
+  <TopicCard
+    title="Heap Ecosystem"
+    href="/ds/heap"
+    description="Binary heap to Fibonacci heap. Pairing heaps, meldable heaps, persistent heap."
+    difficulty="medium"
+    tags={["heap", "priority queue", "fibonacci", "pairing"]}
+  />
+  <TopicCard
+    title="Disjoint Set (DSU)"
+    href="/ds/dsu"
+    description="Classic DSU, weighted, bipartite, rollback, persistent, DSU on trees."
+    difficulty="easy"
+    tags={["union-find", "path compression", "DSU on trees"]}
+  />
+  <TopicCard
+    title="Trie Universe"
+    href="/ds/trie"
+    description="Basic trie, compressed, binary/XOR trie, persistent trie, Aho-Corasick."
+    difficulty="medium"
+    tags={["trie", "XOR", "Aho-Corasick", "persistent"]}
+  />
+  <TopicCard
+    title="String Structures"
+    href="/ds/strings"
+    description="Suffix array, LCP, suffix automaton, suffix tree, palindromic tree, Z-function."
+    difficulty="hard"
+    tags={["SA", "SAM", "suffix tree", "eertree"]}
+  />
+  <TopicCard
+    title="Graph-Oriented"
+    href="/ds/graph-structures"
+    description="HLD, centroid decomposition, virtual trees, link-cut trees, top trees."
+    difficulty="hard"
+    tags={["HLD", "centroid", "LCT", "top tree"]}
+  />
+  <TopicCard
+    title="Geometry Structures"
+    href="/ds/geometry-structures"
+    description="KD tree, range tree, interval tree, dynamic convex hull, Li Chao tree."
+    difficulty="hard"
+    tags={["KD tree", "range tree", "convex hull"]}
+  />
+  <TopicCard
+    title="Persistence"
+    href="/ds/persistence"
+    description="Persistent segment tree, trie, treap, DSU. Partial vs full persistence."
+    difficulty="hard"
+    tags={["persistent", "version", "retroactive"]}
+  />
+  <TopicCard
+    title="Dynamic Connectivity"
+    href="/ds/dynamic-connectivity"
+    description="Offline dynamic connectivity via rollback DSU, link-cut trees, Holm structure."
+    difficulty="expert"
+    tags={["dynamic connectivity", "offline", "LCT"]}
+  />
+  <TopicCard
+    title="Bitwise Structures"
+    href="/ds/bitwise"
+    description="Binary trie, XOR basis, persistent XOR basis, bitset optimizations, SOS structures."
+    difficulty="medium"
+    tags={["XOR", "basis", "bitset", "SOS"]}
+  />
+  <TopicCard
+    title="Probabilistic"
+    href="/ds/probabilistic"
+    description="Skip lists, randomized BST, hash tables, Bloom filters, Count-Min Sketch."
+    difficulty="medium"
+    tags={["skip list", "hash", "bloom filter"]}
+  />
+  <TopicCard
+    title="Research / Legendary"
+    href="/ds/advanced"
+    description="Van Emde Boas, X/Y-fast tries, fusion trees, succinct structures, kinetic DS."
+    difficulty="legendary"
+    tags={["vEB", "fusion tree", "succinct", "kinetic"]}
+  />
+</TopicGrid>
+
+---
+
+## DS Learning Roadmap
+
+```
+Level 1 — Beginner
+  Array, Prefix Sum, Stack, Queue, Set, Map, BIT
+
+Level 2 — Intermediate
+  Segment Tree + Lazy, DSU, Trie, Sparse Table, Mo's Algorithm
+
+Level 3 — Advanced
+  Persistent Segtree, Li Chao Tree, Wavelet Tree,
+  Rollback DSU, Centroid Decomp, HLD, Implicit Treap
+
+Level 4 — Elite
+  Link-Cut Tree, Top Tree, Euler Tour Tree,
+  Dynamic Connectivity, Suffix Automaton, Palindromic Tree
+
+Level 5 — Research
+  Van Emde Boas, Fusion Trees, Succinct Structures,
+  Kinetic Data Structures, Dynamic Wavelet Trees
+```
+
+---
+
+## References
+
+- cp-algorithms — Data Structures section
+- USACO Guide — Data Structures module
+- OI Wiki — 数据结构
+- KACTL (KTH ACM-ICPC Template Library)
+- Stanford ICPC Notebook
+- Codeforces EDU — DSU, Segment Tree courses
+- AtCoder Library source code

@@ -1,0 +1,14 @@
+{
+  "index": "Overview",
+  "vectors": "Vectors & Dot/Cross Products",
+  "segment-intersection": "Segment & Line Intersection",
+  "convex-hull": "Convex Hull",
+  "polygon-area": "Polygon Area & Shoelace",
+  "point-in-polygon": "Point in Polygon",
+  "pick-theorem": "Pick's Theorem",
+  "rotating-calipers": "Rotating Calipers",
+  "half-plane-intersection": "Half-Plane Intersection",
+  "minkowski-sum": "Minkowski Sum",
+  "3d-geometry": "3D Geometry Basics",
+  "circles": "Circle Geometry"
+}

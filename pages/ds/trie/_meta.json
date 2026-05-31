@@ -1,0 +1,9 @@
+{
+  "index": "Overview",
+  "basic-trie": "Basic Trie",
+  "compressed-trie": "Compressed & Radix Trie",
+  "binary-trie": "Binary / XOR Trie",
+  "persistent-trie": "Persistent Trie",
+  "aho-corasick": "Aho-Corasick Automaton",
+  "suffix-trie": "Suffix Trie"
+}

@@ -1,0 +1,13 @@
+{
+  "index": "All Roadmaps",
+  "beginner": "Beginner Path",
+  "intermediate": "Intermediate Path",
+  "advanced": "Advanced Path",
+  "expert": "Expert Path",
+  "icpc": "ICPC Roadmap",
+  "codeforces": "Codeforces Roadmap",
+  "olympiad": "Olympiad (IOI) Roadmap",
+  "fft-mastery": "Polynomial & FFT Mastery",
+  "geometry-mastery": "Geometry Mastery",
+  "game-theory-mastery": "Game Theory Mastery"
+}

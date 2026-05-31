@@ -1,0 +1,11 @@
+{
+  "index": "Overview",
+  "groups-rings-fields": "Groups, Rings & Fields",
+  "finite-fields": "Finite Fields",
+  "permutation-groups": "Permutation Groups",
+  "cycle-decomposition": "Cycle Decomposition",
+  "permutation-exp": "Permutation Exponentiation",
+  "semirings": "Semirings (Min-Plus, Max-Plus)",
+  "matrix-semirings": "Matrix Exponentiation over Semirings",
+  "boolean-algebra": "Boolean Algebra & Bitwise"
+}

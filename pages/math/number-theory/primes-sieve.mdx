@@ -1,0 +1,405 @@
+---
+title: Primes & Sieves
+description: Complete guide to prime generation — trial division, Sieve of Eratosthenes, segmented sieve, linear sieve
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Primes & Sieves
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" },
+  { title: "GCD & LCM", href: "/math/foundations/gcd-lcm" }
+]} />
+
+## Why This Topic Matters
+
+Primes are the atoms of number theory. Prime testing and generation appear in:
+- Factorization problems (counting divisors, Euler phi)
+- Number theory sieve-based problems
+- Multiplicative function computation
+- Cryptography-style CP problems
+
+**Contest relevance**: Codeforces Div.2 C/D, AtCoder ABC D/E, CSES Number Theory section, IOI.
+
+---
+
+## Learning Objectives
+
+- Test whether a single number is prime in $O(\sqrt{n})$
+- Generate all primes up to $n$ in $O(n \log \log n)$ via Sieve of Eratosthenes
+- Generate primes in a range $[L, R]$ via segmented sieve
+- Build a linear sieve in $O(n)$ with smallest prime factor table
+- Use the SPF table for fast factorization
+
+---
+
+## Primality Testing
+
+### Trial Division
+
+A number $n$ is prime if it has no divisors other than 1 and itself.
+
+**Key insight**: if $n$ has a divisor $d > 1$, then $\min(d, n/d) \leq \sqrt{n}$.
+
+So we only need to check divisors up to $\sqrt{n}$:
+
+```cpp
+bool is_prime(long long n) {
+    if (n < 2) return false;
+    if (n == 2) return true;
+    if (n % 2 == 0) return false;
+    for (long long i = 3; i * i <= n; i += 2)
+        if (n % i == 0) return false;
+    return true;
+}
+```
+
+**Optimization**: check 2 separately, then only odd numbers. Further: check 2, 3, then numbers of form $6k \pm 1$.
+
+```cpp
+bool is_prime_fast(long long n) {
+    if (n < 2) return false;
+    if (n == 2 || n == 3) return true;
+    if (n % 2 == 0 || n % 3 == 0) return false;
+    for (long long i = 5; i * i <= n; i += 6)
+        if (n % i == 0 || n % (i+2) == 0) return false;
+    return true;
+}
+```
+
+**Complexity**: $O(\sqrt{n})$ per query.
+
+---
+
+## Sieve of Eratosthenes
+
+Generate all primes up to $n$.
+
+**Algorithm**:
+1. Start with all numbers $2 \ldots n$ marked as prime.
+2. For each prime $p$, mark all multiples $p^2, p^2+p, p^2+2p, \ldots$ as composite.
+3. Stop when $p^2 > n$.
+
+```cpp
+vector<bool> sieve(int n) {
+    vector<bool> is_prime(n + 1, true);
+    is_prime[0] = is_prime[1] = false;
+    for (int i = 2; (long long)i * i <= n; i++) {
+        if (is_prime[i]) {
+            for (int j = i * i; j <= n; j += i)
+                is_prime[j] = false;
+        }
+    }
+    return is_prime;
+}
+
+vector<int> get_primes(int n) {
+    auto is_prime = sieve(n);
+    vector<int> primes;
+    for (int i = 2; i <= n; i++)
+        if (is_prime[i]) primes.push_back(i);
+    return primes;
+}
+```
+
+**Why start from $p^2$?** All smaller multiples $p \cdot k$ for $k < p$ were already marked by a smaller prime $k$.
+
+**Complexity**: $O(n \log \log n)$ time, $O(n)$ space.
+
+<Callout type="theorem" title="Complexity Analysis">
+The sieve does $\sum_{p \leq n, p \text{ prime}} n/p$ operations. By Mertens' theorem, $\sum_{p \leq n} 1/p = \ln \ln n + O(1)$, giving $O(n \log \log n)$ total.
+</Callout>
+
+---
+
+## Linear Sieve
+
+The linear sieve runs in $O(n)$ time — every composite is crossed out **exactly once**.
+
+It also computes the **smallest prime factor (SPF)** table, enabling $O(\log n)$ factorization.
+
+```cpp
+const int MAXN = 1e7 + 5;
+int spf[MAXN];    // smallest prime factor
+vector<int> primes;
+
+void linear_sieve(int n) {
+    iota(spf, spf + n + 1, 0);  // spf[i] = i initially
+    for (int i = 2; i <= n; i++) {
+        if (spf[i] == i) primes.push_back(i);  // i is prime
+        for (int p : primes) {
+            if (p > spf[i] || (long long)i * p > n) break;
+            spf[i * p] = p;
+        }
+    }
+}
+
+// Factorize n in O(log n) using SPF table
+vector<int> factorize(int n) {
+    vector<int> factors;
+    while (n > 1) {
+        factors.push_back(spf[n]);
+        n /= spf[n];
+    }
+    return factors;
+}
+```
+
+**Why exactly $O(n)$?** Each composite $m$ is only marked by $p = \text{spf}[m]$. The inner loop breaks when $p > \text{spf}[i]$, ensuring each composite is encountered exactly once.
+
+---
+
+## Segmented Sieve
+
+Find all primes in $[L, R]$ where $R - L \leq 10^6$ but $R$ can be up to $10^{12}$.
+
+**Idea**: Generate small primes up to $\sqrt{R}$, then use them to sieve the segment $[L, R]$.
+
+```cpp
+vector<long long> segmented_sieve(long long L, long long R) {
+    int sqrtR = (int)sqrt((double)R) + 1;
+    auto small_primes = get_primes(sqrtR);
+
+    int len = R - L + 1;
+    vector<bool> is_prime(len, true);
+
+    if (L == 1) is_prime[0] = false;
+
+    for (int p : small_primes) {
+        long long start = max((long long)p * p, (L + p - 1) / p * p);
+        for (long long j = start; j <= R; j += p)
+            is_prime[j - L] = false;
+    }
+
+    vector<long long> result;
+    for (int i = 0; i < len; i++)
+        if (is_prime[i]) result.push_back(L + i);
+    return result;
+}
+```
+
+**Complexity**: $O(\sqrt{R} + (R-L) \log \log R)$ time, $O(\sqrt{R} + R - L)$ space.
+
+---
+
+## Smallest Prime Factor (SPF) Applications
+
+With the SPF table from the linear sieve:
+
+```cpp
+// Count divisors of n
+int count_divisors(int n) {
+    int result = 1;
+    while (n > 1) {
+        int p = spf[n], cnt = 0;
+        while (n % p == 0) { n /= p; cnt++; }
+        result *= (cnt + 1);
+    }
+    return result;
+}
+
+// Sum of divisors of n
+long long sum_divisors(int n) {
+    long long result = 1;
+    while (n > 1) {
+        int p = spf[n];
+        long long pk = 1;
+        while (n % p == 0) { n /= p; pk *= p; }
+        result *= (pk * p - 1) / (p - 1);
+    }
+    return result;
+}
+
+// Euler's phi for n
+int euler_phi(int n) {
+    int result = n;
+    // Factorize and apply formula
+    int temp = n;
+    while (temp > 1) {
+        int p = spf[temp];
+        result = result / p * (p - 1);
+        while (temp % p == 0) temp /= p;
+    }
+    return result;
+}
+```
+
+---
+
+## Sieve of Euler Phi (Sieve of Multiplicative Functions)
+
+Compute $\phi(n)$ for all $n \leq N$ in $O(N)$ using a sieve:
+
+```cpp
+void sieve_phi(int n, vector<int>& phi) {
+    phi.resize(n + 1);
+    iota(phi.begin(), phi.end(), 0);
+    for (int i = 2; i <= n; i++) {
+        if (phi[i] == i) {  // i is prime
+            for (int j = i; j <= n; j += i)
+                phi[j] = phi[j] / i * (i - 1);
+        }
+    }
+}
+```
+
+Similarly, precompute $\mu(n)$ (Möbius function) or any multiplicative function.
+
+---
+
+## Bitwise Sieve (Memory Optimization)
+
+For very large $n$ (up to $10^8$), use bitset to halve memory:
+
+```cpp
+#include <bitset>
+const int MAXN = 1e8 + 5;
+bitset<MAXN> not_prime;
+
+void bitwise_sieve(int n) {
+    not_prime[0] = not_prime[1] = 1;
+    for (int i = 2; (long long)i*i <= n; i++)
+        if (!not_prime[i])
+            for (int j = i*i; j <= n; j += i)
+                not_prime[j] = 1;
+}
+```
+
+**Space**: $N/8$ bytes. For $N = 10^8$: ~12.5 MB.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Trial division (single n)", time: "O(√n)", space: "O(1)" },
+  { operation: "Sieve of Eratosthenes up to n", time: "O(n log log n)", space: "O(n)" },
+  { operation: "Linear sieve up to n", time: "O(n)", space: "O(n)" },
+  { operation: "Segmented sieve [L, R]", time: "O(√R + (R-L) log log R)", space: "O(√R + R-L)" },
+  { operation: "Factorize with SPF table", time: "O(log n)", space: "O(1) after precompute" },
+  { operation: "Miller-Rabin (k rounds)", time: "O(k log² n)", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Count primes up to $n$**: `count(is_prime.begin(), is_prime.end(), true)`
+2. **$k$-th prime**: sieve, collect into array, index.
+3. **Goldbach's conjecture testing**: for each even $n$, check if $p$ and $n-p$ are both prime.
+4. **Twin primes**: consecutive primes differing by 2.
+5. **Prime gaps**: differences between consecutive primes.
+
+---
+
+## Common Mistakes
+
+1. **Sieve size off-by-one**: use `vector<bool>(n+1)`, index from 0 to n inclusive.
+2. **Starting inner loop at $i^2$**: `j = i*i` overflows `int` when `i > 46340`. Cast to `long long` or use `(long long)i*i <= n`.
+3. **Segmented sieve off-by-one**: `(L + p - 1) / p * p` to find first multiple ≥ L.
+4. **SPF sieve size**: must be large enough for your queries.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1713",
+    difficulty: "1000",
+    concepts: ["sieve", "factorization"],
+    tier: "warmup"
+  },
+  {
+    name: "Sum of Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1082",
+    difficulty: "1000",
+    concepts: ["sieve", "divisor sum"],
+    tier: "warmup"
+  },
+  {
+    name: "Primes and Squares",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/576/A",
+    difficulty: "1100",
+    concepts: ["sieve"],
+    tier: "warmup"
+  },
+  {
+    name: "Closest Primes",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1164",
+    difficulty: "1200",
+    concepts: ["sieve", "twin primes"],
+    tier: "standard"
+  },
+  {
+    name: "Count Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2431",
+    difficulty: "1600",
+    concepts: ["sieve", "inclusion-exclusion", "squarefree numbers"],
+    tier: "standard"
+  },
+  {
+    name: "Almost Prime",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/26/A",
+    difficulty: "1500",
+    concepts: ["sieve", "exactly 2 prime factors"],
+    tier: "standard"
+  },
+  {
+    name: "Lucky Numbers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/121/problem/A",
+    difficulty: "1800",
+    concepts: ["segmented sieve", "number theory"],
+    tier: "advanced"
+  },
+  {
+    name: "Necklace (Prime Sieve + DP)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/906/D",
+    difficulty: "2100",
+    concepts: ["sieve", "prime factorization", "DP"],
+    trick: "Factorize each number, apply knapsack DP on prime factors",
+    tier: "advanced"
+  },
+  {
+    name: "Number with Lots of Divisors",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/27/E",
+    difficulty: "2400",
+    concepts: ["sieve", "anti-prime", "greedy"],
+    tier: "advanced"
+  },
+  {
+    name: "Primes on Segment",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/237/C",
+    difficulty: "2200",
+    concepts: ["segmented sieve", "prefix sums"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Sieve of Eratosthenes](https://cp-algorithms.com/algebra/sieve-of-eratosthenes.html)
+2. cp-algorithms — [Linear Sieve](https://cp-algorithms.com/algebra/prime-sieve-linear.html)
+3. USACO Guide — [Intro to Number Theory](https://usaco.guide/gold/intro-nt)
+4. Atkin & Bernstein — *Prime sieves using binary quadratic forms* (2004)

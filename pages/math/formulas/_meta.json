@@ -1,0 +1,13 @@
+{
+  "index": "All Formula Sheets",
+  "modular-arithmetic-formulas": "Modular Arithmetic",
+  "number-theory-formulas": "Number Theory",
+  "combinatorics-formulas": "Combinatorics",
+  "geometry-formulas": "Geometry",
+  "probability-formulas": "Probability",
+  "linear-algebra-formulas": "Linear Algebra",
+  "polynomial-formulas": "Polynomials & FFT",
+  "game-theory-formulas": "Game Theory",
+  "dp-optimization-formulas": "DP Optimization Conditions",
+  "bitmask-formulas": "Bitmask Transforms"
+}

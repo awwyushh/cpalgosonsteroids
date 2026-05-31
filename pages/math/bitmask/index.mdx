@@ -1,0 +1,75 @@
+---
+title: Bitmask Mathematics
+description: SOS DP, subset convolution, Zeta/Möbius transforms, XOR basis
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Bitmask Mathematics
+
+<TopicGrid>
+  <TopicCard
+    title="Bit Operations & Tricks"
+    href="/math/bitmask/bit-operations"
+    description="lowbit, popcount, next permutation, Gray code, bit manipulation tricks."
+    difficulty="easy"
+    time="2h"
+    tags={["lowbit", "popcount", "bit tricks"]}
+  />
+  <TopicCard
+    title="Submask Enumeration"
+    href="/math/bitmask/submask-enumeration"
+    description="Enumerate all submasks of a mask in O(3^n) total."
+    difficulty="easy"
+    time="1h"
+    tags={["submask", "O(3^n)", "enumeration"]}
+  />
+  <TopicCard
+    title="SOS DP"
+    href="/math/bitmask/sos-dp"
+    description="Sum over subsets in O(n·2ⁿ). OR/AND/XOR zeta and Möbius transforms."
+    difficulty="medium"
+    time="3h"
+    tags={["SOS", "zeta", "Möbius", "OR conv"]}
+  />
+  <TopicCard
+    title="Zeta & Möbius Transform"
+    href="/math/bitmask/zeta-mobius"
+    description="Forward and inverse subset sum transforms. Divisor zeta for numbers."
+    difficulty="medium"
+    time="2h"
+    tags={["zeta", "Möbius", "inversion"]}
+  />
+  <TopicCard
+    title="Subset Convolution"
+    href="/math/bitmask/subset-convolution"
+    description="Convolve with popcount constraint. Ranked zeta transform."
+    difficulty="expert"
+    time="4h"
+    tags={["subset conv", "ranked zeta", "O(n² 2ⁿ)"]}
+  />
+  <TopicCard
+    title="XOR Basis"
+    href="/math/bitmask/xor-basis-bits"
+    description="Linear basis over GF(2). Max XOR, count XOR-reachable values."
+    difficulty="medium"
+    time="2h"
+    tags={["XOR basis", "linear basis", "GF(2)"]}
+  />
+  <TopicCard
+    title="Meet in the Middle"
+    href="/math/bitmask/meet-in-middle"
+    description="Split problem in half, solve independently, combine. O(2^{n/2}) from O(2^n)."
+    difficulty="medium"
+    time="2h"
+    tags={["MITM", "halving", "birthday attack"]}
+  />
+  <TopicCard
+    title="Gray Code"
+    href="/math/bitmask/gray-code"
+    description="Binary-reflected Gray code. Only one bit changes at each step."
+    difficulty="easy"
+    time="1h"
+    tags={["Gray code", "Hamming distance", "iterating subsets"]}
+  />
+</TopicGrid>

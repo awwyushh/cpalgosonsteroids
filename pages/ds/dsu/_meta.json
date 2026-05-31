@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "classic": "Union-Find (DSU)",
+  "weighted-dsu": "Weighted DSU",
+  "bipartite-dsu": "Bipartite DSU",
+  "rollback-dsu": "DSU with Rollback",
+  "persistent-dsu": "Persistent DSU",
+  "dsu-on-trees": "DSU on Trees (Small-to-Large)",
+  "offline-connectivity": "Offline Dynamic Connectivity"
+}

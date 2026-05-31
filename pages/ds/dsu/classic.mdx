@@ -1,0 +1,394 @@
+---
+title: Union-Find (DSU)
+description: Disjoint Set Union with path compression and union by rank — near O(1) per operation
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Union-Find (DSU)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+  <span className="badge badge-easy">Core DS</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Arrays", href: "/ds/basic/arrays" },
+  { title: "Trees Basics", href: "/ds/foundations" }
+]} />
+
+## Why This Topic Matters
+
+DSU (Disjoint Set Union), also known as Union-Find, solves the **dynamic connectivity** problem: maintain a partition of $n$ elements as you merge groups, and answer "are $a$ and $b$ in the same group?" in near $O(1)$.
+
+Used in: Kruskal's MST, offline LCA, offline graph connectivity, social network problems, grid problems.
+
+**Contest relevance**: Appears constantly in Codeforces Div.2 C/D, USACO Silver/Gold, CSES. Every competitive programmer must know this.
+
+---
+
+## Learning Objectives
+
+- Implement DSU with path compression and union by rank/size
+- Prove the near-$O(1)$ amortized complexity via inverse Ackermann function
+- Apply DSU to connectivity, MST, cycle detection problems
+- Understand weighted DSU for relative information
+
+---
+
+## Intuition
+
+Represent each set as a **rooted tree**. Each element points to its parent. The root is the **representative** of the set.
+
+- **Find**: follow parent pointers to root → O(tree height)
+- **Union**: make root of one tree point to root of other → O(1) after find
+
+**Problem**: without optimization, trees can degenerate into chains — $O(n)$ per find.
+
+**Solution**: two optimizations together give near-$O(1)$:
+1. **Path compression**: after finding root, make every node on the path point directly to root.
+2. **Union by rank/size**: always attach smaller tree under root of larger tree.
+
+---
+
+## Implementation
+
+```cpp
+struct DSU {
+    vector<int> parent, rank_;
+    int components;
+
+    DSU(int n) : parent(n), rank_(n, 0), components(n) {
+        iota(parent.begin(), parent.end(), 0);
+    }
+
+    int find(int x) {
+        if (parent[x] != x) parent[x] = find(parent[x]);  // path compression
+        return parent[x];
+    }
+
+    bool unite(int x, int y) {
+        x = find(x); y = find(y);
+        if (x == y) return false;
+        if (rank_[x] < rank_[y]) swap(x, y);
+        parent[y] = x;
+        if (rank_[x] == rank_[y]) rank_[x]++;
+        components--;
+        return true;
+    }
+
+    bool connected(int x, int y) { return find(x) == find(y); }
+};
+```
+
+### Union by Size (Alternative)
+
+```cpp
+struct DSU {
+    vector<int> parent, size;
+    int components;
+
+    DSU(int n) : parent(n), size(n, 1), components(n) {
+        iota(parent.begin(), parent.end(), 0);
+    }
+
+    int find(int x) {
+        while (parent[x] != x) {
+            parent[x] = parent[parent[x]];  // path halving (iterative)
+            x = parent[x];
+        }
+        return x;
+    }
+
+    bool unite(int x, int y) {
+        x = find(x); y = find(y);
+        if (x == y) return false;
+        if (size[x] < size[y]) swap(x, y);
+        parent[y] = x;
+        size[x] += size[y];
+        components--;
+        return true;
+    }
+
+    int get_size(int x) { return size[find(x)]; }
+};
+```
+
+**Path halving** is an alternative to full path compression: make every other node on the path point to its grandparent. Equally fast in practice, avoids recursion stack.
+
+---
+
+## Complexity Analysis
+
+<Callout type="theorem" title="Complexity Theorem">
+With both path compression and union by rank/size, each operation takes $O(\alpha(n))$ amortized, where $\alpha$ is the **inverse Ackermann function**.
+
+For all practical purposes, $\alpha(n) \leq 4$ for any $n$ you'll ever encounter (including $n = 10^{80}$).
+
+This is essentially $O(1)$ per operation.
+</Callout>
+
+<Callout type="proof">
+The proof uses a potential function argument. The key idea: path compression reduces future path lengths, and the amortized cost accounts for this reduction. The Ackermann function grows so fast that its inverse is essentially constant.
+
+Without rank but with path compression alone: $O(\log n)$ amortized.
+Without compression but with union by rank: $O(\log n)$ worst case.
+Both together: $O(\alpha(n))$ amortized.
+</Callout>
+
+<ComplexityTable rows={[
+  { operation: "Build", time: "O(n)", space: "O(n)" },
+  { operation: "Find (with path compression)", time: "O(α(n)) amortized", space: "O(1)" },
+  { operation: "Union", time: "O(α(n)) amortized", space: "O(1)" },
+  { operation: "Connected query", time: "O(α(n)) amortized", space: "O(1)" },
+  { operation: "m operations on n elements", time: "O((n + m) α(n))", space: "O(n)" },
+]} />
+
+---
+
+## Weighted DSU
+
+Store additional information along edges. Classic example: **relative values**.
+
+**Problem**: elements have relative offsets. `relate(a, b, d)` means `val[b] - val[a] = d`. Answer queries `diff(a, b)`.
+
+```cpp
+struct WeightedDSU {
+    vector<int> parent;
+    vector<long long> weight;  // weight[x] = val[x] - val[find(x)]
+
+    WeightedDSU(int n) : parent(n), weight(n, 0) {
+        iota(parent.begin(), parent.end(), 0);
+    }
+
+    pair<int, long long> find(int x) {
+        if (parent[x] == x) return {x, 0};
+        auto [root, w] = find(parent[x]);
+        parent[x] = root;
+        weight[x] += w;
+        return {root, weight[x]};
+    }
+
+    // Declare: val[b] - val[a] = d
+    bool relate(int a, int b, long long d) {
+        auto [ra, wa] = find(a);
+        auto [rb, wb] = find(b);
+        if (ra == rb) {
+            // Already connected: check consistency
+            return wb - wa == d;
+        }
+        parent[ra] = rb;
+        weight[ra] = wb - wa - d;  // val[ra] - val[rb] = ?
+        return true;
+    }
+
+    // Query: val[b] - val[a] = ?
+    // Returns {true, diff} if connected
+    pair<bool, long long> diff(int a, int b) {
+        auto [ra, wa] = find(a);
+        auto [rb, wb] = find(b);
+        if (ra != rb) return {false, 0};
+        return {true, wb - wa};
+    }
+};
+```
+
+---
+
+## Bipartite DSU
+
+Track whether a graph (built incrementally with `add_edge`) is bipartite.
+
+```cpp
+struct BipartiteDSU {
+    vector<int> parent, dist;  // dist[x] = parity of x relative to root
+
+    BipartiteDSU(int n) : parent(n), dist(n, 0) {
+        iota(parent.begin(), parent.end(), 0);
+    }
+
+    pair<int, int> find(int x) {
+        if (parent[x] == x) return {x, 0};
+        auto [root, d] = find(parent[x]);
+        dist[x] ^= d;
+        parent[x] = root;
+        return {root, dist[x]};
+    }
+
+    // Add edge (u, v) of given parity (0 = same side, 1 = different)
+    // Returns false if contradiction (odd cycle)
+    bool add_edge(int u, int v, int parity = 1) {
+        auto [ru, du] = find(u);
+        auto [rv, dv] = find(v);
+        if (ru == rv) return (du ^ dv) == parity;
+        parent[ru] = rv;
+        dist[ru] = du ^ dv ^ parity;
+        return true;
+    }
+
+    bool same_side(int u, int v) {
+        auto [ru, du] = find(u);
+        auto [rv, dv] = find(v);
+        return ru == rv && (du ^ dv) == 0;
+    }
+};
+```
+
+---
+
+## Common Patterns
+
+### Kruskal's MST
+
+```cpp
+sort(edges.begin(), edges.end());  // sort by weight
+DSU dsu(n);
+long long mst_cost = 0;
+for (auto [w, u, v] : edges) {
+    if (dsu.unite(u, v)) mst_cost += w;
+}
+```
+
+### Offline LCA (Tarjan's Algorithm)
+
+```cpp
+// Process DFS; when DFS from u finishes, unite u with its parent
+// When processing query (u, v) and v is already visited: LCA = find(v)
+```
+
+### Grid Connectivity
+
+```cpp
+// Map 2D coordinates to 1D: node(r, c) = r * cols + c
+DSU dsu(rows * cols);
+for each adjacent pair (r1,c1), (r2,c2) with same value:
+    dsu.unite(node(r1,c1), node(r2,c2));
+```
+
+### Counting Components
+
+```cpp
+DSU dsu(n);
+for (auto [u, v] : edges) dsu.unite(u, v);
+cout << dsu.components << "\n";
+```
+
+---
+
+## Common Mistakes
+
+1. **Calling `find` without path compression**: correct but slow for large inputs.
+2. **Union by rank forgetting to increment rank**: only increment when ranks are equal.
+3. **Not initializing parent**: `parent[i] = i` for all `i`.
+4. **0-indexed vs 1-indexed confusion**: be consistent.
+5. **Weighted DSU wrong weight direction**: define weight carefully before coding.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Road Construction",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1676",
+    difficulty: "1000",
+    concepts: ["DSU", "connectivity"],
+    why: "Canonical DSU problem",
+    tier: "warmup"
+  },
+  {
+    name: "Building Teams",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1668",
+    difficulty: "1200",
+    concepts: ["bipartite DSU", "2-coloring"],
+    tier: "warmup"
+  },
+  {
+    name: "Friend Groups",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/670/D",
+    difficulty: "1400",
+    concepts: ["DSU", "component sizes"],
+    tier: "warmup"
+  },
+  {
+    name: "Rank of Matrix (mod 2)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/363/D",
+    difficulty: "1900",
+    concepts: ["DSU", "XOR basis", "Gaussian elimination"],
+    tier: "standard"
+  },
+  {
+    name: "Strange Beauty",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1264/D",
+    difficulty: "1700",
+    concepts: ["DSU", "divisors"],
+    trick: "For each a[i], union with all its divisors ≤ N already seen",
+    tier: "standard"
+  },
+  {
+    name: "Making Friends",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/768/E",
+    difficulty: "2100",
+    concepts: ["DSU", "offline", "graph"],
+    tier: "standard"
+  },
+  {
+    name: "Fixing Typos",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1093/G",
+    difficulty: "2200",
+    concepts: ["weighted DSU", "relative values"],
+    tier: "advanced"
+  },
+  {
+    name: "Consecutive Subsequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/977/E",
+    difficulty: "2100",
+    concepts: ["DSU", "online connectivity"],
+    tier: "advanced"
+  },
+  {
+    name: "Bipartite Undirected Graph",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/901/C",
+    difficulty: "2000",
+    concepts: ["bipartite DSU", "parity tracking"],
+    tier: "advanced"
+  },
+  {
+    name: "Working Robots",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/676/C",
+    difficulty: "2400",
+    concepts: ["weighted DSU", "2D grid"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [DSU with Rollback](/ds/dsu/rollback-dsu) — undo operations for offline DC
+- [Persistent DSU](/ds/dsu/persistent-dsu) — versioned DSU
+- [DSU on Trees](/ds/dsu/dsu-on-trees) — small-to-large merging
+- [Offline Dynamic Connectivity](/ds/dynamic-connectivity/offline-connectivity)
+
+---
+
+## References
+
+1. cp-algorithms — [Disjoint Set Union](https://cp-algorithms.com/data_structures/disjoint_set_union.html)
+2. USACO Guide — [DSU](https://usaco.guide/gold/dsu)
+3. Tarjan — *Efficiency of a good but not linear set union algorithm* (1975)
+4. Fredman, Saks — *The cell probe complexity of dynamic data structures* (1989)

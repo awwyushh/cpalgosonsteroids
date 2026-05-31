@@ -1,0 +1,86 @@
+---
+title: Foundations & Complexity
+description: Complexity theory, amortized analysis, memory models — the foundation of all DS
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Foundations & Complexity
+
+Understanding these concepts is what separates someone who memorizes data structures from someone who can adapt and design them.
+
+<TopicGrid>
+  <TopicCard
+    title="Complexity Analysis"
+    href="/ds/foundations/complexity"
+    description="Big-O, Θ, Ω. Worst case vs average case. Practical constant factors."
+    difficulty="beginner"
+    time="2h"
+    tags={["Big-O", "complexity", "constant factors"]}
+  />
+  <TopicCard
+    title="Amortized Analysis"
+    href="/ds/foundations/amortized"
+    description="Aggregate, accounting, potential methods. DSU, dynamic arrays, splay trees."
+    difficulty="medium"
+    time="3h"
+    tags={["amortized", "potential method", "accounting"]}
+  />
+  <TopicCard
+    title="Memory Fundamentals"
+    href="/ds/foundations/memory"
+    description="Stack vs heap, alignment, fragmentation, pointer arithmetic, copy vs move."
+    difficulty="easy"
+    time="2h"
+    tags={["stack", "heap", "alignment", "memory layout"]}
+  />
+  <TopicCard
+    title="Cache Complexity"
+    href="/ds/foundations/cache"
+    description="Cache lines, locality, B-trees vs binary trees, cache-oblivious algorithms."
+    difficulty="medium"
+    time="3h"
+    tags={["cache", "locality", "cache-oblivious", "B-tree"]}
+  />
+  <TopicCard
+    title="Generic Programming"
+    href="/ds/foundations/generic"
+    description="Templates, policy-based structures, custom comparators, hash functions."
+    difficulty="easy"
+    time="2h"
+    tags={["templates", "PBDS", "comparators", "hash"]}
+  />
+  <TopicCard
+    title="Coordinate Compression"
+    href="/ds/foundations/coordinate-compression"
+    description="Map large values to small indices. Essential preprocessing technique."
+    difficulty="easy"
+    time="1h"
+    tags={["coordinate compression", "offline", "preprocessing"]}
+  />
+</TopicGrid>
+
+---
+
+## Complexity Cheat Sheet
+
+| Operation | Array | BST | Hash map | BIT | Seg tree | Treap |
+|-----------|-------|-----|----------|-----|----------|-------|
+| Access | O(1) | O(log n) | O(1) avg | — | O(log n) | O(log n) |
+| Insert | O(n) | O(log n) | O(1) avg | O(log n) | — | O(log n) |
+| Delete | O(n) | O(log n) | O(1) avg | — | — | O(log n) |
+| Range query | O(n) | O(log n) | — | O(log n) | O(log n) | O(log n) |
+| Range update | O(n) | — | — | O(log n) | O(log n) | O(log n) |
+| Kth element | O(n) | O(log n) | — | O(log n) | O(log n) | O(log n) |
+
+---
+
+## Practical Constants (CPP)
+
+Rough operation counts per second on a modern CPU:
+- Simple operations (add, compare): ~$10^9$
+- Cache-friendly array access: ~$5 \times 10^8$
+- Random memory access: ~$10^7$–$10^8$
+- Cache miss: ~100× slower than cache hit
+
+**Contest rule of thumb**: $10^8$ operations/second. Plan your solution accordingly.

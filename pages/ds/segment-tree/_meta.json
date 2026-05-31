@@ -1,0 +1,15 @@
+{
+  "index": "Overview",
+  "basic": "Basic Segment Tree",
+  "lazy-propagation": "Lazy Propagation",
+  "segment-tree-beats": "Segment Tree Beats",
+  "merge-sort-tree": "Merge Sort Tree",
+  "persistent": "Persistent Segment Tree",
+  "dynamic": "Dynamic Segment Tree",
+  "lichao-tree": "Li Chao Tree",
+  "seg-on-tree": "Segment Tree on Trees (HLD)",
+  "2d-segtree": "2D Segment Tree",
+  "seg-of-vectors": "Segment Tree of Vectors",
+  "wavelet-tree": "Wavelet Tree",
+  "applications": "Applications & Patterns"
+}

@@ -1,0 +1,393 @@
+---
+title: Heavy-Light Decomposition
+description: Path queries on trees in O(log² n) — the universal tree query tool
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Heavy-Light Decomposition (HLD)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-hard">Tree DS</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Basic Segment Tree", href: "/ds/segment-tree/basic" },
+  { title: "Lazy Propagation", href: "/ds/segment-tree/lazy-propagation" },
+  { title: "DFS & Tree Basics", href: "/ds/graph-structures" }
+]} />
+
+## Why This Topic Matters
+
+HLD reduces **path queries on trees** to **range queries on arrays**. Combined with a segment tree, it answers any path query in $O(\log^2 n)$.
+
+Without HLD, path queries are $O(n)$ per query. With HLD: $O(\log^2 n)$.
+
+**Contest relevance**: Appears in Codeforces Div.1 C/D, IOI, ICPC. Any problem with "update/query on path in tree" needs HLD or LCT.
+
+---
+
+## Learning Objectives
+
+- Understand heavy and light edges
+- Implement HLD decomposition with DFS
+- Map tree paths to array segments
+- Combine HLD with segment tree for path queries
+- Handle vertex weights vs edge weights
+
+---
+
+## Intuition
+
+**Key observation**: any root-to-leaf path has at most $O(\log n)$ **light edges** (edges where the child is the "light" child).
+
+**Heavy child**: the child with the largest subtree size.
+
+**Heavy path**: chain formed by following heavy children.
+
+If we flatten each heavy path into a contiguous array segment, then any path from $u$ to $v$ crosses at most $O(\log n)$ heavy chains. Each chain intersection is a contiguous range → handled by a segment tree in $O(\log n)$.
+
+Total: $O(\log n)$ chains × $O(\log n)$ segment tree query = $O(\log^2 n)$.
+
+---
+
+## Algorithm
+
+### Step 1: Compute Subtree Sizes
+
+```cpp
+int n;
+vector<int> adj[MAXN];
+int parent[MAXN], depth[MAXN], sz[MAXN], heavy[MAXN];
+int head[MAXN], pos[MAXN];  // HLD arrays
+int timer = 0;
+
+int dfs_sz(int v, int p, int d) {
+    parent[v] = p;
+    depth[v] = d;
+    sz[v] = 1;
+    int max_sz = 0;
+    heavy[v] = -1;
+    for (int u : adj[v]) {
+        if (u == p) continue;
+        sz[v] += dfs_sz(u, v, d + 1);
+        if (sz[u] > max_sz) {
+            max_sz = sz[u];
+            heavy[v] = u;  // heavy child
+        }
+    }
+    return sz[v];
+}
+```
+
+### Step 2: Decompose into Chains
+
+```cpp
+void dfs_hld(int v, int h) {
+    head[v] = h;           // chain head
+    pos[v] = timer++;      // position in flat array
+    if (heavy[v] != -1)
+        dfs_hld(heavy[v], h);   // continue same chain
+    for (int u : adj[v]) {
+        if (u == parent[v] || u == heavy[v]) continue;
+        dfs_hld(u, u);     // start new chain
+    }
+}
+
+void build_hld() {
+    dfs_sz(0, -1, 0);
+    dfs_hld(0, 0);
+}
+```
+
+### Step 3: Path Query
+
+```cpp
+// Query sum on path from u to v
+long long query_path(int u, int v, SegTree& seg) {
+    long long result = 0;
+    while (head[u] != head[v]) {
+        if (depth[head[u]] < depth[head[v]]) swap(u, v);
+        // u's chain head is deeper → query u's chain
+        result += seg.query(pos[head[u]], pos[u]);
+        u = parent[head[u]];  // jump to parent of chain head
+    }
+    // Now u and v are on the same chain
+    if (depth[u] > depth[v]) swap(u, v);
+    result += seg.query(pos[u], pos[v]);
+    return result;
+}
+
+// Update path u to v (add val)
+void update_path(int u, int v, long long val, LazySegTree& seg) {
+    while (head[u] != head[v]) {
+        if (depth[head[u]] < depth[head[v]]) swap(u, v);
+        seg.update(pos[head[u]], pos[u], val);
+        u = parent[head[u]];
+    }
+    if (depth[u] > depth[v]) swap(u, v);
+    seg.update(pos[u], pos[v], val);
+}
+```
+
+---
+
+## Complete HLD + Segment Tree Implementation
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+const int MAXN = 2e5 + 5;
+const long long MOD = 1e9 + 7;
+
+int n;
+vector<int> adj[MAXN];
+int par[MAXN], dep[MAXN], sz[MAXN], heavy[MAXN];
+int head_[MAXN], pos_[MAXN], node_at[MAXN];
+int timer_hld = 0;
+
+// Segment tree (customize for your problem)
+struct SegTree {
+    vector<long long> tree;
+    int n;
+    SegTree(int n) : n(n), tree(4*n, 0) {}
+    void update(int v, int l, int r, int ql, int qr, long long val) {
+        if (ql > r || qr < l) return;
+        if (ql <= l && r <= qr) { tree[v] += val; return; }
+        int mid = (l+r)/2;
+        update(2*v, l, mid, ql, qr, val);
+        update(2*v+1, mid+1, r, ql, qr, val);
+        tree[v] = tree[2*v] + tree[2*v+1];
+    }
+    long long query(int v, int l, int r, int ql, int qr) {
+        if (ql > r || qr < l) return 0;
+        if (ql <= l && r <= qr) return tree[v];
+        int mid = (l+r)/2;
+        return query(2*v, l, mid, ql, qr) + query(2*v+1, mid+1, r, ql, qr);
+    }
+    void update(int l, int r, long long val) { update(1, 0, n-1, l, r, val); }
+    long long query(int l, int r) { return query(1, 0, n-1, l, r); }
+} *seg;
+
+void dfs_sz(int v, int p, int d) {
+    par[v] = p; dep[v] = d; sz[v] = 1; heavy[v] = -1;
+    int mx = 0;
+    for (int u : adj[v]) {
+        if (u == p) continue;
+        dfs_sz(u, v, d+1);
+        sz[v] += sz[u];
+        if (sz[u] > mx) { mx = sz[u]; heavy[v] = u; }
+    }
+}
+
+void dfs_hld(int v, int h) {
+    head_[v] = h;
+    pos_[v] = timer_hld;
+    node_at[timer_hld++] = v;
+    if (heavy[v] != -1) dfs_hld(heavy[v], h);
+    for (int u : adj[v])
+        if (u != par[v] && u != heavy[v])
+            dfs_hld(u, u);
+}
+
+long long path_query(int u, int v) {
+    long long res = 0;
+    while (head_[u] != head_[v]) {
+        if (dep[head_[u]] < dep[head_[v]]) swap(u, v);
+        res += seg->query(pos_[head_[u]], pos_[u]);
+        u = par[head_[u]];
+    }
+    if (dep[u] > dep[v]) swap(u, v);
+    res += seg->query(pos_[u], pos_[v]);
+    return res;
+}
+
+void path_update(int u, int v, long long val) {
+    while (head_[u] != head_[v]) {
+        if (dep[head_[u]] < dep[head_[v]]) swap(u, v);
+        seg->update(pos_[head_[u]], pos_[u], val);
+        u = par[head_[u]];
+    }
+    if (dep[u] > dep[v]) swap(u, v);
+    seg->update(pos_[u], pos_[v], val);
+}
+
+long long subtree_query(int v) {
+    return seg->query(pos_[v], pos_[v] + sz[v] - 1);
+}
+
+void subtree_update(int v, long long val) {
+    seg->update(pos_[v], pos_[v] + sz[v] - 1, val);
+}
+```
+
+---
+
+## Vertex Weights vs Edge Weights
+
+**Vertex weights** (weight stored at node): the above code works directly.
+
+**Edge weights** (weight on edge between parent and child): map edge weight to the **child node**. When querying path $(u, v)$, exclude the LCA (or handle separately):
+
+```cpp
+long long edge_path_query(int u, int v) {
+    long long res = 0;
+    while (head_[u] != head_[v]) {
+        if (dep[head_[u]] < dep[head_[v]]) swap(u, v);
+        res += seg->query(pos_[head_[u]], pos_[u]);
+        u = par[head_[u]];
+    }
+    if (u == v) return res;  // same node, no edge between them
+    if (dep[u] > dep[v]) swap(u, v);
+    // Exclude LCA (u), include up to v
+    res += seg->query(pos_[u] + 1, pos_[v]);
+    return res;
+}
+```
+
+---
+
+## HLD for LCA
+
+HLD naturally gives $O(\log n)$ LCA:
+
+```cpp
+int lca(int u, int v) {
+    while (head_[u] != head_[v]) {
+        if (dep[head_[u]] < dep[head_[v]]) swap(u, v);
+        u = par[head_[u]];
+    }
+    return dep[u] < dep[v] ? u : v;
+}
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Build (DFS × 2)", time: "O(n)", space: "O(n)" },
+  { operation: "Path query/update", time: "O(log² n)", space: "O(log n) stack" },
+  { operation: "Subtree query/update", time: "O(log n)", space: "O(1)" },
+  { operation: "LCA", time: "O(log n)", space: "O(1)" },
+  { operation: "# chains on any path", time: "O(log n)", note: "Key property of HLD" },
+]} />
+
+<Callout type="proof" title="O(log n) chains bound">
+Each time a path crosses a light edge, it enters a subtree of size ≤ n/2. So the path can cross at most log₂(n) light edges → at most log₂(n) + 1 chains.
+</Callout>
+
+---
+
+## Common Mistakes
+
+1. **Wrong DFS order**: heavy child must be visited first to get contiguous positions.
+2. **0-indexed vs 1-indexed confusion**: be consistent with node numbering.
+3. **Forgetting to handle `head_[u] == head_[v]` final step**.
+4. **Edge weights mapped to wrong node**: must map to child, not parent.
+5. **LCA not handled in path queries**: when `head_[u] == head_[v]`, the LCA is the shallower of the two.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Path Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1138",
+    difficulty: "1700",
+    concepts: ["HLD", "path sum"],
+    why: "Direct HLD application",
+    tier: "warmup"
+  },
+  {
+    name: "Path Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2134",
+    difficulty: "1900",
+    concepts: ["HLD", "lazy propagation", "path update + max query"],
+    tier: "standard"
+  },
+  {
+    name: "Company Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1688",
+    difficulty: "1700",
+    concepts: ["HLD", "LCA"],
+    tier: "standard"
+  },
+  {
+    name: "Flight Routes Check",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1682",
+    difficulty: "1800",
+    concepts: ["HLD", "segment tree", "complex merge"],
+    tier: "standard"
+  },
+  {
+    name: "New Year Tree",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/620/problem/E",
+    difficulty: "2200",
+    concepts: ["HLD", "segment tree", "bitset", "subtree queries"],
+    trick: "Each node stores a bitmask of colors in subtree; lazy assigns a color",
+    tier: "advanced"
+  },
+  {
+    name: "Cowpatibility",
+    platform: "USACO",
+    link: "https://usaco.org/index.php?page=viewproblem2&cpid=862",
+    difficulty: "2000",
+    concepts: ["HLD", "subtree update"],
+    tier: "advanced"
+  },
+  {
+    name: "Race",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/343/E",
+    difficulty: "2400",
+    concepts: ["HLD", "complex path decomposition"],
+    tier: "advanced"
+  },
+  {
+    name: "Pillars",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/660/F",
+    difficulty: "2600",
+    concepts: ["HLD", "segment tree", "offline LCT-like queries"],
+    tier: "killer"
+  },
+  {
+    name: "Propagating tree",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/383/C",
+    difficulty: "2200",
+    concepts: ["HLD", "Euler tour", "parity of depth"],
+    trick: "Subtree of a node at odd/even depth; use two BITs",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Centroid Decomposition](/ds/graph-structures/centroid) — for path counting problems
+- [Link-Cut Tree](/ds/graph-structures/link-cut-tree) — dynamic trees, same capability but dynamic
+- [Euler Tour](/ds/graph-structures) — for subtree queries
+- [Virtual Trees](/ds/graph-structures/virtual-trees) — for sparse key-node queries
+
+---
+
+## References
+
+1. cp-algorithms — [Heavy-Light Decomposition](https://cp-algorithms.com/graph/hld.html)
+2. USACO Guide — [HLD](https://usaco.guide/plat/hld)
+3. Codeforces Blog — *HLD Tutorial* by Anudeep Nekkanti
+4. OI Wiki — 树链剖分

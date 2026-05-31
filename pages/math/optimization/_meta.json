@@ -1,0 +1,13 @@
+{
+  "index": "Overview",
+  "convex-hull-trick": "Convex Hull Trick",
+  "lichao-tree-math": "Li Chao Tree",
+  "divide-conquer-dp": "Divide & Conquer DP",
+  "knuth-optimization": "Knuth Optimization",
+  "aliens-trick": "Aliens Trick (Lambda Optimization)",
+  "ternary-search": "Ternary Search",
+  "slope-trick": "Slope Trick",
+  "monge-arrays": "Monge Arrays & SMAWK",
+  "lagrangian-relaxation": "Lagrangian Relaxation",
+  "min-plus-convolution": "Min-Plus Convolution"
+}

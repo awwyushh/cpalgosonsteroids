@@ -1,0 +1,90 @@
+---
+title: Persistence
+description: Version-based data structures — query any historical state
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Persistence
+
+Persistent data structures maintain all historical versions. Query any past state in $O(\log n)$.
+
+**Core technique**: **path copying** — when updating, copy only the $O(\log n)$ nodes on the update path.
+
+<TopicGrid>
+  <TopicCard
+    title="Persistent Arrays"
+    href="/ds/persistence/persistent-arrays"
+    description="Simplest persistent structure. Point update, index query on any version."
+    difficulty="medium"
+    time="2h"
+    tags={["persistent array", "path copying", "versions"]}
+  />
+  <TopicCard
+    title="Persistent Segment Tree"
+    href="/ds/persistence/persistent-segment-tree"
+    description="Version-based segtree. The classic kth smallest in range application."
+    difficulty="hard"
+    time="4h"
+    tags={["PST", "kth smallest", "offline queries"]}
+  />
+  <TopicCard
+    title="Persistent Trie"
+    href="/ds/persistence/persistent-trie"
+    description="Version-based trie for XOR queries on historical states."
+    difficulty="hard"
+    time="3h"
+    tags={["persistent trie", "XOR", "versions"]}
+  />
+  <TopicCard
+    title="Persistent Treap"
+    href="/ds/persistence/persistent-treap"
+    description="Fully persistent treap via functional style. O(log n) per operation."
+    difficulty="expert"
+    time="5h"
+    tags={["persistent treap", "functional", "FHQ"]}
+  />
+  <TopicCard
+    title="Persistent DSU"
+    href="/ds/persistence/persistent-dsu"
+    description="Version-based union-find for rollback and historical queries."
+    difficulty="hard"
+    time="3h"
+    tags={["persistent DSU", "versions", "rollback"]}
+  />
+  <TopicCard
+    title="Partial vs Full Persistence"
+    href="/ds/persistence/partial-persistence"
+    description="Partial: update only latest. Full: update any version. Retroactive: update past."
+    difficulty="expert"
+    time="4h"
+    tags={["partial", "full", "retroactive"]}
+  />
+  <TopicCard
+    title="Retroactive Data Structures"
+    href="/ds/persistence/retroactive"
+    description="Modify past operations and see their effect on the present."
+    difficulty="legendary"
+    time="8h"
+    tags={["retroactive", "time travel", "research"]}
+  />
+</TopicGrid>
+
+---
+
+## Path Copying Principle
+
+When updating node $v$ in version $k$:
+
+1. Create a **new node** $v'$ with the same data as $v$
+2. Modify $v'$ with the update
+3. Create new nodes for all ancestors of $v$ on the path to root, pointing to updated children
+4. Store the new root as version $k+1$
+
+**Cost**: $O(\log n)$ new nodes per update. Total space: $O(n + q \log n)$.
+
+```
+Version 1 root → ... → node v (shared)
+                          ↑
+Version 2 root → ... → node v' (new)
+```

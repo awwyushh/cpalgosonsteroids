@@ -1,0 +1,233 @@
+---
+title: Convex Hull Trick
+description: O(n log n) → O(n) DP optimization for linear cost functions
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Convex Hull Trick (CHT)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Basic DP", href: "/reference/templates" },
+  { title: "Convex Functions", href: "/math/optimization" }
+]} />
+
+## Why This Topic Matters
+
+CHT reduces the complexity of certain DP transitions from $O(n^2)$ to $O(n \log n)$ or $O(n)$.
+
+**Applicable when**: $dp[i] = \min_{j < i} (dp[j] + b[j] \cdot a[i])$ — i.e., the transition cost is a linear function in $a[i]$ with slope depending on $j$.
+
+**Contest relevance**: Codeforces Div.1 C/D, ICPC. One of the most important DP optimizations.
+
+---
+
+## The Problem
+
+Consider DP:
+
+$$dp[i] = \min_{j < i} (f(j) + g(j) \cdot h(i))$$
+
+where $g(j)$ are slopes and $f(j)$ are y-intercepts of lines $L_j(x) = g(j) \cdot x + f(j)$.
+
+We want $\min_{j < i} L_j(h(i))$ — the minimum over all lines at point $x = h(i)$.
+
+This is the **minimum envelope** of a set of lines.
+
+---
+
+## Li Chao Tree (Universal Solution)
+
+The Li Chao tree handles:
+- Lines added in any order
+- Queries at any $x$ value
+- Both min and max
+
+```cpp
+struct Line {
+    ll m, b;
+    ll eval(ll x) { return m * x + b; }
+};
+
+struct LiChaoTree {
+    static const ll NEG_INF = LLONG_MIN / 2;
+    struct Node { Line line; int l = -1, r = -1; };
+    vector<Node> nodes;
+    ll lo, hi;
+
+    LiChaoTree(ll lo, ll hi) : lo(lo), hi(hi) {
+        nodes.push_back({{0, NEG_INF}});
+    }
+
+    void add(Line line, int v = 0, ll l = -1e18, ll r = 1e18) {
+        if (l == -1e18) { l = lo; r = hi; }
+        ll m = l + (r - l) / 2;
+        bool left_better  = line.eval(l) > nodes[v].line.eval(l);
+        bool mid_better   = line.eval(m) > nodes[v].line.eval(m);
+        if (mid_better) swap(nodes[v].line, line);
+        if (l == r) return;
+        if (left_better != mid_better) {
+            if (nodes[v].l == -1) { nodes[v].l = nodes.size(); nodes.push_back({{0, NEG_INF}}); }
+            add(line, nodes[v].l, l, m);
+        } else {
+            if (nodes[v].r == -1) { nodes[v].r = nodes.size(); nodes.push_back({{0, NEG_INF}}); }
+            add(line, nodes[v].r, m + 1, r);
+        }
+    }
+
+    ll query(ll x, int v = 0, ll l = -1e18, ll r = 1e18) {
+        if (l == -1e18) { l = lo; r = hi; }
+        ll res = nodes[v].line.eval(x);
+        ll m = l + (r - l) / 2;
+        if (x <= m && nodes[v].l != -1) res = max(res, query(x, nodes[v].l, l, m));
+        if (x >  m && nodes[v].r != -1) res = max(res, query(x, nodes[v].r, m + 1, r));
+        return res;
+    }
+};
+```
+
+**Complexity**: $O(\log V)$ per add/query where $V$ = range of $x$ values.
+
+---
+
+## Classic CHT (Monotone Slopes)
+
+When slopes are added in **sorted order** (e.g., $g(j)$ is decreasing as $j$ increases), use a simple deque:
+
+```cpp
+struct CHT_Min {
+    struct Line { ll m, b; ll eval(ll x) { return m*x+b; } };
+    deque<Line> hull;
+
+    bool bad(Line l1, Line l2, Line l3) {
+        // l2 is unnecessary if intersection(l1,l3) is to left of intersection(l1,l2)
+        return (__int128)(l3.b - l1.b) * (l1.m - l2.m) <=
+               (__int128)(l2.b - l1.b) * (l1.m - l3.m);
+    }
+
+    void add(ll m, ll b) {  // slopes must be non-increasing (for min)
+        Line l = {m, b};
+        while (hull.size() >= 2 && bad(hull[hull.size()-2], hull.back(), l))
+            hull.pop_back();
+        hull.push_back(l);
+    }
+
+    ll query(ll x) {  // queries must be non-decreasing
+        while (hull.size() >= 2 && hull[0].eval(x) >= hull[1].eval(x))
+            hull.pop_front();
+        return hull[0].eval(x);
+    }
+};
+```
+
+**Complexity**: $O(n)$ total for monotone queries and slopes.
+
+---
+
+## When to Apply CHT
+
+**CHT Applicability**: CHT applies to DP of the form:
+
+$$dp[i] = \min_{j < i} (dp[j] + b_j \cdot a_i)$$
+
+Rewrite as: query minimum over lines $L_j(x) = b_j \cdot x + dp[j]$ at $x = a_i$.
+
+- **For $O(n)$**: slopes $b_j$ monotone, queries $a_i$ monotone.
+- **For $O(n \log n)$**: slopes added in any order → Li Chao tree or sorted+binary search.
+
+---
+
+## Example: Minimum Cost Problem
+
+Classic "APIO 2010 commando" style:
+
+```cpp
+// dp[i] = min_{j<i} (dp[j] + (a[j+1]+...+a[i])^2 + B)
+// Expand: dp[j] + (prefix[i]-prefix[j])^2 + B
+//        = dp[j] + prefix[i]^2 - 2*prefix[i]*prefix[j] + prefix[j]^2 + B
+//        = (dp[j] + prefix[j]^2) - 2*prefix[j]*prefix[i] + prefix[i]^2 + B
+//
+// Line: slope = -2*prefix[j], intercept = dp[j]+prefix[j]^2
+// Query point x = prefix[i], fixed term: prefix[i]^2 + B
+
+CHT_Min cht;
+for (int i = 0; i < n; i++) {
+    cht.add(-2 * prefix[i], dp[i] + prefix[i] * prefix[i]);
+    // ...
+}
+```
+
+---
+
+## Complexity Analysis
+
+<ComplexityTable rows={[
+  { operation: "Li Chao tree (add line)", time: "O(log V)", space: "O(log V) nodes" },
+  { operation: "Li Chao tree (query)", time: "O(log V)", space: "O(1)" },
+  { operation: "Classic CHT (monotone)", time: "O(1) amortized", space: "O(n)" },
+  { operation: "Classic CHT (binary search)", time: "O(log n)", space: "O(n)" },
+  { operation: "Full DP with CHT", time: "O(n log n) or O(n)", space: "O(n)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "The Fair Nut and Rectangles",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/1083/problem/E",
+    difficulty: "2100",
+    concepts: ["CHT", "DP optimization"],
+    why: "Clean CHT application",
+    tier: "standard"
+  },
+  {
+    name: "Cows and Portfolio",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/311/E",
+    difficulty: "2300",
+    concepts: ["CHT", "DP"],
+    tier: "standard"
+  },
+  {
+    name: "The Taxi (APIO 2010)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/311/problem/E",
+    difficulty: "2400",
+    concepts: ["CHT", "min-cost DP"],
+    tier: "advanced"
+  },
+  {
+    name: "Cats Transport",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/311/problem/E",
+    difficulty: "2400",
+    concepts: ["CHT", "DP optimization"],
+    tier: "advanced"
+  },
+  {
+    name: "Kalila and Dimna",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/319/C",
+    difficulty: "2400",
+    concepts: ["CHT", "Li Chao tree", "min-cost reachability"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. cp-algorithms — [Convex Hull Trick](https://cp-algorithms.com/geometry/convex-hull-trick.html)
+2. Codeforces Blog — *Li Chao Tree* by Kuroni
+3. USACO Guide — [Convex Hull Trick](https://usaco.guide/plat/convex-hull-trick)

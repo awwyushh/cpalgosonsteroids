@@ -1,0 +1,86 @@
+---
+title: Learning Roadmaps
+description: Structured paths from beginner to ICPC World Finals and IOI level
+---
+
+import { LearningPath } from '../../components/LearningPath'
+
+# Learning Roadmaps
+
+Choose your path based on your goal and current level.
+
+---
+
+## Paths Overview
+
+| Path | Duration | Goal |
+|------|----------|------|
+| [Beginner](/roadmaps/beginner) | 4–6 weeks | First contest, Codeforces Div.4/3 |
+| [Intermediate](/roadmaps/intermediate) | 3–4 months | Codeforces Expert (1600+) |
+| [Advanced](/roadmaps/advanced) | 6–12 months | Codeforces Master (2000+) |
+| [Expert](/roadmaps/expert) | 1–2 years | Codeforces Grandmaster / ICPC WF |
+| [ICPC](/roadmaps/icpc) | 8–12 months | ICPC Regional / World Finals |
+| [Codeforces](/roadmaps/codeforces) | variable | CF rating-focused |
+| [IOI / Olympiad](/roadmaps/olympiad) | 1–2 years | IOI Gold/Silver |
+| [FFT Mastery](/roadmaps/fft-mastery) | 4–6 weeks | Polynomials & convolutions specialist |
+| [Geometry Mastery](/roadmaps/geometry-mastery) | 4–6 weeks | Computational geometry specialist |
+| [Game Theory](/roadmaps/game-theory-mastery) | 2–3 weeks | Game theory specialist |
+
+---
+
+## Quick Self-Assessment
+
+**Can you solve Codeforces 1200 problems?** → Start [Beginner](/roadmaps/beginner)
+
+**Can you solve Codeforces 1600 problems?** → Start [Intermediate](/roadmaps/intermediate)
+
+**Can you solve Codeforces 2000 problems?** → Start [Advanced](/roadmaps/advanced)
+
+**Targeting ICPC?** → Follow [ICPC Roadmap](/roadmaps/icpc) regardless of CF rating
+
+---
+
+## Mathematics Roadmaps
+
+<LearningPath
+  title="Core Mathematics (All Levels)"
+  steps={[
+    { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic", difficulty: "beginner", time: "2h", description: "mod, inverse, CRT — backbone of 40% of problems" },
+    { title: "GCD & LCM", href: "/math/foundations/gcd-lcm", difficulty: "beginner", time: "1h" },
+    { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation", difficulty: "beginner", time: "1h" },
+    { title: "Primes & Sieves", href: "/math/number-theory/primes-sieve", difficulty: "easy", time: "2h" },
+    { title: "Euler Phi & Multiplicative Functions", href: "/math/number-theory/euler-phi", difficulty: "medium", time: "2h" },
+    { title: "Combinatorics Basics", href: "/math/combinatorics/binomial-coefficients", difficulty: "medium", time: "3h" },
+    { title: "Inclusion-Exclusion", href: "/math/combinatorics/inclusion-exclusion", difficulty: "medium", time: "2h" },
+    { title: "Matrix Exponentiation", href: "/math/linear-algebra/matrix-exponentiation", difficulty: "medium", time: "3h" },
+    { title: "Expected Value DP", href: "/math/probability/expected-value", difficulty: "medium", time: "2h" },
+    { title: "Game Theory — Nim & Sprague-Grundy", href: "/math/game-theory/sprague-grundy", difficulty: "medium", time: "3h" },
+    { title: "SOS DP & Bitmask Math", href: "/math/bitmask/sos-dp", difficulty: "medium", time: "2h" },
+    { title: "Convex Hull Trick", href: "/math/optimization/convex-hull-trick", difficulty: "hard", time: "4h" },
+    { title: "FFT & NTT", href: "/math/polynomials/fft", difficulty: "hard", time: "6h" },
+  ]}
+/>
+
+---
+
+## Data Structures Roadmaps
+
+<LearningPath
+  title="Core Data Structures (All Levels)"
+  steps={[
+    { title: "Prefix Sums & Difference Arrays", href: "/ds/basic/prefix-difference", difficulty: "beginner", time: "1h" },
+    { title: "Monotonic Stack & Queue", href: "/ds/basic/stacks", difficulty: "easy", time: "2h" },
+    { title: "Fenwick Tree (BIT)", href: "/ds/fenwick/classic-bit", difficulty: "easy", time: "2h" },
+    { title: "Segment Tree", href: "/ds/segment-tree/basic", difficulty: "medium", time: "3h" },
+    { title: "Lazy Propagation", href: "/ds/segment-tree/lazy-propagation", difficulty: "medium", time: "3h" },
+    { title: "Sparse Table (RMQ)", href: "/ds/sparse/sparse-table", difficulty: "easy", time: "1h" },
+    { title: "Union-Find (DSU)", href: "/ds/dsu/classic", difficulty: "easy", time: "2h" },
+    { title: "Trie", href: "/ds/trie/basic-trie", difficulty: "medium", time: "2h" },
+    { title: "Policy-Based Structures (PBDS)", href: "/ds/associative/policy-based", difficulty: "medium", time: "1h" },
+    { title: "Suffix Array", href: "/ds/strings/suffix-array", difficulty: "hard", time: "5h" },
+    { title: "Mo's Algorithm", href: "/ds/sqrt/mos-algorithm", difficulty: "medium", time: "3h" },
+    { title: "Heavy-Light Decomposition", href: "/ds/graph-structures/hld", difficulty: "hard", time: "5h" },
+    { title: "Persistent Segment Tree", href: "/ds/persistence/persistent-segment-tree", difficulty: "hard", time: "4h" },
+    { title: "Treap / Implicit Treap", href: "/ds/balanced-bst/treap", difficulty: "hard", time: "5h" },
+  ]}
+/>

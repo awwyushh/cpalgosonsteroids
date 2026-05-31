@@ -1,0 +1,12 @@
+{
+  "index": "Overview",
+  "nim": "Nim & Misère Nim",
+  "sprague-grundy": "Sprague-Grundy Theorem",
+  "grundy-graphs": "Grundy on Graphs & DAGs",
+  "game-dp": "Game DP",
+  "staircase-nim": "Staircase Nim",
+  "wythoff": "Wythoff's Game",
+  "green-hackenbush": "Green Hackenbush",
+  "composite-games": "Composite Games",
+  "strategy-stealing": "Strategy Stealing"
+}

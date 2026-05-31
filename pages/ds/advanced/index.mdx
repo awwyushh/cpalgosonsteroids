@@ -1,0 +1,110 @@
+---
+title: Research / Legendary Topics
+description: The most advanced data structures — Van Emde Boas, fusion trees, succinct, kinetic
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Research / Legendary Topics
+
+These are the "tourist / Benq / ICPC WF / IOI goldmine" data structures.
+
+Mastering these puts you at the absolute frontier of competitive programming knowledge.
+
+<TopicGrid>
+  <TopicCard
+    title="Van Emde Boas Tree"
+    href="/ds/advanced/van-emde-boas"
+    description="O(log log U) insert/delete/pred/succ for integers in [0,U). Universe splitting."
+    difficulty="legendary"
+    time="8h"
+    tags={["vEB", "O(log log U)", "predecessor"]}
+  />
+  <TopicCard
+    title="X-Fast Trie"
+    href="/ds/advanced/x-fast-trie"
+    description="O(log U) predecessor/successor, O(1) amortized insert. Space O(n log U)."
+    difficulty="legendary"
+    time="6h"
+    tags={["X-fast", "hash", "predecessor"]}
+  />
+  <TopicCard
+    title="Y-Fast Trie"
+    href="/ds/advanced/y-fast-trie"
+    description="O(log log U) time, O(n) space. Improves vEB space to optimal."
+    difficulty="legendary"
+    time="5h"
+    tags={["Y-fast", "O(log log U)", "O(n) space"]}
+  />
+  <TopicCard
+    title="Fusion Trees"
+    href="/ds/advanced/fusion-tree"
+    description="O(log n / log log n) predecessor. Theoretical lower bound beater."
+    difficulty="legendary"
+    time="10h"
+    tags={["fusion tree", "word RAM", "lower bound"]}
+  />
+  <TopicCard
+    title="Succinct Data Structures"
+    href="/ds/advanced/succinct-trees"
+    description="Space-optimal (near information-theoretic lower bound) trees and arrays."
+    difficulty="legendary"
+    time="8h"
+    tags={["succinct", "balanced parens", "rank/select"]}
+  />
+  <TopicCard
+    title="Dynamic Wavelet Trees"
+    href="/ds/advanced/dynamic-wavelet"
+    description="Wavelet tree with O(log n) insert/delete. Quantile queries on dynamic set."
+    difficulty="legendary"
+    time="8h"
+    tags={["wavelet", "dynamic", "quantile"]}
+  />
+  <TopicCard
+    title="Dynamic String Structures"
+    href="/ds/advanced/dynamic-strings"
+    description="Maintain strings under edits with fast pattern matching."
+    difficulty="legendary"
+    time="10h"
+    tags={["dynamic SA", "dynamic LCP", "online matching"]}
+  />
+  <TopicCard
+    title="Kinetic Data Structures"
+    href="/ds/advanced/kinetic-ds"
+    description="Data structures for moving objects. Certificates and event queues."
+    difficulty="legendary"
+    time="8h"
+    tags={["kinetic", "certificates", "moving objects"]}
+  />
+  <TopicCard
+    title="Persistent Dynamic Connectivity"
+    href="/ds/advanced/persistent-dc"
+    description="Time-travel dynamic connectivity. Query any past connectivity state."
+    difficulty="legendary"
+    time="10h"
+    tags={["persistent DC", "time travel", "offline"]}
+  />
+</TopicGrid>
+
+---
+
+## Prerequisites
+
+Before studying these topics:
+
+1. Master [Link-Cut Trees](/ds/graph-structures/link-cut-tree)
+2. Master [Succinct Trees basics](/ds/advanced/succinct-trees)
+3. Understand [word RAM model](/ds/foundations/memory)
+4. Know [Van Emde Boas](/ds/advanced/van-emde-boas) before X/Y-fast tries
+
+---
+
+## Contest Relevance
+
+Most of these topics appear only in:
+- ICPC World Finals
+- IOI (extreme difficulty)
+- Codeforces Div.1 F (occasionally)
+- Research-style CF rounds (Codeforces Global Rounds, etc.)
+
+They are included here for completeness and for those aiming for the absolute top tier.
