@@ -1,0 +1,287 @@
+---
+title: Modular Inverse
+description: Computing modular multiplicative inverses via Fermat, extended Euclidean, and batch precomputation
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Modular Inverse
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" },
+  { title: "GCD & LCM", href: "/math/foundations/gcd-lcm" }
+]} />
+
+## Why This Topic Matters
+
+Division under a prime modulus requires the modular inverse: $a / b \equiv a \cdot b^{-1} \pmod{p}$. Without it, you cannot compute binomial coefficients, probability fractions, or any division in modular arithmetic.
+
+**Contest relevance**: Required for almost every combinatorics problem, DP with division, fraction-based problems. One of the most-used operations in CP.
+
+---
+
+## Learning Objectives
+
+- Compute $a^{-1} \bmod p$ via Fermat's little theorem in $O(\log p)$
+- Compute $a^{-1} \bmod m$ (not necessarily prime) via extended GCD
+- Precompute inverse factorials for binomial coefficients
+- Precompute inverses of 1..n in $O(n)$
+- Understand when the inverse does not exist
+
+---
+
+## Fermat's Little Theorem
+
+For prime $p$ and $\gcd(a, p) = 1$:
+
+$$a^{p-1} \equiv 1 \pmod{p} \implies a^{-1} \equiv a^{p-2} \pmod{p}$$
+
+```cpp
+long long inv(long long a, long long p) {
+    return power(a, p - 2, p);  // p must be prime
+}
+```
+
+Where `power` is the binary exponentiation from the previous page.
+
+**Complexity**: $O(\log p)$ per query.
+
+<Callout type="warning">
+Only works when `p` is prime. If `p` is composite, use extended GCD instead.
+</Callout>
+
+---
+
+## Extended Euclidean Algorithm
+
+Find $x$ such that $ax \equiv 1 \pmod{m}$. Inverse exists iff $\gcd(a, m) = 1$.
+
+```cpp
+long long ext_gcd(long long a, long long b, long long &x, long long &y) {
+    if (b == 0) { x = 1; y = 0; return a; }
+    long long x1, y1;
+    long long g = ext_gcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+
+// Returns inverse of a mod m, or -1 if not exists
+long long modinv(long long a, long long m) {
+    long long x, y;
+    long long g = ext_gcd(a % m, m, x, y);
+    if (g != 1) return -1;  // inverse doesn't exist
+    return (x % m + m) % m;
+}
+```
+
+**Complexity**: $O(\log \min(a, m))$.
+
+---
+
+## Precomputing Factorials and Inverse Factorials
+
+For binomial coefficients $\binom{n}{k} = n! \cdot (k!)^{-1} \cdot ((n-k)!)^{-1} \pmod{p}$:
+
+```cpp
+const int MAXN = 2e6 + 5;
+const long long MOD = 1e9 + 7;
+long long fact[MAXN], inv_fact[MAXN];
+
+void precompute(int n) {
+    fact[0] = 1;
+    for (int i = 1; i <= n; i++)
+        fact[i] = fact[i-1] * i % MOD;
+    inv_fact[n] = power(fact[n], MOD - 2, MOD);
+    for (int i = n - 1; i >= 0; i--)
+        inv_fact[i] = inv_fact[i+1] * (i+1) % MOD;
+}
+
+long long C(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    return fact[n] * inv_fact[k] % MOD * inv_fact[n-k] % MOD;
+}
+```
+
+**Key trick**: compute `inv_fact[n]` with one Fermat call, then fill backwards: $(\text{fact}[i])^{-1} = (\text{fact}[i+1])^{-1} \cdot (i+1)$.
+
+---
+
+## Linear Inverse Precomputation
+
+Compute inverses of $1, 2, \ldots, n$ in $O(n)$:
+
+```cpp
+vector<long long> compute_inverses(int n, long long mod) {
+    vector<long long> inv(n + 1);
+    inv[1] = 1;
+    for (int i = 2; i <= n; i++)
+        inv[i] = (mod - mod / i) * inv[mod % i] % mod;
+    return inv;
+}
+```
+
+**Derivation**: Write $m = q \cdot i + r$ where $r = m \bmod i$. Then $q \cdot i + r \equiv 0 \pmod{m}$, so $i^{-1} \equiv -q \cdot r^{-1} \equiv -(m/i) \cdot (m \bmod i)^{-1} \pmod{m}$.
+
+This avoids $n$ separate Fermat computations.
+
+---
+
+## Batch Inverse (Arbitrary Array)
+
+Compute inverses of an arbitrary array $a[0..n-1]$ with only **one** `power` call:
+
+```cpp
+// Compute inv[i] = modular inverse of a[i] for all i
+// Requires all a[i] != 0
+vector<long long> batch_inverse(vector<long long> a, long long mod) {
+    int n = a.size();
+    vector<long long> prefix(n + 1), inv(n);
+    prefix[0] = 1;
+    for (int i = 0; i < n; i++)
+        prefix[i+1] = prefix[i] * a[i] % mod;
+
+    long long inv_all = power(prefix[n], mod - 2, mod);  // one call
+
+    for (int i = n - 1; i >= 0; i--) {
+        inv[i] = inv_all * prefix[i] % mod;
+        inv_all = inv_all * a[i] % mod;
+    }
+    return inv;
+}
+```
+
+**Why**: $\text{inv}[i] = (\prod_{j < i} a[j])^{-1} \cdot (\prod_{\text{all}} a[j])^{-1} \cdot \prod_{j > i} a[j]$. The prefix products and a single global inverse give each element's inverse in $O(1)$.
+
+**Complexity**: $O(n + \log p)$ — far better than $n$ separate Fermat calls at $O(n \log p)$.
+
+---
+
+## When Inverse Doesn't Exist
+
+$a^{-1} \bmod m$ exists iff $\gcd(a, m) = 1$.
+
+If $m$ is prime: inverse exists for all $a \not\equiv 0$.  
+If $m$ is composite: some elements have no inverse (e.g., $2^{-1} \bmod 4$ — impossible).
+
+<Callout type="info">
+For problems with non-prime modulus: use extended GCD and check $\gcd(a, m) = 1$ first.
+</Callout>
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Single inverse (Fermat, prime mod)", time: "O(log p)", space: "O(1)" },
+  { operation: "Single inverse (ext GCD)", time: "O(log m)", space: "O(log m)" },
+  { operation: "Precompute n factorials + inv_fact", time: "O(n + log p)", space: "O(n)" },
+  { operation: "Precompute n inverses (linear)", time: "O(n)", space: "O(n)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Binomial coefficient mod p**: precompute fact + inv_fact
+2. **Division in DP**: store `ans * modinv(d, MOD) % MOD`
+3. **Rational answer mod p**: `numerator * modinv(denominator, p) % p`
+4. **Check if 1/k is integer**: only if k=1 (in integers); for fractions mod p, always use inverse
+
+---
+
+## Common Mistakes
+
+1. **Non-prime modulus**: Fermat doesn't work. Use extended GCD.
+2. **Negative result from ext_gcd**: `(x % m + m) % m` to normalize.
+3. **Inverse of 0**: doesn't exist. Check before calling.
+4. **Overflow in `(MOD - MOD/i) * inv[MOD % i]`**: result can be up to `MOD^2 ≈ 10^18`, fits in `long long` if `MOD < 3.2e9`.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Binomial Coefficients",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1079",
+    difficulty: "1000",
+    concepts: ["modular inverse", "factorials", "binomial"],
+    tier: "warmup"
+  },
+  {
+    name: "Exponentiation II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1712",
+    difficulty: "1200",
+    concepts: ["modular inverse", "Euler theorem"],
+    tier: "standard"
+  },
+  {
+    name: "Shuffle",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1730/C",
+    difficulty: "1600",
+    concepts: ["modular inverse", "probability"],
+    tier: "standard"
+  },
+  {
+    name: "Fraction",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1097/C",
+    difficulty: "1700",
+    concepts: ["modular inverse", "fractions"],
+    tier: "standard"
+  },
+  {
+    name: "Pashmak and Garden",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/459/C",
+    difficulty: "1800",
+    concepts: ["modular inverse", "combinatorics"],
+    tier: "advanced"
+  },
+  {
+    name: "Catalan Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1079",
+    difficulty: "1200",
+    concepts: ["inverse factorial", "binomial"],
+    tier: "standard"
+  },
+  {
+    name: "Divisibility by Eight",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/550/C",
+    difficulty: "1600",
+    concepts: ["modular inverse", "number theory"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Modular Arithmetic](/math/foundations/modular-arithmetic) — foundation: mod semantics and properties
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — `power(a, p-2, p)` for Fermat method
+- [GCD & LCM](/math/foundations/gcd-lcm) — extended Euclidean algorithm used here
+- [Diophantine Equations](/math/foundations/diophantine) — inverse existence = Bezout with c=1
+- [Chinese Remainder Theorem](/math/number-theory/crt) — uses `modinv` in combination step
+
+---
+
+## References
+
+1. cp-algorithms — [Modular Inverse](https://cp-algorithms.com/algebra/module-inverse.html)
+2. USACO Guide — [Modular Arithmetic](https://usaco.guide/gold/modular)
+3. Knuth, TAOCP Vol. 2 §4.5.2 — Extended Euclidean algorithm
