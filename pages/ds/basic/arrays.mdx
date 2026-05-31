@@ -1,0 +1,400 @@
+---
+title: Arrays & Prefix Sums
+description: Static arrays, std::vector, prefix sums, difference arrays, and essential array techniques for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Arrays & Prefix Sums
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Essential</span>
+</div>
+
+## Why This Topic Matters
+
+Arrays are the foundation of all data structures. Every segment tree, BIT, DP table, and adjacency list builds on arrays. Prefix sums turn $O(n)$ range sum queries into $O(1)$. Knowing when to use static arrays vs vectors, prefix sums vs difference arrays makes you faster in every contest.
+
+**Contest relevance**: Every CP problem. Prefix sums are required knowledge from Div.2 A upward.
+
+---
+
+## Learning Objectives
+
+- Use static arrays and `std::vector` correctly (global vs local, reserve, resize)
+- Build 1D and 2D prefix sum arrays and answer range sum queries in $O(1)$
+- Use difference arrays for $O(1)$ range updates with $O(n)$ reconstruction
+- Apply binary search, two pointers, and Kadane's algorithm
+- Avoid classic CP mistakes (memset misuse, overflow in LCM, off-by-one)
+
+---
+
+## Static Arrays
+
+```cpp
+int a[100005];          // global, zero-initialized
+int b[100005] = {};     // local, explicitly zero-initialized
+int c[] = {1, 2, 3};   // array literal
+```
+
+**Global vs local**: global arrays are zero-initialized and live in BSS/data segment. Local arrays are uninitialized and on the stack. **Prefer global** for large arrays (>$10^5$ elements).
+
+**2D arrays**:
+```cpp
+int grid[1005][1005];   // global: safe (~4MB)
+// int grid[1005][1005]; // local: 4MB stack — likely stack overflow
+```
+
+---
+
+## std::vector
+
+```cpp
+vector<int> v;
+v.push_back(5);          // amortized O(1)
+v.pop_back();            // O(1)
+v.resize(n, 0);          // resize with fill value
+v.assign(n, val);        // fill with val
+v.clear();               // clear (capacity unchanged)
+v.shrink_to_fit();       // release excess memory
+
+// 2D vector
+vector<vector<int>> adj(n);                        // adjacency list
+vector<vector<int>> dp(n, vector<int>(m, 0));      // DP table
+```
+
+**Reserve** to avoid reallocations:
+```cpp
+vector<int> v;
+v.reserve(n);  // pre-allocate, no realloc below n
+```
+
+<Callout type="info">
+`push_back` is amortized $O(1)$ because the vector doubles capacity on overflow. Over $n$ pushes, total copy work is $< 2n$. See [Amortized Analysis](/ds/foundations/amortized).
+</Callout>
+
+---
+
+## Prefix Sums (1D)
+
+A prefix sum array $P$ allows any range sum query in $O(1)$ after $O(n)$ preprocessing.
+
+$$P[i] = A[0] + A[1] + \cdots + A[i]$$
+
+$$\text{sum}(l, r) = P[r] - P[l-1]$$
+
+```cpp
+// Build (1-indexed for cleaner range queries)
+int a[100005], p[100005];
+// a[1..n] is the input array
+for (int i = 1; i <= n; i++)
+    p[i] = p[i-1] + a[i];
+
+// Query: sum of a[l..r]
+int range_sum(int l, int r) {
+    return p[r] - p[l-1];
+}
+```
+
+**0-indexed version**:
+```cpp
+vector<long long> prefix(n + 1, 0);
+for (int i = 0; i < n; i++)
+    prefix[i+1] = prefix[i] + a[i];
+
+// sum of a[l..r] (inclusive, 0-indexed)
+long long sum = prefix[r+1] - prefix[l];
+```
+
+<Callout type="warning">
+Use `long long` for prefix sums when $n \leq 10^5$ and values $\leq 10^9$: the sum can reach $10^{14}$, exceeding `int` range.
+</Callout>
+
+---
+
+## Prefix Sums (2D)
+
+For a 2D grid, precompute sums so any rectangle query is $O(1)$.
+
+$$P[i][j] = \sum_{r \leq i, c \leq j} A[r][c]$$
+
+**Build** (inclusion-exclusion):
+```cpp
+// 1-indexed
+int p[1005][1005] = {};
+for (int i = 1; i <= n; i++)
+    for (int j = 1; j <= m; j++)
+        p[i][j] = a[i][j] + p[i-1][j] + p[i][j-1] - p[i-1][j-1];
+```
+
+**Query**: sum of rectangle with corners $(r_1, c_1)$ to $(r_2, c_2)$:
+```cpp
+int rect_sum(int r1, int c1, int r2, int c2) {
+    return p[r2][c2] - p[r1-1][c2] - p[r2][c1-1] + p[r1-1][c1-1];
+}
+```
+
+The four-term formula is the 2D inclusion-exclusion principle.
+
+---
+
+## Difference Arrays
+
+Difference arrays support $O(1)$ range updates (add $v$ to all elements in $[l, r]$) and $O(n)$ reconstruction.
+
+**Key idea**: store $D[i] = A[i] - A[i-1]$. A range add on $[l,r]$ becomes two point updates.
+
+```cpp
+// Initialize difference array
+int d[100005] = {};
+// or: d[i] = a[i] - a[i-1]
+
+// Range update: add val to a[l..r] (1-indexed)
+void range_add(int l, int r, int val) {
+    d[l] += val;
+    d[r+1] -= val;
+}
+
+// Reconstruct array after all updates
+void reconstruct(int* a, int n) {
+    a[1] = d[1];
+    for (int i = 2; i <= n; i++)
+        a[i] = a[i-1] + d[i];
+}
+```
+
+**When to use**: multiple range add operations, read the final array once. If you need range queries between updates, use a [Fenwick Tree](/ds/fenwick/classic-bit) or [Segment Tree with Lazy Propagation](/ds/segment-tree/lazy-propagation).
+
+**2D difference array**: supports rectangle range additions.
+
+```cpp
+// Add val to rectangle (r1,c1)-(r2,c2)
+void rect_add(int r1, int c1, int r2, int c2, int val) {
+    d[r1][c1] += val;
+    d[r1][c2+1] -= val;
+    d[r2+1][c1] -= val;
+    d[r2+1][c2+1] += val;
+}
+
+// Reconstruct 2D array
+for (int i = 1; i <= n; i++)
+    for (int j = 1; j <= m; j++)
+        a[i][j] = d[i][j] + a[i-1][j] + a[i][j-1] - a[i-1][j-1];
+```
+
+---
+
+## Sorting & Binary Search
+
+```cpp
+sort(a, a + n);                         // ascending
+sort(a, a + n, greater<int>());         // descending
+sort(v.begin(), v.end());
+
+// Custom comparator
+sort(points.begin(), points.end(), [](auto& a, auto& b) {
+    return a.x != b.x ? a.x < b.x : a.y < b.y;
+});
+
+// Binary search (sorted array required)
+lower_bound(a, a + n, x);   // iterator to first element >= x
+upper_bound(a, a + n, x);   // iterator to first element > x
+binary_search(a, a + n, x); // returns bool
+
+// Count occurrences of x
+int cnt = upper_bound(a, a+n, x) - lower_bound(a, a+n, x);
+
+// nth_element (partial sort — O(n) expected)
+nth_element(a, a + k, a + n);  // a[k] is the k-th smallest
+```
+
+---
+
+## Key Array Algorithms
+
+```cpp
+// Reverse
+reverse(a, a + n);
+
+// Rotate: a[k..n-1] moves to front
+rotate(a, a + k, a + n);
+
+// Unique (removes consecutive duplicates — sort first)
+sort(a, a + n);
+int new_n = unique(a, a + n) - a;
+
+// Fill
+fill(a, a + n, val);
+memset(a, 0, sizeof(a));    // sets all bytes to 0 — correct for int
+memset(a, -1, sizeof(a));   // sets all bytes to 0xFF = -1 for int (two's complement)
+memset(a, 0x3f, sizeof(a)); // sets each byte to 63 — common CP trick for "infinity"
+
+// Sum / min / max
+accumulate(a, a + n, 0LL);  // sum (0LL prevents int overflow)
+*min_element(a, a + n);
+*max_element(a, a + n);
+```
+
+---
+
+## Sliding Window / Two Pointers
+
+```cpp
+// Maximum subarray sum (Kadane's algorithm)
+long long max_sum = 0, cur = 0;
+for (int x : a) {
+    cur = max(0LL, cur + x);
+    max_sum = max(max_sum, cur);
+}
+// Note: if all elements negative, max_sum = 0 (empty subarray).
+// For non-empty: track separately.
+
+// Two pointers: count pairs with sum == target (sorted array)
+sort(a, a + n);
+int l = 0, r = n - 1, count = 0;
+while (l < r) {
+    int s = a[l] + a[r];
+    if (s == target) { count++; l++; r--; }
+    else if (s < target) l++;
+    else r--;
+}
+
+// Sliding window maximum (monotonic deque)
+deque<int> dq;  // stores indices, front = max
+for (int i = 0; i < n; i++) {
+    while (!dq.empty() && dq.front() < i - k + 1) dq.pop_front();
+    while (!dq.empty() && a[dq.back()] <= a[i]) dq.pop_back();
+    dq.push_back(i);
+    if (i >= k - 1) ans[i - k + 1] = a[dq.front()];
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Random access", time: "O(1)", space: "O(1)" },
+  { operation: "push_back (amortized)", time: "O(1)", space: "O(1)" },
+  { operation: "sort", time: "O(n log n)", space: "O(log n)" },
+  { operation: "binary search", time: "O(log n)", space: "O(1)" },
+  { operation: "nth_element", time: "O(n) expected", space: "O(1)" },
+  { operation: "Prefix sum build", time: "O(n)", space: "O(n)" },
+  { operation: "Prefix sum query", time: "O(1)", space: "O(1)" },
+  { operation: "Difference array range update", time: "O(1)", space: "O(1)" },
+  { operation: "Difference array reconstruct", time: "O(n)", space: "O(1)" },
+  { operation: "Sliding window max (deque)", time: "O(n)", space: "O(k)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **`memset` with non-0/non-(-1)/non-0x3f**: `memset(a, 1, sizeof(a))` sets each byte to 1, giving `0x01010101 = 16843009` per int — not what you want.
+2. **`int` overflow in prefix sums**: $n = 10^5$, values $= 10^9$ → sum up to $10^{14}$. Use `long long`.
+3. **`lower_bound` on unsorted range**: undefined behavior.
+4. **Off-by-one in `upper_bound - lower_bound`**: count of $x$ is `upper_bound(x) - lower_bound(x)`.
+5. **Difference array right boundary**: `d[r+1] -= val` — need array of size $n+2$ to avoid out-of-bounds.
+6. **2D prefix sum**: the rectangle query formula has 4 terms — easy to forget the `+p[r1-1][c1-1]`.
+7. **Kadane on all-negative**: returns 0 (empty subarray). Handle separately if non-empty required.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Static Range Sum Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1646",
+    difficulty: "600",
+    concepts: ["prefix sum"],
+    tier: "warmup"
+  },
+  {
+    name: "Distinct Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1621",
+    difficulty: "600",
+    concepts: ["sorting", "unique"],
+    tier: "warmup"
+  },
+  {
+    name: "Maximum Subarray Sum",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1643",
+    difficulty: "800",
+    concepts: ["Kadane", "sliding window"],
+    tier: "warmup"
+  },
+  {
+    name: "Apartments",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1084",
+    difficulty: "800",
+    concepts: ["sorting", "two pointers"],
+    tier: "warmup"
+  },
+  {
+    name: "Forest Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1652",
+    difficulty: "1000",
+    concepts: ["2D prefix sum"],
+    tier: "warmup"
+  },
+  {
+    name: "Subarray Sums I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1660",
+    difficulty: "1200",
+    concepts: ["prefix sum", "two pointers"],
+    tier: "standard"
+  },
+  {
+    name: "Concert Tickets",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1091",
+    difficulty: "1000",
+    concepts: ["binary search", "multiset"],
+    tier: "standard"
+  },
+  {
+    name: "Salary Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1141",
+    difficulty: "1500",
+    concepts: ["difference array", "coordinate compression"],
+    tier: "standard"
+  },
+  {
+    name: "Prefix Sum Queries",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1093/G",
+    difficulty: "1800",
+    concepts: ["prefix sum", "offline"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Complexity Analysis](/ds/foundations/complexity) — understanding when prefix sums are sufficient vs needing a segment tree
+- [Coordinate Compression](/ds/foundations/coordinate-compression) — map large values to small indices before using prefix sums
+- [Fenwick Tree](/ds/fenwick/classic-bit) — prefix sums with point updates in $O(\log n)$
+- [Segment Tree](/ds/segment-tree/basic) — range queries with range updates
+- [Lazy Propagation](/ds/segment-tree/lazy-propagation) — range updates in $O(\log n)$
+
+---
+
+## References
+
+1. cp-algorithms — [Prefix Sums](https://cp-algorithms.com/algebra/prefix-sums.html)
+2. USACO Guide — [Prefix Sums](https://usaco.guide/silver/prefix-sums)
+3. cp-algorithms — [Difference Arrays](https://cp-algorithms.com/data_structures/difference_array.html)
