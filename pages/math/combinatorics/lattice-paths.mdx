@@ -1,0 +1,220 @@
+---
+title: Lattice Paths & Reflection Principle
+description: Grid paths, ballot problem, André's reflection principle, Lindström-Gessel-Viennot lemma
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Lattice Paths & Reflection Principle
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Catalan Numbers", href: "/math/combinatorics/catalan" }
+]} />
+
+## Why This Topic Matters
+
+Lattice path problems reduce to binomial coefficients via reflection. The reflection principle is elegant: bad paths biject to reflected paths, giving a clean closed form. LGV lemma counts non-intersecting paths using determinants.
+
+**Contest relevance**: CF Div.1 C–D, grid path counting with obstacles or constraints, non-crossing matching problems.
+
+---
+
+## Basic Grid Paths
+
+Paths from $(0,0)$ to $(m,n)$ using steps $\text{R}=(1,0)$ and $\text{U}=(0,1)$:
+
+$$\binom{m+n}{m} = \binom{m+n}{n}$$
+
+Choose which $m$ of the $m+n$ steps are right moves.
+
+---
+
+## Paths Below a Line (Ballot Problem)
+
+Paths from $(0,0)$ to $(n,n)$ that **never go strictly above** $y = x$ (i.e., never have more U steps than R steps at any prefix):
+
+$$C_n = \frac{1}{n+1}\binom{2n}{n}$$
+
+**Reflection principle** (André 1887): a bad path (touches $y=x+1$) can be reflected at the first touching point. The reflected path goes from $(-1,1)$ to $(n,n)$. Number of such bad paths = paths from $(-1,1)$ to $(n,n)$ = $\binom{2n}{n-1}$.
+
+$$\text{Good paths} = \binom{2n}{n} - \binom{2n}{n-1} = \frac{1}{n+1}\binom{2n}{n}$$
+
+---
+
+## General Reflection
+
+Paths from $(a, b)$ to $(c, d)$ that **never touch** line $y = x + k$:
+
+Reflect bad paths (those that touch the line) through $y = x + k$ to get paths from $(b-k, a+k)$ to $(c, d)$.
+
+$$\text{Good} = \binom{(c-a)+(d-b)}{c-a} - \binom{(c-a)+(d-b)}{c-b+k}$$
+
+---
+
+## Multiple Barriers
+
+Paths from $(0,0)$ to $(n,n)$ staying in $0 \leq y - x \leq k$ (between two lines):
+
+Use inclusion-exclusion with multiple reflections — alternating sign sum of binomials.
+
+---
+
+## Paths with Forbidden Points
+
+Use DP:
+
+```cpp
+// Count paths from (0,0) to (m,n) avoiding a set of forbidden points
+// dp[i][j] = paths to (i,j)
+vector<vector<long long>> dp(m+1, vector<long long>(n+1, 0));
+dp[0][0] = 1;
+for (int i = 0; i <= m; i++)
+    for (int j = 0; j <= n; j++) {
+        if (forbidden[i][j]) { dp[i][j] = 0; continue; }
+        if (i > 0) dp[i][j] += dp[i-1][j];
+        if (j > 0) dp[i][j] += dp[i][j-1];
+        dp[i][j] %= MOD;
+    }
+```
+
+For paths avoiding a single obstacle at $(r,c)$: PIE gives $\binom{m+n}{m} - \binom{r+c}{r}\binom{(m-r)+(n-c)}{m-r}$.
+
+---
+
+## Lindström-Gessel-Viennot (LGV) Lemma
+
+Count $k$-tuples of **non-intersecting** lattice paths from sources $A = (a_1, \ldots, a_k)$ to destinations $B = (b_1, \ldots, b_k)$:
+
+$$e(A, B) = \det\left[e(a_i, b_j)\right]_{1 \leq i,j \leq k}$$
+
+where $e(u, v)$ = number of paths from $u$ to $v$ (intersecting allowed in the single-path count).
+
+```cpp
+// Count non-intersecting k-tuple of paths
+// e[i][j] = paths from source i to destination j
+long long lgv(vector<vector<long long>>& e, int k) {
+    // Compute determinant of k×k matrix e
+    // For small k (≤ 4): expand directly
+    // For general k: Gaussian elimination mod prime
+    long long det = 0;
+    // ... Gaussian elimination ...
+    return det;
+}
+```
+
+**Applications**:
+- Non-intersecting paths in grids
+- Counting Standard Young Tableaux (hook length formula derivation)
+- Plane partitions
+- Non-crossing perfect matchings
+
+---
+
+## Motzkin Paths
+
+Paths from $(0,0)$ to $(n,0)$ with steps $+1, 0, -1$, never going below $y=0$:
+
+$$M_n = \sum_{k=0}^{\lfloor n/2 \rfloor} \binom{n}{2k} C_k$$
+
+$M_n = 1, 1, 2, 4, 9, 21, 51, \ldots$
+
+Used in RNA folding, 321-avoiding permutations.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Basic grid path count", time: "O(1) with precomputed C(n,k)", space: "O(1)" },
+  { operation: "DP for paths with obstacles (m×n grid)", time: "O(mn)", space: "O(mn)" },
+  { operation: "LGV determinant (k×k)", time: "O(k³ + k² · path-count)", space: "O(k²)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Grid paths with upper bound**: reflection principle gives closed form
+2. **Paths avoiding diagonal**: Catalan / ballot numbers
+3. **Non-crossing k paths**: LGV determinant
+4. **Paths in a strip**: reflection with multiple barriers + inclusion-exclusion
+
+---
+
+## Common Mistakes
+
+1. **Reflection formula sign**: $\binom{m+n}{m} - \binom{m+n}{?}$ — derive the reflection image endpoint carefully.
+2. **LGV source/destination order**: the matrix $e(a_i, b_j)$ — misidentifying which is row vs column.
+3. **LGV assumptions**: lemma requires all paths go in the same "direction" (acyclic grid) — doesn't hold in general graphs.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Grid Paths",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1078",
+    difficulty: "1200",
+    concepts: ["grid paths", "binomial"],
+    tier: "warmup"
+  },
+  {
+    name: "Bracket Sequences I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1626",
+    difficulty: "1200",
+    concepts: ["Dyck paths", "Catalan", "reflection"],
+    tier: "warmup"
+  },
+  {
+    name: "Robot Paths",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1742",
+    difficulty: "1700",
+    concepts: ["grid paths", "DP", "forbidden points"],
+    tier: "standard"
+  },
+  {
+    name: "Non-intersecting Paths",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/704/D",
+    difficulty: "2400",
+    concepts: ["LGV", "determinant", "non-intersecting"],
+    tier: "advanced"
+  },
+  {
+    name: "Triangle",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1208/F",
+    difficulty: "2500",
+    concepts: ["lattice paths", "reflection", "LGV"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Catalan Numbers](/math/combinatorics/catalan) — ballot/Dyck paths directly give Catalan formula
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — all path counts are binomials
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — paths with multiple forbidden regions
+
+---
+
+## References
+
+1. cp-algorithms — [Lattice Paths](https://cp-algorithms.com/combinatorics/lattice-paths.html)
+2. André, D. — Solution directe du problème résolu par M. Bertrand (1887) — reflection principle
+3. Lindström, B. — On the vector representations of induced matroids (1973)
+4. Gessel & Viennot — Binomial determinants, paths, and hook length formulae (1985)

@@ -1,0 +1,220 @@
+---
+title: Generating Functions
+description: OGF, EGF, formal power series operations, and their applications in counting sequences
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Generating Functions
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+Generating functions encode sequences as formal power series. Multiplying GFs corresponds to convolution; finding coefficients gives counting results. They're the bridge between combinatorial identities, recurrences, and algorithmic computation.
+
+**Contest relevance**: CF Div.1 D–E, problems involving convolutions, polynomial multiplication (FFT), formal power series operations.
+
+---
+
+## Ordinary Generating Functions (OGF)
+
+For sequence $a_0, a_1, a_2, \ldots$:
+
+$$A(x) = \sum_{n \geq 0} a_n x^n$$
+
+**Key OGFs**:
+
+| Sequence | OGF |
+|---------|-----|
+| $1, 1, 1, \ldots$ | $\frac{1}{1-x}$ |
+| $1, r, r^2, \ldots$ | $\frac{1}{1-rx}$ |
+| $\binom{n}{k}$ (row $n$) | $(1+x)^n$ |
+| $\binom{n+k}{k}$ (column $k$) | $\frac{1}{(1-x)^{k+1}}$ |
+| $F_n$ (Fibonacci) | $\frac{x}{1-x-x^2}$ |
+| $p(n)$ (partitions) | $\prod_{k \geq 1} \frac{1}{1-x^k}$ |
+| $C_n$ (Catalan) | $\frac{1-\sqrt{1-4x}}{2x}$ |
+
+---
+
+## Exponential Generating Functions (EGF)
+
+$$A(x) = \sum_{n \geq 0} a_n \frac{x^n}{n!}$$
+
+Used when objects are **labeled** (permutations, words, structures on sets).
+
+**Key EGFs**:
+
+| Sequence | EGF |
+|---------|-----|
+| $1, 1, 1, \ldots$ (sets) | $e^x$ |
+| $0!, 1!, 2!, \ldots$ | $\frac{1}{1-x}$ |
+| $D_n$ (derangements) | $\frac{e^{-x}}{1-x}$ |
+| $B_n$ (Bell) | $e^{e^x - 1}$ |
+| $n!$ (permutations) | $\frac{1}{1-x}$ |
+
+---
+
+## Operations on Formal Power Series
+
+Truncate all series to degree $n$ (work mod $x^{n+1}$). All ops below are $O(n \log n)$ using FFT/NTT.
+
+### Multiplication (Convolution)
+
+$(A \cdot B)[n] = \sum_{k=0}^{n} a_k b_{n-k}$
+
+```cpp
+// Polynomial multiplication using NTT/FFT
+// See: FFT page for implementation
+// Result[i] = sum_{j=0}^{i} A[j] * B[i-j]
+```
+
+### Inverse: $B = A^{-1}$ (if $a_0 \neq 0$)
+
+$$b_0 = a_0^{-1}, \quad b_n = -\frac{1}{a_0} \sum_{k=1}^{n} a_k b_{n-k}$$
+
+### Derivative and Integral
+
+$$(A')_n = (n+1) a_{n+1}$$
+$$(A \text{ integrated})_n = \frac{a_{n-1}}{n} \text{ for } n \geq 1$$
+
+### Composition: $B = A(C(x))$ (if $c_0 = 0$)
+
+Only efficient for special cases. General composition: $O(n^{3/2})$ or $O(n^2)$.
+
+### Exp and Log (formal)
+
+$$\log(1 + A) = A - \frac{A^2}{2} + \frac{A^3}{3} - \cdots$$
+$$\exp(A) = 1 + A + \frac{A^2}{2!} + \cdots$$
+
+Both computable in $O(n \log n)$ via Newton's method.
+
+```cpp
+// Formal power series operations modulo x^n (NTT-based)
+// Requires: NTT, polynomial inverse
+Poly poly_log(Poly A, int n);    // log(A), requires A[0]=1
+Poly poly_exp(Poly A, int n);    // exp(A), requires A[0]=0
+Poly poly_sqrt(Poly A, int n);   // sqrt(A), requires A[0]=1
+Poly poly_inv(Poly A, int n);    // 1/A, requires A[0] != 0
+// All O(n log n)
+```
+
+---
+
+## Transfer Matrix Method
+
+For linear recurrences, the generating function is rational:
+
+$$a_n = c_1 a_{n-1} + \cdots + c_k a_{n-k} \implies A(x) = \frac{P(x)}{Q(x)}$$
+
+where $Q(x) = 1 - c_1 x - \cdots - c_k x^k$ is the characteristic polynomial.
+
+**Applications**: Fibonacci, tribonacci, staircase problems, tiling problems — all have rational OGFs.
+
+---
+
+## Product Formula for Structures
+
+For labeled structures built from components with EGF $B(x)$:
+
+$$\text{EGF of sequences of components} = \frac{1}{1 - B(x)}$$
+$$\text{EGF of sets of components} = e^{B(x)}$$
+
+**Example**: EGF of permutations (sequences of cycles) = $e^{-\ln(1-x)} = \frac{1}{1-x}$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Polynomial multiplication (deg n)", time: "O(n log n)", space: "O(n)" },
+  { operation: "Polynomial inverse", time: "O(n log n)", space: "O(n)" },
+  { operation: "Poly exp / log / sqrt", time: "O(n log n)", space: "O(n)" },
+  { operation: "Naive convolution", time: "O(n²)", space: "O(n)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Counting sequences with $\sum a_i = n$**: find OGF, extract coefficient $[x^n]$
+2. **Labeled set structures**: use EGF, product = $e^{B(x)}$
+3. **Recurrence → closed form**: solve via rational OGF
+4. **Distribution problems**: product of OGFs for each "slot"
+5. **Partition type**: product $\prod \frac{1}{1-x^k}$ for unrestricted parts
+
+---
+
+## Common Mistakes
+
+1. **OGF vs EGF**: use OGF for unlabeled/combinatorial, EGF for labeled/permutation structures. Mixing them gives wrong answers.
+2. **Formal vs convergent**: these are formal power series — convergence doesn't matter, only coefficient extraction.
+3. **EGF product**: $[n/n!]$ in $(A \cdot B)(x) = \sum_{k} \binom{n}{k} a_k b_{n-k} / n!$ — remember the binomial from EGF multiplication.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1278/F",
+    difficulty: "2000",
+    concepts: ["generating functions", "OGF"],
+    tier: "standard"
+  },
+  {
+    name: "String Formation",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1063/F",
+    difficulty: "2400",
+    concepts: ["EGF", "formal power series"],
+    tier: "advanced"
+  },
+  {
+    name: "Exp of GF",
+    platform: "Library-Checker",
+    link: "https://judge.yosupo.jp/problem/exp_of_formal_power_series",
+    difficulty: "2200",
+    concepts: ["formal power series", "poly exp"],
+    tier: "advanced"
+  },
+  {
+    name: "Sum of Floor",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1294/F",
+    difficulty: "2600",
+    concepts: ["generating functions", "floor sum", "formal power series"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [FFT & Polynomials](/math/polynomials/fft) — fast polynomial multiplication needed for $O(n \log n)$ ops
+- [Partition Numbers](/math/combinatorics/partition) — OGF: $\prod \frac{1}{1-x^k}$
+- [Catalan Numbers](/math/combinatorics/catalan) — OGF: $\frac{1-\sqrt{1-4x}}{2x}$
+- [Bell & Stirling Numbers](/math/combinatorics/bell-stirling) — Bell EGF: $e^{e^x - 1}$
+- [Pólya Enumeration](/math/combinatorics/polya) — cycle index uses formal power series
+
+---
+
+## References
+
+1. cp-algorithms — [Generating Functions](https://cp-algorithms.com/algebra/generating-functions.html)
+2. Wilf, H. — generatingfunctionology (freely available online)
+3. Stanley, Enumerative Combinatorics Vol. 2 — Chapter 6: Exponential generating functions
+4. KACTL — [Polynomial operations](https://github.com/kth-competitive-programming/kactl)

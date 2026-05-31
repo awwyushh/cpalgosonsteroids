@@ -1,0 +1,172 @@
+---
+title: Pólya Enumeration Theorem
+description: Weighted counting under symmetry — cycle index, colored necklaces, Pólya's theorem
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Pólya Enumeration Theorem
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Burnside's Lemma", href: "/math/combinatorics/burnside" },
+  { title: "Generating Functions", href: "/math/combinatorics/generating-functions" }
+]} />
+
+## Why This Topic Matters
+
+Pólya's theorem is Burnside's lemma with weights. Instead of just counting distinct colorings, it generates a polynomial whose coefficients count colorings by color usage. Essential for problems asking "how many necklaces use exactly $r$ red beads and $b$ blue beads".
+
+**Contest relevance**: CF Div.1 D–E, olympiad problems about weighted symmetric counting.
+
+---
+
+## Cycle Index
+
+For group $G$ acting on $[n]$, the **cycle index** is:
+
+$$Z(G) = \frac{1}{|G|} \sum_{g \in G} a_1^{c_1(g)} a_2^{c_2(g)} \cdots a_n^{c_n(g)}$$
+
+where $c_k(g)$ = number of $k$-cycles in the permutation $g$.
+
+**Pólya's Theorem**: The generating function for colorings by weight is obtained by substituting $a_i = \sum_{\text{colors}} w_c^i$:
+
+$$\text{weighted count} = Z(G)\bigg|_{a_i \to \sum_c w_c^i}$$
+
+---
+
+## Cyclic Group $C_n$ (Rotations)
+
+For rotation by $d$ positions: permutation consists of $\gcd(d,n)$ cycles of length $n/\gcd(d,n)$.
+
+$$Z(C_n) = \frac{1}{n} \sum_{d=0}^{n-1} \prod_{k | n/\gcd(d,n)} a_k^{\gcd(d,n)} = \frac{1}{n} \sum_{d|n} \phi(d) \cdot a_d^{n/d}$$
+
+For $k$ colors all with weight 1: substitute $a_i = k$ → recovers necklace count.
+
+---
+
+## Example: 2-Color Necklace with Exact Counts
+
+Necklaces with $n$ beads, 2 colors (R and B), counting by number of R beads:
+
+1. Compute cycle index $Z(C_n)$
+2. Substitute $a_i = R^i + B^i$ (each cycle: all R or all B)
+3. Coefficient of $R^r B^{n-r}$ = necklaces with exactly $r$ red beads
+
+```cpp
+// Polynomial multiplication mod prime, degree up to n
+using Poly = vector<long long>;
+
+Poly polya_necklace(int n) {
+    Poly result(n + 1, 0);
+    for (int d = 1; d <= n; d++) {
+        if (n % d != 0) continue;
+        long long coeff = euler_phi(d);  // phi(d) rotations with this cycle structure
+        int cycle_len = d;
+        int num_cycles = n / d;
+        // Each cycle of length d: contributes R^d + B^d per cycle
+        // Product of num_cycles such: coefficient of R^r B^{n-r} is
+        // [x^r in (x^d + 1)^num_cycles] where we treat R^d=x, B^d=1
+        // Then scale by coeff / n
+        Poly term(n + 1, 0);
+        term[0] = 1;
+        for (int c = 0; c < num_cycles; c++) {
+            Poly next(n + 1, 0);
+            for (int j = 0; j + d <= n; j++)
+                for (int bit : {0, 1})
+                    next[j + bit * d] = (next[j + bit * d] + term[j]) % MOD;
+            term = next;
+        }
+        for (int i = 0; i <= n; i++)
+            result[i] = (result[i] + coeff * term[i]) % MOD;
+    }
+    long long inv_n = modinv(n, MOD);
+    for (auto& x : result) x = x * inv_n % MOD;
+    return result;
+    // result[r] = necklaces with exactly r red beads
+}
+```
+
+---
+
+## Dihedral Group $D_n$ (Rotations + Reflections)
+
+For bracelets (necklaces where flip is same):
+
+$$Z(D_n) = \frac{1}{2} Z(C_n) + \frac{1}{2} (\text{reflection terms})$$
+
+Reflection cycle structure depends on parity of $n$:
+- $n$ odd: each reflection has one fixed point, $(n-1)/2$ transpositions: cycle index term $a_1 a_2^{(n-1)/2}$, contributing $n$ such reflections
+- $n$ even: $n/2$ reflections through opposite vertices (cycle: $a_2^{n/2}$), $n/2$ through opposite edges ($a_1^2 a_2^{(n-2)/2}$)
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Cycle index computation for C_n", time: "O(n log n) divisor enum", space: "O(n)" },
+  { operation: "Substitution for k colors", time: "O(n)", space: "O(1)" },
+  { operation: "Weighted polynomial (2 colors)", time: "O(n² log n)", space: "O(n)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Count necklaces with exactly $r$ red**: Pólya with 2-color generating function
+2. **Multicolor necklace by composition**: substitute $a_i = \sum_c w_c^i$
+3. **Cube colorings by color usage**: Pólya with cube rotation group (24 elements)
+4. **Binary necklaces of length n**: Pólya with $a_i = 1 + x^i$
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Necklaces",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2209",
+    difficulty: "1600",
+    concepts: ["Burnside", "Pólya basics"],
+    tier: "standard"
+  },
+  {
+    name: "Counting Necklaces",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/463/E",
+    difficulty: "2300",
+    concepts: ["Pólya", "cycle index", "colored necklace"],
+    tier: "advanced"
+  },
+  {
+    name: "Colorful Graph",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1081/G",
+    difficulty: "2400",
+    concepts: ["Pólya", "graph coloring"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Burnside's Lemma](/math/combinatorics/burnside) — Pólya is the weighted generalization
+- [Generating Functions](/math/combinatorics/generating-functions) — cycle index is a formal power series
+- [Euler's Totient](/math/number-theory/euler-phi) — necklace cycle index uses $\phi(d)$
+
+---
+
+## References
+
+1. cp-algorithms — [Burnside and Pólya](https://cp-algorithms.com/combinatorics/burnside.html)
+2. Pólya, G. — Kombinatorische Anzahlbestimmungen für Gruppen, Graphen und chemische Verbindungen (1937)
+3. Concrete Mathematics §7.4 — Pólya's enumeration theorem

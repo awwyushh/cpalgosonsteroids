@@ -1,0 +1,286 @@
+---
+title: Combinatorics with DP
+description: Counting DP patterns — grid paths, non-crossing structures, profile DP, broken profile
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Combinatorics with DP
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Inclusion-Exclusion", href: "/math/combinatorics/inclusion-exclusion" }
+]} />
+
+## Why This Topic Matters
+
+Many counting problems have no closed form and require DP. The skill is recognizing the DP state that captures exactly the information needed — no more. This page catalogs the most important counting DP patterns.
+
+**Contest relevance**: CF Div.2 D – Div.1 D, CSES, any problem that says "count the number of ways".
+
+---
+
+## Pattern 1: Counting Paths in a DAG
+
+Count paths from source to sink in a DAG. State = vertex. Transition = sum over predecessors.
+
+```cpp
+// Topological order DP
+vector<long long> dp(n, 0);
+dp[source] = 1;
+for (int u : topo_order) {
+    for (int v : adj[u])
+        dp[v] = (dp[v] + dp[u]) % MOD;
+}
+// dp[sink] = number of source-to-sink paths
+```
+
+**Special cases**:
+- Grid paths: $dp[i][j] = dp[i-1][j] + dp[i][j-1]$
+- With forbidden cells: set $dp[i][j] = 0$ at obstacles
+- Weighted paths: add weights to transitions
+
+---
+
+## Pattern 2: Bitmask DP (Subsets)
+
+Count structures over subsets when $n \leq 20$.
+
+```cpp
+// dp[mask] = ways to process the subset 'mask'
+vector<long long> dp(1 << n, 0);
+dp[0] = 1;
+for (int mask = 0; mask < (1 << n); mask++) {
+    if (!dp[mask]) continue;
+    int pos = __builtin_ctz(~mask);  // first unset bit
+    for (int next : choices[pos]) {
+        int nmask = mask | (1 << next);
+        dp[nmask] = (dp[nmask] + dp[mask]) % MOD;
+    }
+}
+```
+
+**Variants**:
+- Hamiltonians: `dp[mask][last]` = paths visiting exactly `mask` ending at `last`
+- Set cover DP
+- SOS (Sum over Subsets) for fast subset convolution
+
+---
+
+## Pattern 3: Interval DP
+
+Count structures on intervals $[l, r]$.
+
+```cpp
+// dp[l][r] = answer for interval [l..r]
+// Fill by increasing length
+for (int len = 1; len <= n; len++) {
+    for (int l = 0; l + len - 1 < n; l++) {
+        int r = l + len - 1;
+        // dp[l][r] = combine dp[l][k] and dp[k+1][r]
+        for (int k = l; k < r; k++)
+            dp[l][r] = (dp[l][r] + dp[l][k] * dp[k+1][r]) % MOD;
+    }
+}
+```
+
+**Applications**: polygon triangulations (Catalan), matrix chain, optimal BST, palindrome partitioning.
+
+---
+
+## Pattern 4: Tree DP for Counting
+
+Count structures on trees. Typical state: `dp[v][k]` = ways involving subtree of $v$ with parameter $k$.
+
+```cpp
+// dp[v][k] = ways to color subtree of v using exactly k colors
+// Merge children one by one (knapsack-style)
+void dfs(int v, int par) {
+    dp[v] = {1};  // just vertex v
+    for (int u : adj[v]) {
+        if (u == par) continue;
+        dfs(u, v);
+        // Merge dp[v] and dp[u]
+        vector<long long> merged(dp[v].size() + dp[u].size() - 1, 0);
+        for (int i = 0; i < (int)dp[v].size(); i++)
+            for (int j = 0; j < (int)dp[u].size(); j++)
+                merged[i+j] = (merged[i+j] + dp[v][i] * dp[u][j]) % MOD;
+        dp[v] = merged;
+    }
+}
+```
+
+**Warning**: naive tree DP on all pairs is $O(n^2)$ — use the small-to-large merge to get $O(n \log n)$.
+
+---
+
+## Pattern 5: Profile DP (Broken Profile)
+
+Tile an $m \times n$ grid column by column. State = "profile" of the current column boundary.
+
+```cpp
+// Domino tiling of m×n grid (m small, n large)
+// dp[col][profile] = ways to fill columns 0..col-1 with given profile
+// Profile = bitmask of which cells in current column are already filled
+int rows = m;
+vector<long long> dp(1 << rows, 0);
+dp[0] = 1;
+
+for (int col = 0; col < n; col++) {
+    vector<long long> ndp(1 << rows, 0);
+    // Try to place tiles starting from current profile
+    // (recursive fill within the column)
+    function<void(int, int, long long)> fill = [&](int row, int cur, long long ways) {
+        if (row == rows) { ndp[cur] += ways; return; }
+        // Current cell already filled → skip
+        if (cur >> row & 1) { fill(row+1, cur, ways); return; }
+        // Place horizontal domino (needs cell in next column)
+        fill(row+1, cur | (1 << row), ways);  // mark next col cell
+        // Place vertical domino (if row+1 available)
+        if (row+1 < rows && !(cur >> (row+1) & 1))
+            fill(row+2, cur, ways);
+    };
+    for (int mask = 0; mask < (1 << rows); mask++)
+        if (dp[mask]) fill(0, mask ^ ((1<<rows)-1), dp[mask]);
+    dp = ndp;
+}
+// dp[0] = number of tilings
+```
+
+---
+
+## Pattern 6: Digit DP
+
+Count integers in $[0, N]$ with a property defined digit by digit.
+
+```cpp
+// Count n in [0, N] satisfying some digit property
+string s = to_string(N);
+int n = s.size();
+// dp[pos][state][tight][started]
+// tight: are we still bounded by N's prefix?
+// started: have we placed a non-zero digit?
+map<tuple<int,int,bool,bool>, long long> memo;
+
+function<long long(int, int, bool, bool)> solve =
+    [&](int pos, int state, bool tight, bool started) -> long long {
+    if (pos == n) return /* base case from state */;
+    auto key = tuple(pos, state, tight, started);
+    if (memo.count(key)) return memo[key];
+    int limit = tight ? (s[pos] - '0') : 9;
+    long long res = 0;
+    for (int d = 0; d <= limit; d++) {
+        bool new_tight = tight && (d == limit);
+        bool new_started = started || (d > 0);
+        int new_state = /* transition */ ;
+        res += solve(pos+1, new_state, new_tight, new_started);
+    }
+    return memo[key] = res;
+};
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "DAG path DP", time: "O(V + E)", space: "O(V)" },
+  { operation: "Bitmask DP (n ≤ 20)", time: "O(2^n · n)", space: "O(2^n)" },
+  { operation: "Interval DP", time: "O(n³)", space: "O(n²)" },
+  { operation: "Tree DP (naive)", time: "O(n²)", space: "O(n²)" },
+  { operation: "Profile DP (m×n, m small)", time: "O(n · 2^m · m)", space: "O(2^m)" },
+  { operation: "Digit DP", time: "O(d · states · 10)", space: "O(d · states)" },
+]} />
+
+---
+
+## Common Patterns Summary
+
+| Problem type | Pattern |
+|-------------|---------|
+| Grid paths, obstacles | DAG path DP |
+| Subset selection with compatibility | Bitmask DP |
+| Best/count split of sequence | Interval DP |
+| Trees with subtree merging | Tree DP |
+| Tiling $m \times n$ grid | Profile (broken profile) DP |
+| Count integers $\leq N$ with property | Digit DP |
+| Words/sequences with global constraint | DP on string with state |
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Grid Paths (with obstacles)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1638",
+    difficulty: "1500",
+    concepts: ["grid DP", "forbidden cells"],
+    tier: "standard"
+  },
+  {
+    name: "Counting Tilings",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2181",
+    difficulty: "1800",
+    concepts: ["profile DP", "domino tiling"],
+    tier: "standard"
+  },
+  {
+    name: "Counting Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2220",
+    difficulty: "1600",
+    concepts: ["digit DP"],
+    tier: "standard"
+  },
+  {
+    name: "Hamiltonian Flights",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1690",
+    difficulty: "1800",
+    concepts: ["bitmask DP", "Hamiltonian path count"],
+    tier: "standard"
+  },
+  {
+    name: "Trees and Subtrees",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/916/E",
+    difficulty: "2300",
+    concepts: ["tree DP", "counting"],
+    tier: "advanced"
+  },
+  {
+    name: "Divisible Palindromes",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1202/E",
+    difficulty: "2400",
+    concepts: ["digit DP", "divisibility"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — grid path closed forms
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — counting with forbidden patterns
+- [Generating Functions](/math/combinatorics/generating-functions) — DP transitions = polynomial multiplication
+- [Bitmask SOS DP](/math/bitmask/sos-dp) — subset-sum over all subsets in $O(n \cdot 2^n)$
+
+---
+
+## References
+
+1. cp-algorithms — [Dynamic Programming](https://cp-algorithms.com/dynamic_programming/intro-to-dp.html)
+2. Codeforces EDU — DP course
+3. USACO Guide — [DP chapter](https://usaco.guide/gold/dp)
