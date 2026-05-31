@@ -1,0 +1,334 @@
+---
+title: Binomial Coefficients
+description: Computing C(n,k) mod prime and composite, Pascal's triangle, and combinatorial identities
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Binomial Coefficients
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-easy">Essential</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" },
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+$\binom{n}{k}$ appears in counting paths, subsets, distributions, and DP transitions. Computing it modulo a prime is required for almost every combinatorics problem. The techniques — factorial precomputation, Lucas theorem, Andrew Granville extension — each handle different constraints.
+
+**Contest relevance**: Required in almost every combinatorics problem. CF Div.2 C+, CSES, USACO Gold.
+
+---
+
+## Learning Objectives
+
+- Compute $\binom{n}{k}$ directly for small values
+- Precompute factorials and inverse factorials for $O(1)$ queries mod prime
+- Apply Pascal's recurrence and key identities
+- Use Lucas theorem for $\binom{n}{k} \bmod p$ with large $n$
+- Handle composite moduli via CRT
+
+---
+
+## Definition
+
+$$\binom{n}{k} = \frac{n!}{k!(n-k)!}$$
+
+Counts: subsets of size $k$ from $n$ elements, paths in a grid, coefficients of $(x+y)^n$.
+
+---
+
+## Small Values (Direct Computation)
+
+For $k \leq 60$ and no modulus:
+```cpp
+long long C(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    if (k > n - k) k = n - k;  // symmetry: C(n,k) = C(n,n-k)
+    long long result = 1;
+    for (int i = 0; i < k; i++) {
+        result = result * (n - i) / (i + 1);
+    }
+    return result;
+}
+```
+
+<Callout type="warning">
+This integer division only works because $\binom{n}{k}$ is always an integer. The intermediate values are exact — divide at each step, not at the end.
+</Callout>
+
+---
+
+## Precomputed Factorials (mod prime, large n)
+
+For multiple queries with $n \leq 10^7$ and prime mod:
+
+```cpp
+const int MAXN = 2e6 + 5;
+const long long MOD = 1e9 + 7;
+long long fact[MAXN], inv_fact[MAXN];
+
+void precompute(int n = MAXN - 1) {
+    fact[0] = 1;
+    for (int i = 1; i <= n; i++)
+        fact[i] = fact[i-1] * i % MOD;
+    inv_fact[n] = power(fact[n], MOD - 2, MOD);
+    for (int i = n - 1; i >= 0; i--)
+        inv_fact[i] = inv_fact[i+1] * (i+1) % MOD;
+}
+
+long long C(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    return fact[n] * inv_fact[k] % MOD * inv_fact[n-k] % MOD;
+}
+```
+
+**Complexity**: $O(N)$ precompute, $O(1)$ per query.
+
+---
+
+## Pascal's Triangle
+
+$$\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$$
+
+Useful when $n, k$ are small or when building a 2D table:
+
+```cpp
+const int MAXN = 2005;
+long long C[MAXN][MAXN];
+
+void pascal(int n, long long mod) {
+    for (int i = 0; i <= n; i++) {
+        C[i][0] = 1;
+        for (int j = 1; j <= i; j++)
+            C[i][j] = (C[i-1][j-1] + C[i-1][j]) % mod;
+    }
+}
+```
+
+For $n \leq 2000$: $O(n^2)$ time and space. No modular inverse needed — works for any modulus.
+
+---
+
+## Key Identities
+
+| Identity | Formula |
+|---------|---------|
+| Symmetry | $\binom{n}{k} = \binom{n}{n-k}$ |
+| Pascal | $\binom{n}{k} = \binom{n-1}{k-1} + \binom{n-1}{k}$ |
+| Absorption | $\binom{n}{k} = \frac{n}{k}\binom{n-1}{k-1}$ |
+| Vandermonde | $\sum_{i=0}^r \binom{m}{i}\binom{n}{r-i} = \binom{m+n}{r}$ |
+| Hockey stick | $\sum_{i=r}^n \binom{i}{r} = \binom{n+1}{r+1}$ |
+| Sum of row | $\sum_{k=0}^n \binom{n}{k} = 2^n$ |
+| Alternating sum | $\sum_{k=0}^n (-1)^k \binom{n}{k} = 0$ for $n \geq 1$ |
+| Upper sum | $\sum_{k=0}^r \binom{n+k}{k} = \binom{n+r+1}{r}$ |
+
+---
+
+## Lucas Theorem (Large n, Prime mod)
+
+For prime $p$ and $n, k$ in base $p$: $n = \sum n_i p^i$, $k = \sum k_i p^i$:
+
+$$\binom{n}{k} \equiv \prod_{i} \binom{n_i}{k_i} \pmod{p}$$
+
+```cpp
+// C(n, k) mod p where p is prime (p can be small, n can be huge)
+long long lucas(long long n, long long k, long long p) {
+    if (k == 0) return 1;
+    return C(n % p, k % p, p) * lucas(n / p, k / p, p) % p;
+    // C(a, b, p) = small binomial mod p (precomputed or direct)
+}
+
+// Precompute small binomials for base case
+long long small_C[1005][1005];  // for p <= 1000
+
+void precompute_small(int p) {
+    for (int i = 0; i <= p; i++) {
+        small_C[i][0] = 1;
+        for (int j = 1; j <= i; j++)
+            small_C[i][j] = (small_C[i-1][j-1] + small_C[i-1][j]) % p;
+    }
+}
+
+long long lucas_full(long long n, long long k, long long p) {
+    if (k > n) return 0;
+    if (k == 0) return 1;
+    return small_C[n % p][k % p] * lucas_full(n / p, k / p, p) % p;
+}
+```
+
+<Callout type="info">
+Lucas theorem works for prime $p$. If $p$ divides any $\binom{n_i}{k_i}$ (i.e., $k_i > n_i$ in any digit), the result is 0 — this is Kummer's theorem.
+</Callout>
+
+---
+
+## Composite Modulus
+
+For $\binom{n}{k} \bmod m$ where $m$ is composite:
+
+1. **Factor $m = p_1^{a_1} \cdots p_r^{a_r}$**
+2. **Compute $\binom{n}{k} \bmod p_i^{a_i}$** using Andrew Granville's extension
+3. **Combine via CRT**
+
+For prime powers $p^a$: use the **Andrew Granville** formula involving $p$-adic valuation of $n!$ (Legendre's formula) and Wilson's theorem for the non-$p$ part.
+
+```cpp
+// Simplified: C(n,k) mod p^a using Granville's algorithm
+// This is involved; see cp-algorithms for full implementation.
+// For most CP problems: if mod is prime, use Fermat; if mod is prime power, use Granville.
+```
+
+---
+
+## p-adic Valuation of C(n,k)
+
+The exponent of prime $p$ in $\binom{n}{k}$ equals the number of carries when adding $k$ and $n-k$ in base $p$ (Kummer's theorem).
+
+```cpp
+// Count carries when adding a and b in base p
+int kummer(long long a, long long b, long long p) {
+    int carries = 0;
+    long long carry = 0;
+    while (a || b) {
+        long long sum = a % p + b % p + carry;
+        carry = sum / p;
+        carries += carry;
+        a /= p; b /= p;
+    }
+    return carries;
+}
+// p^kummer(k, n-k, p) exactly divides C(n,k)
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Direct C(n,k), k small", time: "O(k)", space: "O(1)" },
+  { operation: "Pascal triangle (n,k ≤ N)", time: "O(N²)", space: "O(N²)" },
+  { operation: "Precompute fact/inv_fact (n ≤ N)", time: "O(N)", space: "O(N)" },
+  { operation: "Query C(n,k) with precomputed", time: "O(1)", space: "O(1)" },
+  { operation: "Lucas theorem", time: "O(log_p(n) · p)", space: "O(p²)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Number of subsets of size k**: $\binom{n}{k}$
+2. **Grid paths from (0,0) to (n,m)**: $\binom{n+m}{n}$
+3. **Distributing n identical items to k bins**: Stars & Bars — $\binom{n+k-1}{k-1}$
+4. **Coefficient of $x^k$ in $(1+x)^n$**: $\binom{n}{k}$
+5. **Number of multisets of size k from n types**: $\binom{n+k-1}{k}$
+6. **Hockey stick**: $\sum_{i=0}^{k} \binom{n+i}{i} = \binom{n+k+1}{k}$
+
+---
+
+## Common Mistakes
+
+1. **Overflow in `fact[n] * inv_fact[k]`**: intermediate product fits in `long long` since both are `< MOD < 2^30`, product `< 2^60`.
+2. **Lucas with composite mod**: Lucas only works for prime mod. For composite, use CRT + Granville.
+3. **Pascal table size**: $\binom{2000}{1000}$ has ~600 digits — need modular arithmetic even for "small" $n$.
+4. **$\binom{n}{k} = 0$ for $k > n$**: always check bounds.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Binomial Coefficients",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1079",
+    difficulty: "1000",
+    concepts: ["C(n,k) mod prime", "factorial precomputation"],
+    tier: "warmup"
+  },
+  {
+    name: "Grid Paths",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1078",
+    difficulty: "1200",
+    concepts: ["binomial", "grid paths"],
+    tier: "warmup"
+  },
+  {
+    name: "Bracket Sequences I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1626",
+    difficulty: "1200",
+    concepts: ["Catalan", "binomial"],
+    tier: "warmup"
+  },
+  {
+    name: "Christmas Party",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1716",
+    difficulty: "1400",
+    concepts: ["binomial", "derangements"],
+    tier: "standard"
+  },
+  {
+    name: "Kefa and Dishes",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/580/C",
+    difficulty: "1700",
+    concepts: ["bitmask DP", "combinatorics"],
+    tier: "standard"
+  },
+  {
+    name: "Divisors",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033/D",
+    difficulty: "2100",
+    concepts: ["binomial mod composite", "Lucas", "CRT"],
+    tier: "advanced"
+  },
+  {
+    name: "Stars and Bars",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1106/F",
+    difficulty: "2200",
+    concepts: ["stars and bars", "inclusion-exclusion"],
+    tier: "advanced"
+  },
+  {
+    name: "Zuma",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1450/E",
+    difficulty: "2400",
+    concepts: ["binomial", "combinatorial identity"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Stars & Bars](/math/combinatorics/stars-bars) — distributing identical objects uses $\binom{n+k-1}{k-1}$
+- [Lucas Theorem](/math/combinatorics/lucas) — $\binom{n}{k} \bmod p$ for large $n$ via base-$p$ digits
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — many IE formulas involve binomials
+- [Catalan Numbers](/math/combinatorics/catalan) — $C_n = \binom{2n}{n}/(n+1)$
+- [Modular Inverse](/math/foundations/modular-inverse) — inverse factorials for precomputation
+- [Generating Functions](/math/combinatorics/generating-functions) — $(1+x)^n$ generates binomial coefficients
+
+---
+
+## References
+
+1. cp-algorithms — [Binomial Coefficients](https://cp-algorithms.com/combinatorics/binomial-coefficients.html)
+2. cp-algorithms — [Lucas Theorem](https://cp-algorithms.com/combinatorics/lucas_theorem.html)
+3. Concrete Mathematics (Graham, Knuth, Patashnik) — Chapter 5: Binomial Coefficients
+4. Andrew Granville — [Binomial coefficients modulo prime powers](https://web.archive.org/web/20170202003812/http://www.dms.umontreal.ca/~andrew/PDF/BinCoeff.pdf)
