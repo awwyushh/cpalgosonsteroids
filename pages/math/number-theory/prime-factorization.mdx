@@ -1,0 +1,353 @@
+---
+title: Prime Factorization
+description: Trial division, SPF sieve, and fast factorization for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Prime Factorization
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Primes & Sieves", href: "/math/number-theory/primes-sieve" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Prime factorization is the backbone of number theory in CP. Counting divisors, computing Euler phi, Möbius function — all reduce to knowing the prime factorization. Every number $n \leq 10^6$ can be factorized in $O(\log n)$ with a precomputed SPF sieve.
+
+**Contest relevance**: CSES Number Theory section, CF Div.2 C/D, any problem involving divisors or multiplicative functions.
+
+---
+
+## Learning Objectives
+
+- Factorize a single number via trial division in $O(\sqrt{n})$
+- Build an SPF (Smallest Prime Factor) sieve in $O(n \log \log n)$
+- Factorize any number up to $N$ in $O(\log n)$ using SPF
+- Enumerate all divisors from the factorization
+
+---
+
+## Trial Division
+
+Divide $n$ by all primes up to $\sqrt{n}$:
+
+```cpp
+map<long long, int> factorize(long long n) {
+    map<long long, int> factors;
+    for (long long p = 2; p * p <= n; p++) {
+        while (n % p == 0) {
+            factors[p]++;
+            n /= p;
+        }
+    }
+    if (n > 1) factors[n]++;
+    return factors;
+}
+```
+
+**Optimization**: check 2 separately, then only odd $p$:
+
+```cpp
+map<long long, int> factorize_fast(long long n) {
+    map<long long, int> factors;
+    while (n % 2 == 0) { factors[2]++; n /= 2; }
+    for (long long p = 3; p * p <= n; p += 2) {
+        while (n % p == 0) { factors[p]++; n /= p; }
+    }
+    if (n > 1) factors[n]++;
+    return factors;
+}
+```
+
+**Complexity**: $O(\sqrt{n})$ per query.
+
+---
+
+## SPF Sieve (Batch Factorization)
+
+Build a table `spf[i]` = smallest prime factor of $i$. Then factorize any $n \leq N$ in $O(\log n)$.
+
+```cpp
+const int MAXN = 1e6 + 5;
+int spf[MAXN];
+
+void build_spf() {
+    iota(spf, spf + MAXN, 0);  // spf[i] = i initially
+    for (int i = 2; (long long)i * i < MAXN; i++) {
+        if (spf[i] == i) {  // i is prime
+            for (int j = i * i; j < MAXN; j += i)
+                if (spf[j] == j) spf[j] = i;
+        }
+    }
+}
+
+map<int, int> factorize_spf(int n) {
+    map<int, int> factors;
+    while (n > 1) {
+        factors[spf[n]]++;
+        n /= spf[n];
+    }
+    return factors;
+}
+```
+
+<Callout type="info">
+For $n \leq 10^6$, SPF sieve is the go-to. For single queries up to $10^{12}$, use trial division or Miller-Rabin + Pollard rho.
+</Callout>
+
+---
+
+## Enumerating All Divisors
+
+From factorization $n = p_1^{a_1} \cdot p_2^{a_2} \cdots p_k^{a_k}$, enumerate divisors:
+
+```cpp
+vector<long long> get_divisors(long long n) {
+    auto factors = factorize_fast(n);
+    vector<long long> divs = {1};
+    for (auto [p, e] : factors) {
+        int sz = divs.size();
+        long long pe = 1;
+        for (int i = 0; i < e; i++) {
+            pe *= p;
+            for (int j = 0; j < sz; j++)
+                divs.push_back(divs[j] * pe);
+        }
+    }
+    sort(divs.begin(), divs.end());
+    return divs;
+}
+```
+
+**Number of divisors**: $\tau(n) = \prod (a_i + 1)$.
+
+**Highly composite numbers**: $n \leq 10^{12}$ has at most ~6720 divisors (the number 963761198400).
+
+---
+
+## Large n (up to 10^18)
+
+For $n \leq 10^{12}$: trial division in $O(\sqrt{n}) = O(10^6)$ — fast enough.
+
+For $n \leq 10^{18}$: trial division takes $O(10^9)$ — too slow. Use **Miller-Rabin + Pollard's rho**:
+
+```cpp
+// Strategy: use Miller-Rabin to test primality, Pollard rho to find factors
+// See: Miller-Rabin and Pollard Rho pages for full implementations
+
+vector<long long> factorize_large(long long n) {
+    if (n == 1) return {};
+    if (is_prime(n)) return {n};         // Miller-Rabin test
+    long long d = pollard_rho(n);        // find a non-trivial factor
+    auto a = factorize_large(d);
+    auto b = factorize_large(n / d);
+    a.insert(a.end(), b.begin(), b.end());
+    sort(a.begin(), a.end());
+    return a;
+}
+```
+
+Expected complexity: $O(n^{1/4} \text{ polylog})$.
+
+---
+
+## Legendre's Formula (p-adic valuation of n!)
+
+The exponent of prime $p$ in $n!$ is:
+
+$$v_p(n!) = \sum_{k=1}^{\infty} \left\lfloor \frac{n}{p^k} \right\rfloor = \frac{n - s_p(n)}{p - 1}$$
+
+where $s_p(n)$ is the digit sum of $n$ in base $p$.
+
+```cpp
+// Exponent of prime p in n!
+long long legendre(long long n, long long p) {
+    long long exp = 0;
+    long long pk = p;
+    while (pk <= n) {
+        exp += n / pk;
+        pk *= p;
+    }
+    return exp;
+}
+
+// Number of trailing zeros in n! = min(v_2(n!), v_5(n!)) = v_5(n!)
+long long trailing_zeros(long long n) {
+    return legendre(n, 5);
+}
+```
+
+**Applications**:
+- Trailing zeros in $n!$
+- Largest $k$ such that $p^k \mid \binom{n}{r}$ (use Kummer's theorem)
+- Check if $\binom{n}{r}$ is divisible by $p$: Kummer's theorem — count carries in base-$p$ addition of $r$ and $n-r$
+
+---
+
+## Multiplicative Functions from Factorization
+
+```cpp
+// Number of divisors
+long long num_divisors(long long n) {
+    long long result = 1;
+    auto f = factorize_fast(n);
+    for (auto [p, e] : f) result *= (e + 1);
+    return result;
+}
+
+// Sum of divisors: σ(n) = ∏ (p^(e+1) - 1) / (p - 1)
+long long sum_divisors(long long n) {
+    long long result = 1;
+    auto f = factorize_fast(n);
+    for (auto [p, e] : f) {
+        long long pe = 1;
+        for (int i = 0; i <= e; i++) pe *= p;
+        result *= (pe - 1) / (p - 1);
+    }
+    return result;
+}
+
+// Euler phi: φ(n) = n ∏ (1 - 1/p)
+long long euler_phi_from_factors(long long n) {
+    long long result = n;
+    auto f = factorize_fast(n);
+    for (auto [p, e] : f) result = result / p * (p - 1);
+    return result;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Trial division (single n)", time: "O(√n)", space: "O(log n) factors" },
+  { operation: "Build SPF sieve", time: "O(n log log n)", space: "O(n)" },
+  { operation: "Factorize with SPF", time: "O(log n)", space: "O(log n)" },
+  { operation: "Enumerate k divisors", time: "O(k)", space: "O(k)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Count divisors of all numbers up to N**: use SPF sieve, compute $\tau$ for each.
+2. **Sum of $\tau(i)$ for $i=1$ to $N$**: equals $\sum_{d=1}^{N} \lfloor N/d \rfloor$ via divisor counting.
+3. **Factorize n! mod p**: Legendre's formula.
+4. **Check if n is a perfect square**: factorize, all exponents must be even.
+5. **Smallest prime factor queries**: direct SPF lookup $O(1)$.
+
+---
+
+## Common Mistakes
+
+1. **Overflow in `p * p <= n`**: cast to `long long` when `n` can be large.
+2. **Forgetting remaining factor**: if `n > 1` after loop, `n` is prime — add it.
+3. **SPF sieve starting inner loop**: must start at `i * i`, and only update `spf[j]` if not set.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1713",
+    difficulty: "1000",
+    concepts: ["factorization", "divisor count"],
+    tier: "warmup"
+  },
+  {
+    name: "Common Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1666",
+    difficulty: "1000",
+    concepts: ["factorization", "GCD"],
+    tier: "warmup"
+  },
+  {
+    name: "Sum of Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1082",
+    difficulty: "1200",
+    concepts: ["factorization", "divisor sum formula"],
+    tier: "standard"
+  },
+  {
+    name: "Divisor Analysis",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2182",
+    difficulty: "1400",
+    concepts: ["factorization", "large exponents mod"],
+    tier: "standard"
+  },
+  {
+    name: "Count Divisors",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/822/B",
+    difficulty: "1300",
+    concepts: ["factorization", "brute force"],
+    tier: "standard"
+  },
+  {
+    name: "Almost Prime",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/26/A",
+    difficulty: "1500",
+    concepts: ["sieve", "exactly 2 prime factors"],
+    tier: "standard"
+  },
+  {
+    name: "Necklace (Factorization + DP)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/906/D",
+    difficulty: "2100",
+    concepts: ["factorization", "DP on prime factors"],
+    tier: "advanced"
+  },
+  {
+    name: "Factorial",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/17/E",
+    difficulty: "1600",
+    concepts: ["Legendre's formula", "trailing zeros"],
+    tier: "standard"
+  },
+  {
+    name: "Magic Numbers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/484/C",
+    difficulty: "1900",
+    concepts: ["factorization", "digit sum"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Primes & Sieves](/math/number-theory/primes-sieve) — linear sieve builds SPF in $O(n)$
+- [Divisors & Multiplicative Functions](/math/number-theory/divisors) — $\tau$, $\sigma$, $\phi$ from factorization
+- [Euler's Totient](/math/number-theory/euler-phi) — $\phi(n) = n \prod (1 - 1/p)$
+- [Miller-Rabin](/math/number-theory/miller-rabin) — primality test for $n \leq 10^{18}$
+- [Pollard's Rho](/math/number-theory/pollard-rho) — fast factorization for $n \leq 10^{18}$
+- [Möbius Function](/math/number-theory/mobius) — requires squarefree/prime factorization
+
+---
+
+## References
+
+1. cp-algorithms — [Integer Factorization](https://cp-algorithms.com/algebra/factorization.html)
+2. cp-algorithms — [Sieve of Eratosthenes](https://cp-algorithms.com/algebra/sieve-of-eratosthenes.html)
+3. Hardy & Wright, Introduction to the Theory of Numbers §17 — Legendre's formula
