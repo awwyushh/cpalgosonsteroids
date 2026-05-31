@@ -1,0 +1,425 @@
+---
+title: Divisors & Multiplicative Functions
+description: Divisor counting, sum, sieve for multiplicative functions in competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Divisors & Multiplicative Functions
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Prime Factorization", href: "/math/number-theory/prime-factorization" },
+  { title: "Primes & Sieves", href: "/math/number-theory/primes-sieve" }
+]} />
+
+## Why This Topic Matters
+
+Counting and summing divisors appear across hundreds of CP problems. The key insight: all standard divisor-related functions ($\tau$, $\sigma$, $\phi$, $\mu$) are **multiplicative** — they factor over prime powers, enabling $O(n \log \log n)$ sieve computation.
+
+**Contest relevance**: CSES Number Theory, CF Div.2 C/D, any problem involving divisor counts or sums.
+
+---
+
+## Learning Objectives
+
+- Compute $\tau(n)$ (number of divisors) and $\sigma(n)$ (sum of divisors) from factorization
+- Build sieves for $\tau$, $\sigma$, and any multiplicative function
+- Enumerate all divisors of $n$ efficiently
+- Understand multiplicativity and why it enables sieve tricks
+
+---
+
+## From Factorization
+
+For $n = p_1^{a_1} \cdots p_k^{a_k}$:
+
+$$\tau(n) = \prod_{i=1}^k (a_i + 1)$$
+
+$$\sigma(n) = \prod_{i=1}^k \frac{p_i^{a_i+1} - 1}{p_i - 1}$$
+
+```cpp
+long long num_divisors(long long n) {
+    long long result = 1;
+    for (long long p = 2; p * p <= n; p++) {
+        int e = 0;
+        while (n % p == 0) { e++; n /= p; }
+        result *= (e + 1);
+    }
+    if (n > 1) result *= 2;
+    return result;
+}
+
+long long sum_divisors(long long n) {
+    long long result = 1;
+    for (long long p = 2; p * p <= n; p++) {
+        if (n % p == 0) {
+            long long pk = 1;
+            while (n % p == 0) { pk *= p; n /= p; }
+            result *= (pk * p - 1) / (p - 1);
+        }
+    }
+    if (n > 1) result *= (n + 1);
+    return result;
+}
+```
+
+---
+
+## Divisor Sieve
+
+Compute $\tau(n)$ for all $n \leq N$ in $O(N \log N)$:
+
+```cpp
+const int N = 1e6 + 5;
+int tau[N], sigma[N];
+
+void divisor_sieve() {
+    for (int d = 1; d < N; d++) {
+        for (int n = d; n < N; n += d) {
+            tau[n]++;
+            sigma[n] += d;
+        }
+    }
+}
+```
+
+This is the sieve of divisors: for each $d$, add to all its multiples.
+
+<Callout type="info">
+Complexity: $O(N \log N)$ — harmonic series $\sum_{d=1}^N N/d = N \ln N$.
+</Callout>
+
+---
+
+## Multiplicative Function Sieve (Linear)
+
+For multiplicative functions, a linear sieve computes all values in $O(N)$:
+
+```cpp
+// Compute any multiplicative f using linear sieve
+// Here: tau (number of divisors)
+const int MAXN = 1e6 + 5;
+int spf[MAXN], primes[MAXN], pcnt;
+int tau_val[MAXN], tau_exp[MAXN];  // tau[n] and exponent of spf in n
+
+void linear_sieve_tau() {
+    fill(spf, spf + MAXN, 0);
+    tau_val[1] = 1;
+    for (int i = 2; i < MAXN; i++) {
+        if (!spf[i]) {
+            spf[i] = i;
+            primes[pcnt++] = i;
+            tau_val[i] = 2;
+            tau_exp[i] = 1;
+        }
+        for (int j = 0; j < pcnt && primes[j] <= spf[i] && (long long)i * primes[j] < MAXN; j++) {
+            int ip = i * primes[j];
+            spf[ip] = primes[j];
+            if (primes[j] == spf[i]) {
+                tau_exp[ip] = tau_exp[i] + 1;
+                tau_val[ip] = tau_val[i] / tau_exp[ip] * (tau_exp[ip] + 1);
+            } else {
+                tau_exp[ip] = 1;
+                tau_val[ip] = tau_val[i] * 2;
+            }
+        }
+    }
+}
+```
+
+---
+
+## Enumerate All Divisors
+
+```cpp
+vector<long long> divisors(long long n) {
+    vector<long long> divs;
+    for (long long d = 1; d * d <= n; d++) {
+        if (n % d == 0) {
+            divs.push_back(d);
+            if (d != n / d) divs.push_back(n / d);
+        }
+    }
+    sort(divs.begin(), divs.end());
+    return divs;
+}
+```
+
+**Complexity**: $O(\sqrt{n})$, produces all $\tau(n)$ divisors.
+
+---
+
+## All-Divisors Sieve (Store Lists)
+
+When you need the full divisor list for every number up to $N$:
+
+```cpp
+const int N = 1e6 + 5;
+vector<int> divs[N];
+
+void all_divisors_sieve() {
+    for (int d = 1; d < N; d++)
+        for (int n = d; n < N; n += d)
+            divs[n].push_back(d);
+    // Optional: sort each list (already sorted since d is increasing)
+}
+// divs[n] contains all divisors of n in sorted order
+// Total memory: O(N log N)
+```
+
+<Callout type="warning">
+Memory is $O(N \log N) \approx 14 \times 10^6$ ints for $N = 10^6$. Fine for $N \leq 10^6$; risky beyond that.
+</Callout>
+
+---
+
+## Dirichlet Convolution
+
+For two arithmetic functions $f, g$, their **Dirichlet convolution** is:
+
+$$(f * g)(n) = \sum_{d \mid n} f(d) \cdot g(n/d)$$
+
+This is the key algebraic structure behind multiplicative functions.
+
+**Important identities**:
+
+| Identity | Meaning |
+|----------|---------|
+| $\tau = \mathbf{1} * \mathbf{1}$ | $\tau(n) = \sum_{d\|n} 1$ |
+| $\sigma = \text{id} * \mathbf{1}$ | $\sigma(n) = \sum_{d\|n} d$ |
+| $\phi = \mu * \text{id}$ | Euler totient via Möbius |
+| $\text{id} = \phi * \mathbf{1}$ | $n = \sum_{d\|n} \phi(d)$ |
+| $\epsilon = \mu * \mathbf{1}$ | Möbius inversion kernel |
+
+where $\mathbf{1}(n) = 1$, $\text{id}(n) = n$, $\epsilon(n) = [n=1]$.
+
+**If $f$ and $g$ are multiplicative, so is $f * g$.**
+
+```cpp
+// Compute Dirichlet convolution h = f * g for all n <= N
+// O(N log N)
+void dirichlet_conv(vector<long long>& f, vector<long long>& g,
+                    vector<long long>& h, int N) {
+    h.assign(N + 1, 0);
+    for (int d = 1; d <= N; d++)
+        for (int n = d; n <= N; n += d)
+            h[n] += f[d] * g[n / d];
+}
+```
+
+---
+
+## Sum of Divisors Over All n ≤ N
+
+$$\sum_{n=1}^{N} \tau(n) = \sum_{d=1}^{N} \left\lfloor \frac{N}{d} \right\rfloor$$
+
+Computable in $O(\sqrt{N})$ via floor grouping:
+
+```cpp
+long long sum_tau(long long N) {
+    long long result = 0;
+    for (long long l = 1, r; l <= N; l = r + 1) {
+        long long q = N / l;
+        r = N / q;
+        result += q * (r - l + 1);
+    }
+    return result;
+}
+// sum_tau(10^6) ≈ 14.4 million
+```
+
+Similarly, $\sum_{n=1}^{N} \sigma(n) = \sum_{d=1}^{N} d \cdot \lfloor N/d \rfloor$.
+
+---
+
+## GCD Sum Formula
+
+$$\sum_{i=1}^{n} \gcd(i, n) = \sum_{d \mid n} d \cdot \phi(n/d)$$
+
+This identity appears in many CP problems asking "sum of GCDs" or "count pairs by GCD".
+
+```cpp
+// Sum of gcd(i, n) for i = 1..n
+// Precompute phi with sieve, then use this formula
+long long gcd_sum(int n, int* phi) {
+    long long result = 0;
+    for (long long d = 1; d * d <= n; d++) {
+        if (n % d == 0) {
+            result += d * phi[n / d];
+            if (d != n / d) result += (n / d) * phi[d];
+        }
+    }
+    return result;
+}
+```
+
+---
+
+## Multiplicativity
+
+A function $f$ is **multiplicative** if $f(mn) = f(m)f(n)$ whenever $\gcd(m,n) = 1$.
+
+Common multiplicative functions:
+- $\tau(n)$: number of divisors
+- $\sigma_k(n) = \sum_{d|n} d^k$: sum of $k$-th powers of divisors
+- $\phi(n)$: Euler's totient
+- $\mu(n)$: Möbius function
+- $\text{id}(n) = n$, $\epsilon(n) = [n=1]$, $\mathbf{1}(n) = 1$
+
+All can be computed by sieves via $O(N \log \log N)$ or $O(N)$ linear sieve.
+
+---
+
+## Divisor Count Bounds
+
+| Range of $n$ | Max $\tau(n)$ | Achieved at |
+|-------------|--------------|-------------|
+| $n \leq 10^3$ | 32 | 720 |
+| $n \leq 10^6$ | 240 | 720720 |
+| $n \leq 10^9$ | 1344 | 735134400 |
+| $n \leq 10^{12}$ | 6720 | 963761198400 |
+| $n \leq 10^{18}$ | 103680 | — |
+
+**Highly composite numbers** have the most divisors for their size. For $n \leq 10^{12}$, $\tau(n) \leq 6720$ — so iterating over all divisors of a single $n$ is always fast.
+
+---
+
+## Key Divisor Identities
+
+| Identity | Formula |
+|---------|---------|
+| Number of divisors | $\tau(n) = \prod (a_i + 1)$ |
+| Sum of divisors | $\sigma(n) = \prod \frac{p_i^{a_i+1}-1}{p_i-1}$ |
+| Sum of $k$-th powers | $\sigma_k(n) = \prod \frac{p_i^{k(a_i+1)}-1}{p_i^k-1}$ |
+| Perfect number | $\sigma(n) = 2n$ (e.g., 6, 28, 496) |
+| $\tau$ is odd iff | $n$ is a perfect square |
+| $\sum_{d\|n} \phi(d)$ | $= n$ |
+| $\sum_{d\|n} \mu(d)$ | $= [n = 1]$ |
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Compute τ(n) or σ(n) from factorization", time: "O(√n)", space: "O(1)" },
+  { operation: "Divisor sieve for all n ≤ N", time: "O(N log N)", space: "O(N)" },
+  { operation: "Linear sieve (any multiplicative f)", time: "O(N)", space: "O(N)" },
+  { operation: "Enumerate divisors of n", time: "O(√n)", space: "O(τ(n))" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Sum of τ(i) for i=1..n**: equals $\sum_{d=1}^n \lfloor n/d \rfloor$, compute in $O(\sqrt{n})$
+2. **Iterate over divisors of n**: $O(\sqrt{n})$ — safe for $n \leq 10^{12}$ (max 6720 divisors)
+3. **Divisor of answer**: if answer must divide $k$, iterate all divisors of $k$ as candidates
+4. **Count pairs $(a,b)$ with $\text{lcm}(a,b) = n$**: equals $\tau(n^2)$ or use Dirichlet
+5. **Counting multiples of d in range [L,R]**: $\lfloor R/d \rfloor - \lfloor (L-1)/d \rfloor$
+6. **GCD = d in range**: use inclusion-exclusion on multiples of $d$
+
+---
+
+## Common Mistakes
+
+1. **Divisor sieve sigma overflow**: $\sigma(n)$ can reach $\sim 10^{13}$ for $n \leq 10^6$; use `long long`.
+2. **Forgetting $d = \sqrt{n}$ case**: in enumerate divisors, push only once if `d*d == n`.
+3. **All-divisors sieve memory**: storing all divisors up to $N = 10^7$ uses $\sim 100$MB — TLE/MLE risk.
+4. **Dirichlet convolution index**: $h[n] += f[d] \cdot g[n/d]$ — $d$ divides $n$, not the other way.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1713",
+    difficulty: "1000",
+    concepts: ["divisor count", "factorization"],
+    tier: "warmup"
+  },
+  {
+    name: "Sum of Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1082",
+    difficulty: "1200",
+    concepts: ["divisor sum", "harmonic sieve"],
+    tier: "standard"
+  },
+  {
+    name: "Divisor Analysis",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2182",
+    difficulty: "1400",
+    concepts: ["divisor count", "modular arithmetic"],
+    tier: "standard"
+  },
+  {
+    name: "Max Factor",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1512/G",
+    difficulty: "1700",
+    concepts: ["divisors", "sieve"],
+    tier: "standard"
+  },
+  {
+    name: "A Mist of Shadows",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033/D",
+    difficulty: "2100",
+    concepts: ["divisors", "multiplicative functions"],
+    tier: "advanced"
+  },
+  {
+    name: "Number of Divisors",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1374/E",
+    difficulty: "2200",
+    concepts: ["divisor count", "sieve", "multiplicativity"],
+    tier: "advanced"
+  },
+  {
+    name: "GCD Sum",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1547/G",
+    difficulty: "2400",
+    concepts: ["GCD sum", "Euler phi", "Dirichlet convolution"],
+    tier: "killer"
+  },
+  {
+    name: "LCM Sum",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2183",
+    difficulty: "1600",
+    concepts: ["divisors", "inclusion-exclusion", "phi"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Prime Factorization](/math/number-theory/prime-factorization) — all divisor formulas start from $n = \prod p_i^{a_i}$
+- [Euler's Totient](/math/number-theory/euler-phi) — $\phi$ is multiplicative; $\sum_{d|n}\phi(d)=n$
+- [Möbius Function](/math/number-theory/mobius) — Möbius inversion inverts Dirichlet convolution with $\mathbf{1}$
+- [Floor & Ceiling](/math/foundations/floor-ceil) — $\sum \tau$ uses $O(\sqrt{n})$ floor grouping
+- [Primes & Sieves](/math/number-theory/primes-sieve) — SPF sieve enables $O(\log n)$ factorization per query
+
+---
+
+## References
+
+1. cp-algorithms — [Number of Divisors](https://cp-algorithms.com/algebra/divisors.html)
+2. cp-algorithms — [Divisor Sieve](https://cp-algorithms.com/algebra/divisors.html#sieve-of-divisors)
+3. Hardy & Wright, Introduction to the Theory of Numbers §16 — Arithmetic functions and Dirichlet series
+4. Apostol, Introduction to Analytic Number Theory — Chapter 2: Arithmetic functions and Dirichlet multiplication
