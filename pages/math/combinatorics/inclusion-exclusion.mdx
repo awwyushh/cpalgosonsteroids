@@ -1,0 +1,274 @@
+---
+title: Inclusion-Exclusion
+description: PIE principle, Möbius function view, and common competitive programming patterns
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Inclusion-Exclusion
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Inclusion-exclusion (PIE) counts elements satisfying at least one of $n$ properties by alternating over subsets. It underpins derangements, Euler's totient, Möbius inversion, and dozens of CP problem archetypes.
+
+**Contest relevance**: CF Div.1 B–D, any "count X not divisible by any of these primes", "count surjections", "count permutations avoiding pattern".
+
+---
+
+## The Principle
+
+For sets $A_1, \ldots, A_n$:
+
+$$\left| \bigcup_{i=1}^n A_i \right| = \sum_i |A_i| - \sum_{i<j} |A_i \cap A_j| + \sum_{i<j<k} |A_i \cap A_j \cap A_k| - \cdots$$
+
+$$= \sum_{\emptyset \neq S \subseteq [n]} (-1)^{|S|+1} \left|\bigcap_{i \in S} A_i\right|$$
+
+Equivalently, to count elements satisfying **none** of the properties:
+
+$$\left| \overline{A_1} \cap \cdots \cap \overline{A_n} \right| = \sum_{S \subseteq [n]} (-1)^{|S|} \left|\bigcap_{i \in S} A_i\right|$$
+
+---
+
+## Implementation Template
+
+For $n \leq 20$ properties, iterate over all $2^n$ subsets:
+
+```cpp
+// Count elements satisfying none of n properties
+// f(mask) = |intersection of A_i for i in mask|
+long long inclusion_exclusion(int n, auto f) {
+    long long result = 0;
+    for (int mask = 0; mask < (1 << n); mask++) {
+        int bits = __builtin_popcount(mask);
+        long long contrib = f(mask);
+        if (bits % 2 == 0) result += contrib;
+        else result -= contrib;
+    }
+    return result;
+}
+```
+
+For $n$ prime divisors of $m$, iterate over divisors directly:
+
+```cpp
+// Count integers in [1, N] not divisible by any prime in 'primes'
+long long count_coprime_N(long long N, vector<long long>& primes) {
+    int k = primes.size();
+    long long result = 0;
+    for (int mask = 0; mask < (1 << k); mask++) {
+        long long prod = 1;
+        int bits = __builtin_popcount(mask);
+        for (int i = 0; i < k; i++)
+            if (mask >> i & 1) prod *= primes[i];
+        long long contrib = N / prod;
+        if (bits % 2 == 0) result += contrib;
+        else result -= contrib;
+    }
+    return result;
+}
+```
+
+---
+
+## Classic Applications
+
+### Derangements
+
+Permutations of $[n]$ with no fixed point (see [Derangements](/math/combinatorics/derangements)):
+
+$$D_n = n! \sum_{k=0}^{n} \frac{(-1)^k}{k!}$$
+
+IE on $A_i$ = "element $i$ is a fixed point":
+
+$$D_n = \sum_{k=0}^{n} (-1)^k \binom{n}{k} (n-k)!$$
+
+### Surjections (Onto Functions)
+
+Number of surjective functions from $[n]$ to $[k]$ (all $k$ bins non-empty):
+
+$$S(n,k) = \sum_{j=0}^{k} (-1)^j \binom{k}{j} (k-j)^n$$
+
+```cpp
+long long surjections(int n, int k) {
+    long long result = 0;
+    for (int j = 0; j <= k; j++) {
+        long long contrib = C(k, j) * power(k - j, n, MOD) % MOD;
+        if (j % 2 == 0) result = (result + contrib) % MOD;
+        else result = (result - contrib + MOD) % MOD;
+    }
+    return result;
+}
+```
+
+### Euler's Totient
+
+$\phi(n)$ = count of integers in $[1,n]$ coprime to $n$:
+
+$$\phi(n) = n \prod_{p | n} \left(1 - \frac{1}{p}\right) = \sum_{d | n} \mu(d) \frac{n}{d}$$
+
+This is IE over multiples of each prime factor of $n$.
+
+### At Least / Exactly k Properties
+
+**At least $k$ of $n$ properties**:
+
+$$|(\text{at least } k)| = \sum_{j=k}^{n} (-1)^{j-k} \binom{j-1}{k-1} S_j$$
+
+where $S_j = \sum_{|T|=j} |\bigcap_{i \in T} A_i|$.
+
+---
+
+## Möbius Function View
+
+The PIE formula is a special case of Möbius inversion on the Boolean lattice. The Möbius function of the Boolean lattice is $\mu(S, T) = (-1)^{|T \setminus S|}$, which gives the alternating signs.
+
+For divisor lattice: Möbius inversion with $\mu(d)$ (the number-theoretic Möbius function) is the generalization.
+
+---
+
+## GCD-Based Inclusion-Exclusion
+
+**Count pairs $(a,b)$ with $1 \leq a,b \leq n$ and $\gcd(a,b) = 1$**:
+
+Let $f(d)$ = count pairs with $d \mid \gcd(a,b)$ = $\lfloor n/d \rfloor^2$.
+
+$$\text{answer} = \sum_{d=1}^{n} \mu(d) \lfloor n/d \rfloor^2$$
+
+This is the standard technique: use Möbius function to extract "exactly" from "divisible by".
+
+```cpp
+// Count pairs (a,b) in [1,n]^2 with gcd(a,b) = 1
+// Precompute Mobius function first
+long long count_coprime_pairs(int n, int* mu) {
+    long long result = 0;
+    for (int d = 1; d <= n; d++) {
+        if (mu[d] != 0)
+            result += (long long)mu[d] * (n/d) * (n/d);
+    }
+    return result;
+}
+```
+
+---
+
+## Complexity
+
+<ComplexityTable rows={[
+  { operation: "PIE over 2^n subsets", time: "O(2^n)", space: "O(1)" },
+  { operation: "PIE over divisors of m (k prime factors)", time: "O(2^k)", space: "O(1)" },
+  { operation: "Surjections S(n,k)", time: "O(k log n)", space: "O(1)" },
+  { operation: "GCD-based IE with Möbius sieve", time: "O(N log log N)", space: "O(N)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Count integers in [1,N] coprime to m**: IE over prime factors of $m$
+2. **Count permutations avoiding pattern at positions $S$**: IE over subsets of $S$
+3. **Count surjections / onto functions**: surjection formula
+4. **Count $n$-tuples with no repeated element mod k**: IE on "element $i$ repeats"
+5. **Count LCM = k**: IE over multiples via Möbius
+6. **Chromatic polynomial**: IE on edge contractions
+
+---
+
+## Common Mistakes
+
+1. **Wrong sign**: $(-1)^{|S|}$ for "none" vs $(-1)^{|S|+1}$ for "at least one". Derive from first principles.
+2. **Forgetting empty set**: the $S = \emptyset$ term contributes $|\text{universe}|$ in "none" formula.
+3. **n too large**: $2^n$ is only feasible up to $n \approx 20$. For larger $n$, need algebraic structure (Möbius, DP).
+4. **Negative results**: result can go negative in intermediate steps; add MOD when subtracting.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Coprime Pairs",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/803/F",
+    difficulty: "1800",
+    concepts: ["inclusion-exclusion", "GCD", "Möbius"],
+    tier: "standard"
+  },
+  {
+    name: "Derangements",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1716",
+    difficulty: "1400",
+    concepts: ["inclusion-exclusion", "derangements"],
+    tier: "warmup"
+  },
+  {
+    name: "Permutations II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1717",
+    difficulty: "1500",
+    concepts: ["inclusion-exclusion", "permutations"],
+    tier: "standard"
+  },
+  {
+    name: "LCMSUM",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/LCMSUM/",
+    difficulty: "1800",
+    concepts: ["inclusion-exclusion", "Euler phi", "Möbius"],
+    tier: "standard"
+  },
+  {
+    name: "Klee's Algorithm",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1209/H",
+    difficulty: "2500",
+    concepts: ["inclusion-exclusion", "segment union"],
+    tier: "killer"
+  },
+  {
+    name: "Number of Different Values",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1061/F",
+    difficulty: "2100",
+    concepts: ["inclusion-exclusion", "DP"],
+    tier: "advanced"
+  },
+  {
+    name: "Colorful Graph",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1081/G",
+    difficulty: "2400",
+    concepts: ["inclusion-exclusion", "graph coloring"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Derangements](/math/combinatorics/derangements) — direct application of PIE
+- [Möbius Function](/math/number-theory/mobius) — generalization of PIE to divisor lattice
+- [Euler's Totient](/math/number-theory/euler-phi) — PIE over prime divisors of $n$
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — IE formulas contain binomials
+- [Generating Functions](/math/combinatorics/generating-functions) — PIE can be encoded as product of $(1 - x^{a_i})$
+
+---
+
+## References
+
+1. cp-algorithms — [Inclusion-Exclusion](https://cp-algorithms.com/combinatorics/inclusion-exclusion.html)
+2. Concrete Mathematics (Graham, Knuth, Patashnik) §7.7 — Inclusion-Exclusion
+3. Stanley, Enumerative Combinatorics Vol. 1 §3.7 — Möbius inversion

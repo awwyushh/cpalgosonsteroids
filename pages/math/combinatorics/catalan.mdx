@@ -1,0 +1,199 @@
+---
+title: Catalan Numbers
+description: Catalan numbers — formula, recurrence, 14 interpretations, and CP applications
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Catalan Numbers
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" }
+]} />
+
+## Why This Topic Matters
+
+Catalan numbers $C_n$ count an extraordinary number of combinatorial structures. Recognizing "this is a Catalan number" instantly gives the answer. They appear in parenthesization, BST counting, path problems, and polygon triangulation.
+
+**Contest relevance**: CF Div.2 D–E, any counting problem involving balanced structures or non-crossing conditions.
+
+---
+
+## Formula
+
+$$C_n = \frac{1}{n+1}\binom{2n}{n} = \binom{2n}{n} - \binom{2n}{n+1}$$
+
+First values: $1, 1, 2, 5, 14, 42, 132, 429, 1430, 4862, \ldots$
+
+```cpp
+// C_n mod prime p (precomputed fact/inv_fact)
+long long catalan(int n) {
+    return fact[2*n] * inv_fact[n] % MOD * inv_fact[n+1] % MOD;
+}
+```
+
+---
+
+## Recurrence
+
+$$C_0 = 1, \quad C_{n+1} = \sum_{k=0}^{n} C_k C_{n-k}$$
+
+$$C_n = \frac{2(2n-1)}{n+1} C_{n-1}$$
+
+```cpp
+long long catalan_rec(int n) {
+    // C[n] = sum_{k=0}^{n-1} C[k] * C[n-1-k]
+    vector<long long> C(n + 1);
+    C[0] = 1;
+    for (int i = 1; i <= n; i++)
+        for (int j = 0; j < i; j++)
+            C[i] = (C[i] + C[j] * C[i-1-j]) % MOD;
+    return C[n];
+}
+```
+
+---
+
+## 14 Combinatorial Interpretations
+
+$C_n$ counts each of these:
+
+1. **Balanced parenthesizations** of $n$ pairs of brackets: `((()))`, `(()())`, ...
+2. **Full binary trees** with $n+1$ leaves
+3. **Triangulations** of a convex $(n+2)$-gon
+4. **Dyck paths**: paths from $(0,0)$ to $(2n,0)$ with steps $+1,-1$ never going below $x$-axis
+5. **Monotone lattice paths**: $(0,0)$ to $(n,n)$ staying **below or on** the main diagonal
+6. **BSTs** with $n$ keys (distinct shapes)
+7. **Mountain ranges** with $n$ up and $n$ down strokes
+8. **Noncrossing partitions** of $[n]$
+9. **Stacked sequences**: sequences $1,2,\ldots,2n$ sortable by a single stack
+10. **Noncrossing handshakes**: $2n$ people around a table, $n$ noncrossing handshakes
+11. **Plane trees** with $n+1$ nodes
+12. **Standard Young tableaux** of shape $(n,n)$
+13. **Ways to parenthesize** a product of $n+1$ factors
+14. **Sequences** $a_1,\ldots,a_n$ with $1 \leq a_i \leq i$ (ballot sequences)
+
+---
+
+## Ballot Problem / Reflection Principle
+
+$C_n = \frac{1}{n+1}\binom{2n}{n}$ follows from the ballot problem:
+
+Candidate A gets $n+1$ votes, B gets $n$ votes. Probability A is **always** ahead:
+
+$$P = \frac{1}{2n+1}$$
+
+Count of paths from $(0,0)$ to $(n,n)$ that never touch $y = x$ except at origin (ballot sequences) = $\frac{1}{n+1}\binom{2n}{n}$.
+
+**Reflection principle proof**: bad paths (touch $y=x+1$) biject to all paths from $(-1,1)$ to $(n,n)$, counted by $\binom{2n}{n-1}$.
+
+$$C_n = \binom{2n}{n} - \binom{2n}{n-1} = \binom{2n}{n} - \binom{2n}{n+1}$$
+
+---
+
+## Generalized Ballot Numbers
+
+Number of paths from $(0,0)$ to $(m,n)$ ($m \geq n$) staying weakly below $y=x$:
+
+$$\frac{m-n+1}{m+1}\binom{m+n}{n}$$
+
+For $m = n$: reduces to $\frac{1}{n+1}\binom{2n}{n} = C_n$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "C_n via formula (precomputed facts)", time: "O(1)", space: "O(n)" },
+  { operation: "C_n via recurrence (all up to n)", time: "O(n²)", space: "O(n)" },
+  { operation: "C_n via closed form (single value)", time: "O(n)", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Identify structure**: if the problem counts nested/non-crossing structures, try Catalan
+2. **Generalized Catalan**: problems with asymmetric path constraints use ballot numbers
+3. **Catalan triangle**: $T(n,k)$ = number of paths to $(n,k)$ below diagonal, builds Catalan table
+4. **2D DP**: if $dp[i][j] = \sum dp[i-1][k]$, the answer may be Catalan-related
+
+---
+
+## Common Mistakes
+
+1. **Off-by-one indexing**: $C_0 = 1$ (empty structure), $C_1 = 1$ (single element)
+2. **Confusing $\binom{2n}{n}$ with $C_n$**: $C_n = \binom{2n}{n}/(n+1)$, not $\binom{2n}{n}$
+3. **Large $n$**: $C_{10^6}$ requires modular inverse of $n+1$ — use precomputed inv_fact
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Bracket Sequences I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1626",
+    difficulty: "1200",
+    concepts: ["Catalan", "balanced brackets"],
+    tier: "warmup"
+  },
+  {
+    name: "Bracket Sequences II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1643",
+    difficulty: "1400",
+    concepts: ["Catalan", "DP", "paths"],
+    tier: "standard"
+  },
+  {
+    name: "Mountain Scene",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033/F",
+    difficulty: "1900",
+    concepts: ["Catalan", "DP"],
+    tier: "standard"
+  },
+  {
+    name: "Number of Triangulations",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/559/E",
+    difficulty: "2100",
+    concepts: ["Catalan", "polygon triangulation"],
+    tier: "advanced"
+  },
+  {
+    name: "Stack-sortable Permutations",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/797/F",
+    difficulty: "2300",
+    concepts: ["Catalan", "stack sorting"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — $C_n = \binom{2n}{n}/(n+1)$
+- [Lattice Paths](/math/combinatorics/lattice-paths) — reflection principle derives Catalan formula
+- [Bell & Stirling Numbers](/math/combinatorics/bell-stirling) — other combinatorial sequences
+- [Generating Functions](/math/combinatorics/generating-functions) — Catalan OGF: $C(x) = \frac{1-\sqrt{1-4x}}{2x}$
+
+---
+
+## References
+
+1. cp-algorithms — [Catalan Numbers](https://cp-algorithms.com/combinatorics/catalan-numbers.html)
+2. Stanley, Enumerative Combinatorics Vol. 2 — Appendix: 66 interpretations of Catalan numbers
+3. Concrete Mathematics §7.5 — Ballot problem and Catalan numbers

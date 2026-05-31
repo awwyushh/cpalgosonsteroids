@@ -1,0 +1,200 @@
+---
+title: Derangements
+description: Permutations with no fixed points — subfactorial formula, recurrence, and applications
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Derangements
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Inclusion-Exclusion", href: "/math/combinatorics/inclusion-exclusion" },
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" }
+]} />
+
+## Why This Topic Matters
+
+Derangements model "no one gets their own hat back" scenarios. The formula is a direct application of inclusion-exclusion and appears as a sub-problem in permutation counting, combinatorics DP, and probability.
+
+**Contest relevance**: CF Div.2 D–E, any permutation problem with forbidden positions.
+
+---
+
+## Definition
+
+A **derangement** of $[n]$ is a permutation $\sigma$ with $\sigma(i) \neq i$ for all $i$.
+
+$D_n$ = number of derangements of $[n]$.
+
+$D_n$ is also written $!n$ (subfactorial).
+
+---
+
+## Formula via Inclusion-Exclusion
+
+Let $A_i$ = set of permutations where element $i$ is a fixed point.
+
+$$D_n = n! - |A_1 \cup \cdots \cup A_n|$$
+
+By PIE:
+
+$$D_n = \sum_{k=0}^{n} (-1)^k \binom{n}{k} (n-k)! = n! \sum_{k=0}^{n} \frac{(-1)^k}{k!}$$
+
+For large $n$: $D_n \approx n!/e$. The probability a random permutation is a derangement $\to 1/e \approx 0.368$.
+
+---
+
+## Recurrence
+
+$$D_n = (n-1)(D_{n-1} + D_{n-2}), \quad D_0 = 1, \quad D_1 = 0$$
+
+**Derivation**: element $n$ goes to position $j \neq n$. Either:
+- Element $j$ goes to position $n$: remaining $n-2$ elements derange → $D_{n-2}$
+- Element $j$ doesn't go to position $n$: treat position $n$ as "forbidden for j", giving $D_{n-1}$
+
+Multiply by $(n-1)$ choices for $j$.
+
+Also: $D_n = n \cdot D_{n-1} + (-1)^n$.
+
+---
+
+## Implementation
+
+```cpp
+const long long MOD = 1e9 + 7;
+const int MAXN = 1e6 + 5;
+long long D[MAXN];
+
+void precompute_derangements() {
+    D[0] = 1;
+    D[1] = 0;
+    for (int i = 2; i < MAXN; i++)
+        D[i] = (long long)(i - 1) % MOD * ((D[i-1] + D[i-2]) % MOD) % MOD;
+}
+
+// Alternative: from formula directly
+long long derangement(int n, long long mod) {
+    long long fact = 1, result = 0, sign = 1;
+    for (int k = 0; k <= n; k++) {
+        result = (result + sign * /* n!/k! */ ...) % mod;
+        // See below for efficient computation
+    }
+    return (result % mod + mod) % mod;
+}
+```
+
+**Efficient formula implementation**:
+
+```cpp
+// Precompute fact[], inv_fact[], then:
+long long derangement_formula(int n) {
+    long long result = 0;
+    for (int k = 0; k <= n; k++) {
+        // term = n! * (-1)^k / k! = fact[n] * inv_fact[k] * (-1)^k
+        long long term = fact[n] * inv_fact[k] % MOD;
+        if (k % 2 == 0) result = (result + term) % MOD;
+        else result = (result - term + MOD) % MOD;
+    }
+    return result;
+}
+```
+
+---
+
+## Partial Derangements
+
+**$k$ elements fixed, $n-k$ deranged** — permutations with exactly $k$ fixed points:
+
+$$\binom{n}{k} D_{n-k}$$
+
+Choose $k$ elements to fix, derange the remaining $n-k$.
+
+**Permutations with at least $m$ fixed points**: use PIE again.
+
+---
+
+## Ménage Problem
+
+Arrange $n$ male-female couples at a circular table with no couple adjacent. Answer:
+
+$$2 \cdot n! \cdot M_n, \quad M_n = \sum_{k=0}^{n} (-1)^k \frac{2n}{2n-k} \binom{2n-k}{k} (n-k)!$$
+
+The ménage numbers $M_n$ generalize derangements to circular tables.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Precompute D[0..N] via recurrence", time: "O(N)", space: "O(N)" },
+  { operation: "Single D_n via formula", time: "O(n)", space: "O(1) if fact precomputed" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **$D_0 = 1$**: empty permutation is a derangement by convention.
+2. **Negative in modular arithmetic**: $D_n$ formula alternates signs — always add MOD before taking mod.
+3. **Recurrence vs formula**: recurrence is $O(1)$ per term once initialized; formula requires precomputed factorials.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Christmas Party",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1716",
+    difficulty: "1200",
+    concepts: ["derangements", "recurrence"],
+    tier: "warmup"
+  },
+  {
+    name: "Derangements",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/30/E",
+    difficulty: "1700",
+    concepts: ["derangements", "partial fixed points"],
+    tier: "standard"
+  },
+  {
+    name: "Permutation Count",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1516/E",
+    difficulty: "2000",
+    concepts: ["derangements", "DP"],
+    tier: "advanced"
+  },
+  {
+    name: "Circular Arrangement",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/906/F",
+    difficulty: "2400",
+    concepts: ["derangements", "circular", "ménage"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — derangements are a direct PIE application
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — partial derangements use $\binom{n}{k}$
+- [Bell & Stirling Numbers](/math/combinatorics/bell-stirling) — Stirling numbers count permutations by cycle structure
+
+---
+
+## References
+
+1. cp-algorithms — [Derangements](https://cp-algorithms.com/combinatorics/derangements.html)
+2. Concrete Mathematics §7.2 — Stirling numbers and derangements

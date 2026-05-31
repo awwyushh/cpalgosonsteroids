@@ -1,0 +1,206 @@
+---
+title: Stars & Bars
+description: Distributing identical objects into distinct boxes — the stars and bars counting method
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Stars & Bars
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" }
+]} />
+
+## Why This Topic Matters
+
+Stars and bars converts "how many ways to distribute $n$ identical objects into $k$ distinct bins" into a binomial coefficient. It's the go-to tool for any counting problem with indistinguishable items, constraints on bin sizes, or multiset selection.
+
+**Contest relevance**: CF Div.2 C–D, any distribution/partition counting problem.
+
+---
+
+## The Core Formula
+
+**Distribute $n$ identical objects into $k$ distinct bins (zero allowed)**:
+
+$$\binom{n + k - 1}{k - 1}$$
+
+**Intuition**: place $n$ stars and $k-1$ divider bars in a row — the dividers separate bins. Total positions = $n + k - 1$, choose $k-1$ for bars.
+
+```
+Example: n=3 stars, k=3 bins
+★★|★| → (2,1,0)
+★|★★| → (1,2,0)
+|★★★| → (0,3,0)
+... etc. Total = C(5,2) = 10 ways
+```
+
+---
+
+## Variants
+
+### At Least One Per Bin
+
+Distribute $n$ objects into $k$ bins, **each bin ≥ 1**:
+
+$$\binom{n-1}{k-1}$$
+
+**Reduction**: give 1 to each bin first, then distribute $n-k$ freely into $k$ bins.
+
+### Upper Bound Per Bin
+
+Distribute $n$ objects into $k$ bins, each bin **≤ c**:
+
+Use inclusion-exclusion: subtract cases where at least one bin has $> c$.
+
+$$\sum_{j=0}^{k} (-1)^j \binom{k}{j} \binom{n - j(c+1) + k - 1}{k - 1}$$
+
+(terms with $n - j(c+1) < 0$ vanish)
+
+### Distinct Objects
+
+Distribute $n$ **distinct** objects into $k$ bins (any amount per bin):
+
+$$k^n$$
+
+Each object independently chooses one of $k$ bins.
+
+### Exactly m Non-Empty Bins
+
+Distribute $n$ identical objects into exactly $m$ of $k$ bins (rest empty):
+
+$$\binom{k}{m} \binom{n-1}{m-1}$$
+
+Choose which $m$ bins are non-empty, then distribute $n$ into those $m$ bins (each ≥ 1).
+
+---
+
+## Multiset Selection
+
+**Choose $k$ items from $n$ types with repetition allowed**:
+
+$$\binom{n + k - 1}{k}$$
+
+Same formula — a multiset of size $k$ from $n$ types is equivalent to distributing $k$ identical items into $n$ bins.
+
+```cpp
+// Number of multisets of size k from n types
+long long multiset_count(int n, int k) {
+    return C(n + k - 1, k);  // C from precomputed factorials
+}
+```
+
+---
+
+## Integer Solutions to Equations
+
+**Count non-negative integer solutions to $x_1 + x_2 + \cdots + x_k = n$**:
+
+$$\binom{n + k - 1}{k - 1}$$
+
+**Count positive integer solutions ($x_i \geq 1$)**:
+
+$$\binom{n - 1}{k - 1}$$
+
+**Count solutions with $a_i \leq x_i \leq b_i$**: shift $y_i = x_i - a_i$, apply inclusion-exclusion for upper bounds.
+
+```cpp
+// Count non-negative integer solutions to x1+...+xk = n
+long long count_solutions(int n, int k) {
+    if (n < 0) return 0;
+    return C(n + k - 1, k - 1);
+}
+
+// Count solutions with each xi <= c (inclusion-exclusion)
+long long count_bounded(int n, int k, int c) {
+    long long result = 0;
+    for (int j = 0; j <= k && n - (long long)j*(c+1) >= 0; j++) {
+        long long contrib = C(k, j) * C(n - j*(c+1) + k - 1, k - 1) % MOD;
+        if (j % 2 == 0) result = (result + contrib) % MOD;
+        else result = (result - contrib + MOD) % MOD;
+    }
+    return result;
+}
+```
+
+---
+
+## Common Patterns
+
+| Problem type | Formula |
+|-------------|---------|
+| $n$ identical → $k$ distinct bins, any count | $\binom{n+k-1}{k-1}$ |
+| $n$ identical → $k$ distinct bins, each ≥ 1 | $\binom{n-1}{k-1}$ |
+| Multiset of size $k$ from $n$ types | $\binom{n+k-1}{k}$ |
+| Non-neg solutions to $\sum x_i = n$ | $\binom{n+k-1}{k-1}$ |
+| Distinct objects → $k$ bins | $k^n$ |
+| Surjective: $n$ distinct → $k$ distinct, all bins non-empty | Inclusion-exclusion: $\sum (-1)^j \binom{k}{j}(k-j)^n$ |
+
+---
+
+## Common Mistakes
+
+1. **Off-by-one in formula**: $\binom{n+k-1}{k-1}$ not $\binom{n+k}{k}$. Derive from first principles if unsure.
+2. **Distinct vs identical objects**: $k^n$ for distinct, stars-bars for identical. Problem says "identical coins" or "indistinguishable"?
+3. **Minimum 1 not applied**: if problem says "each bin has at least 1", use $\binom{n-1}{k-1}$, not $\binom{n+k-1}{k-1}$.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Distributing Apples",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1716",
+    difficulty: "1000",
+    concepts: ["stars and bars"],
+    tier: "warmup"
+  },
+  {
+    name: "Candy Distribution",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1023/D",
+    difficulty: "1400",
+    concepts: ["stars and bars", "modular inverse"],
+    tier: "standard"
+  },
+  {
+    name: "Stars and Bars",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1106/F",
+    difficulty: "2200",
+    concepts: ["stars and bars", "inclusion-exclusion", "upper bounds"],
+    tier: "advanced"
+  },
+  {
+    name: "Multiset",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1183/H",
+    difficulty: "2000",
+    concepts: ["multiset counting", "stars and bars"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — $\binom{n+k-1}{k-1}$ requires factorial precomputation
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — upper-bound constraints use PIE
+- [Generating Functions](/math/combinatorics/generating-functions) — stars-bars is the coefficient of $x^n$ in $\frac{1}{(1-x)^k}$
+
+---
+
+## References
+
+1. cp-algorithms — [Stars and Bars](https://cp-algorithms.com/combinatorics/stars_and_bars.html)
+2. Concrete Mathematics (Graham, Knuth, Patashnik) §5.5 — Twelvefold Way
