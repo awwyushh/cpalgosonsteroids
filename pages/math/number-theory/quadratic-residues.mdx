@@ -1,0 +1,195 @@
+---
+title: Quadratic Residues
+description: Legendre symbol, Euler's criterion, and Tonelli-Shanks for modular square roots
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Quadratic Residues
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" },
+  { title: "Primitive Roots", href: "/math/number-theory/primitive-roots" }
+]} />
+
+## Why This Topic Matters
+
+A quadratic residue mod $p$ is a number that has a square root mod $p$. Testing QR and computing square roots appears in competitive programming, cryptography problems, and number theory contests.
+
+**Contest relevance**: CF Div.1 D/E, problems involving $\sqrt{a} \pmod{p}$, counting solutions to $x^2 \equiv a \pmod{p}$.
+
+---
+
+## Learning Objectives
+
+- Determine if $a$ is a quadratic residue mod $p$ using the Legendre symbol
+- Apply Euler's criterion: $a^{(p-1)/2} \equiv \pm 1$
+- Compute $\sqrt{a} \pmod{p}$ via Tonelli-Shanks algorithm
+- Count solutions to $x^2 \equiv a$
+
+---
+
+## Quadratic Residues
+
+For prime $p$ and $a \not\equiv 0 \pmod{p}$: $a$ is a **quadratic residue** (QR) mod $p$ if $\exists x: x^2 \equiv a \pmod{p}$.
+
+**Count**: exactly $(p-1)/2$ QRs and $(p-1)/2$ non-residues (NRs) among $\{1, \ldots, p-1\}$.
+
+**Squares**: $1^2, 2^2, \ldots, ((p-1)/2)^2$ give all distinct QRs mod $p$.
+
+---
+
+## Legendre Symbol
+
+$$\left(\frac{a}{p}\right) = \begin{cases} 0 & p \mid a \\ 1 & a \text{ is QR mod } p \\ -1 & a \text{ is NR mod } p \end{cases}$$
+
+**Euler's criterion**:
+
+$$\left(\frac{a}{p}\right) \equiv a^{(p-1)/2} \pmod{p}$$
+
+```cpp
+int legendre(long long a, long long p) {
+    a %= p;
+    if (a == 0) return 0;
+    long long res = power(a, (p - 1) / 2, p);
+    return res == 1 ? 1 : -1;
+}
+```
+
+**Properties**:
+- $\left(\frac{ab}{p}\right) = \left(\frac{a}{p}\right)\left(\frac{b}{p}\right)$ (multiplicativity)
+- $\left(\frac{-1}{p}\right) = (-1)^{(p-1)/2}$ (equals 1 iff $p \equiv 1 \pmod 4$)
+- $\left(\frac{2}{p}\right) = (-1)^{(p^2-1)/8}$
+
+---
+
+## Tonelli-Shanks Algorithm
+
+Computes $\sqrt{a} \pmod{p}$ when $a$ is a QR:
+
+```cpp
+long long sqrt_mod(long long a, long long p) {
+    a %= p;
+    if (a == 0) return 0;
+    if (legendre(a, p) != 1) return -1;  // not a QR
+    
+    // Special case: p ≡ 3 (mod 4)
+    if (p % 4 == 3) return power(a, (p + 1) / 4, p);
+    
+    // Tonelli-Shanks
+    // Write p - 1 = Q * 2^S
+    long long Q = p - 1, S = 0;
+    while (Q % 2 == 0) { Q /= 2; S++; }
+    
+    // Find a quadratic non-residue z
+    long long z = 2;
+    while (legendre(z, p) != -1) z++;
+    
+    long long M = S;
+    long long c = power(z, Q, p);
+    long long t = power(a, Q, p);
+    long long R = power(a, (Q + 1) / 2, p);
+    
+    while (true) {
+        if (t == 0) return 0;
+        if (t == 1) return R;
+        
+        long long i = 1;
+        long long temp = t * t % p;
+        while (temp != 1) { temp = temp * temp % p; i++; }
+        
+        long long b = power(c, 1LL << (M - i - 1), p);
+        M = i;
+        c = b * b % p;
+        t = t * c % p;
+        R = R * b % p;
+    }
+}
+```
+
+<Callout type="info">
+For $p \equiv 3 \pmod{4}$, use the simple formula $\sqrt{a} \equiv a^{(p+1)/4} \pmod{p}$. Tonelli-Shanks is only needed for $p \equiv 1 \pmod{4}$.
+</Callout>
+
+---
+
+## Counting Solutions to x² ≡ a (mod p)
+
+- $a \equiv 0$: one solution ($x = 0$)
+- $a$ is QR: two solutions ($x$ and $p - x$)
+- $a$ is NR: no solutions
+
+---
+
+## Jacobi Symbol
+
+Generalization to composite moduli $n = p_1^{e_1} \cdots$:
+
+$$\left(\frac{a}{n}\right) = \prod \left(\frac{a}{p_i}\right)^{e_i}$$
+
+Jacobi symbol $= 1$ does **not** imply $a$ is a QR mod $n$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Legendre symbol", time: "O(log p)", space: "O(1)" },
+  { operation: "Tonelli-Shanks (p ≡ 3 mod 4)", time: "O(log p)", space: "O(1)" },
+  { operation: "Tonelli-Shanks (general)", time: "O(log² p) expected", space: "O(1)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Square Root modulo Prime",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/3514",
+    difficulty: "1600",
+    concepts: ["Tonelli-Shanks", "quadratic residue"],
+    tier: "standard"
+  },
+  {
+    name: "Square Root (Library Checker)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/sqrt_mod",
+    difficulty: "1800",
+    concepts: ["Tonelli-Shanks", "QR"],
+    tier: "standard"
+  },
+  {
+    name: "Quadratic Equation mod p",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1016/E",
+    difficulty: "2400",
+    concepts: ["QR", "counting", "quadratic residue"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Primitive Roots](/math/number-theory/primitive-roots) — $a$ is QR iff $\text{ind}_g(a)$ is even
+- [Euler Phi Function](/math/number-theory/euler-phi) — Euler's criterion: $a^{(p-1)/2}$ uses $\phi(p)$
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — Legendre symbol and Tonelli-Shanks both use modular exponentiation
+- [Miller-Rabin](/math/number-theory/miller-rabin) — both use $n-1 = 2^s \cdot d$ factorization
+
+---
+
+## References
+
+1. cp-algorithms — [Quadratic Residues](https://cp-algorithms.com/algebra/quadratic_residues.html)
+2. Tonelli, A. — Bemerkung über die Auflösung quadratischer Congruenzen (1891)
+3. Shanks, D. — Five number-theoretic algorithms (1973) — Tonelli-Shanks algorithm

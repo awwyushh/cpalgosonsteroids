@@ -1,0 +1,228 @@
+---
+title: Min-25 Sieve
+description: Count primes and sum multiplicative functions in sublinear O(n^(2/3)) time — Min-25 sieve
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Min-25 Sieve
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Möbius Function & Inversion", href: "/math/number-theory/mobius" },
+  { title: "Prime Factorization", href: "/math/number-theory/prime-factorization" },
+  { title: "Floor & Ceiling Identities", href: "/math/foundations/floor-ceil" }
+]} />
+
+## Why This Topic Matters
+
+Counting primes $\leq n$ or summing $\sum_{p \leq n} p$ naively takes $O(n)$. The Meissel-Lehmer and Min-25 sieve achieve $O(n^{2/3})$ using floor-grouping to handle all values $\lfloor n/k \rfloor$ simultaneously. Min-25 is the most practical sublinear sieve for competitive programming.
+
+**Contest relevance**: CF Div.1 E, IOI, JOI — any problem computing $\sum_{k=1}^{n} f(k)$ for multiplicative $f$ with $n \leq 10^{11}$.
+
+---
+
+## Core Idea
+
+For multiplicative function $f$, split sum by whether index is prime or prime power:
+
+$$\sum_{k=1}^{n} f(k) = \sum_{\text{primes } p \leq n} f(p) + \sum_{p^e \| k, e \geq 2} f(k) + 1$$
+
+**Two phases**:
+1. **Phase 1 (Prime counting)**: compute $\pi(v)$ for all $v = \lfloor n/k \rfloor$ simultaneously
+2. **Phase 2 (Sum over multiplicative)**: compute $\sum f(p)$ over primes, then extend to all integers
+
+---
+
+## Phase 1: Counting Primes
+
+For each floor value $v = \lfloor n/i \rfloor$, define:
+
+$$S_0(v, j) = \#\{k \leq v : k \text{ has no prime factor} \leq p_j\}$$
+
+Initialize: $S_0(v, 0) = v - 1$ (all integers except 1).
+
+**Transition**: for each prime $p_j$ with $p_j^2 \leq v$:
+
+$$S_0(v, j) = S_0(v, j-1) - (S_0(\lfloor v/p_j \rfloor, j-1) - S_0(p_j - 1, j-1))$$
+
+After processing all primes $\leq \sqrt{n}$: $S_0(v, \infty) = \pi(v) - \pi(\sqrt{n})$.
+
+```cpp
+// Min-25 sieve: count primes up to n
+// O(n^(2/3) / log n) time, O(n^(1/2)) space
+#include <bits/stdc++.h>
+using namespace std;
+using ll = long long;
+
+ll n, sqn;
+vector<ll> vals;    // all distinct floor(n/i) values
+unordered_map<ll, int> idx;  // val -> index in vals
+
+vector<ll> S;       // S[i] = (# primes or numbers passing sieve) for vals[i]
+
+void init_vals() {
+    for (ll i = 1; i * i <= n; i++) {
+        vals.push_back(i);
+        if (i != n / i) vals.push_back(n / i);
+    }
+    sort(vals.begin(), vals.end());
+    for (int i = 0; i < (int)vals.size(); i++)
+        idx[vals[i]] = i;
+    S.resize(vals.size());
+    for (int i = 0; i < (int)vals.size(); i++)
+        S[i] = vals[i] - 1;  // initial: all integers > 1
+}
+
+ll getS(ll v) { return S[idx[v]]; }
+
+ll count_primes() {
+    init_vals();
+    sqn = (ll)sqrt(n);
+    
+    // Sieve small primes
+    vector<bool> is_prime(sqn + 1, true);
+    is_prime[0] = is_prime[1] = false;
+    
+    for (ll p = 2; p <= sqn; p++) {
+        if (!is_prime[p]) continue;
+        // Mark composites
+        for (ll j = p * p; j <= sqn; j += p) is_prime[j] = false;
+        
+        // Update S for each floor value
+        ll p2 = p * p;
+        for (ll v : vals) {
+            if (v < p2) break;
+            S[idx[v]] -= getS(v / p) - getS(p - 1);
+        }
+    }
+    // S[idx[n]] now = pi(n) - 1 (subtract 1 for adjustment)
+    return getS(n);
+}
+```
+
+<Callout type="info">
+There are at most $2\sqrt{n}$ distinct values of $\lfloor n/k \rfloor$. This is the key observation enabling the space-efficient representation.
+</Callout>
+
+---
+
+## Phase 2: Sum of Multiplicative Function
+
+For multiplicative $f$ with values on prime powers known, define:
+
+$$F(v, j) = \sum_{\substack{k \leq v \\ \text{min prime factor of } k > p_j}} f(k)$$
+
+**Base case**: $F(v, 0) = \sum_{p \leq v} f(p)$ (prime sum).
+
+**Transition**: recursively add contributions of numbers whose smallest prime factor is $p_j$:
+
+$$F(v, j) = F(v, j-1) - f(p_j) + \sum_{e \geq 1, p_j^e \leq v} f(p_j^e) \cdot (F(\lfloor v/p_j^e \rfloor, j) + [e > 1])$$
+
+```cpp
+// Compute sum of f over all integers in [1, n]
+// Requires: f_prime(p) = f(p), f_prime_pow(p, e) = f(p^e) for prime powers
+
+ll prime_sum[...];  // precomputed sum of f(p) for p <= val[i]
+
+ll F(ll v, int j, /* primes list */ vector<ll>& primes) {
+    ll res = prime_sum_upto(v) - prime_sum_upto(primes[j] - 1);
+    for (int k = j + 1; k < primes.size() && primes[k] * primes[k] <= v; k++) {
+        ll pe = primes[k];
+        for (int e = 1; pe <= v; e++, pe *= primes[k]) {
+            res += f_prime_pow(primes[k], e) * F(v / pe, k, primes);
+            if (e > 1) res += f_prime_pow(primes[k], e);
+        }
+    }
+    return res;
+}
+```
+
+---
+
+## Example: Count Primes (f = 1)
+
+```cpp
+// Count of primes up to n using Phase 1 directly
+// Answer: getS(n) after Phase 1 sieve
+ll pi_n = count_primes();  // O(n^(2/3))
+```
+
+## Example: Sum of Primes (f(p) = p, f(p^k) = p^k)
+
+```cpp
+// Initialize S[i] = sum of 2..vals[i] (= vals[i]*(vals[i]+1)/2 - 1)
+// Then run same sieve transition with sum instead of count
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Phase 1: prime counting", time: "O(n^(2/3) / log n)", space: "O(n^(1/2))" },
+  { operation: "Phase 2: multiplicative sum", time: "O(n^(2/3))", space: "O(n^(1/2))" },
+  { operation: "Lucy_Hedgehog variant (count only)", time: "O(n^(3/4) / log n)", space: "O(n^(1/2))" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Floor value indexing**: must handle both $v \leq \sqrt{n}$ (index from bottom) and $v > \sqrt{n}$ (index as $n/v$ from top).
+2. **Prime sum vs prime count**: Phase 1 is the same structure; just change initial $S[i]$ and transition values.
+3. **Off-by-one in prime loop**: the break condition `v < p*p` must be `<`, not `<=`.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Count Primes",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/counting_primes",
+    difficulty: "2200",
+    concepts: ["Min-25 sieve", "prime counting"],
+    tier: "standard"
+  },
+  {
+    name: "Sum of Totient Function",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1228/E",
+    difficulty: "2700",
+    concepts: ["Min-25 sieve", "Euler phi sum"],
+    tier: "advanced"
+  },
+  {
+    name: "Divisor Sum Function",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/438/E",
+    difficulty: "2800",
+    concepts: ["Min-25 sieve", "multiplicative function"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Du Jiao Sieve](/math/advanced-number-theory/du-jiao-sieve) — alternative approach using Dirichlet convolution for specific $f$
+- [Powerful Number Sieve](/math/advanced-number-theory/powerful-number-sieve) — third sublinear sieve variant
+- [Möbius Function](/math/number-theory/mobius) — Möbius sieve is the $O(n)$ baseline
+- [Floor & Ceiling Identities](/math/foundations/floor-ceil) — floor grouping is the core tool enabling $O(\sqrt{n})$ space
+
+---
+
+## References
+
+1. Min-25 — [Original blog post (Japanese)](https://min-25.hatenablog.com/entry/2018/11/11/172216)
+2. cp-algorithms — [Lucy_Hedgehog prime-counting sieve](https://cp-algorithms.com/algebra/prime-count.html)
+3. Meissel, E. — Über Primzahlen (1870) — original sublinear prime count

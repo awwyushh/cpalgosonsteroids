@@ -1,0 +1,209 @@
+---
+title: NTT-Friendly Primes & CRT
+description: NTT moduli selection, multi-modulus NTT with Garner reconstruction for arbitrary-coefficient convolutions
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# NTT-Friendly Primes & CRT
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Chinese Remainder Theorem", href: "/math/number-theory/crt" },
+  { title: "Primitive Roots", href: "/math/number-theory/primitive-roots" }
+]} />
+
+## Why This Topic Matters
+
+NTT requires a prime modulus $p = c \cdot 2^k + 1$ with $k$ large enough for the transform size. When coefficients are large or the result modulus isn't NTT-friendly, use multiple NTT primes and Garner's algorithm to reconstruct the answer.
+
+**Contest relevance**: polynomial multiplication in CP, combinatorics with large coefficients, any convolution mod $10^9 + 7$.
+
+---
+
+## NTT-Friendly Prime Requirements
+
+For NTT of size $2^k$:
+- Modulus $p$ must satisfy $2^k | (p-1)$ — so $p = c \cdot 2^k + 1$
+- $p$ must have a primitive root $g$ (all primes do)
+- $\omega = g^{(p-1)/2^k} \bmod p$ is a primitive $2^k$-th root of unity
+
+**Standard NTT primes**:
+
+| Prime | Form | Max array size | Primitive root |
+|-------|------|---------------|----------------|
+| $998244353$ | $119 \cdot 2^{23} + 1$ | $2^{23} \approx 8 \times 10^6$ | $3$ |
+| $985661441$ | $235 \cdot 2^{22} + 1$ | $2^{22}$ | $3$ |
+| $754974721$ | $45 \cdot 2^{24} + 1$ | $2^{24}$ | $11$ |
+| $469762049$ | $7 \cdot 2^{26} + 1$ | $2^{26}$ | $3$ |
+| $167772161$ | $5 \cdot 2^{25} + 1$ | $2^{25}$ | $3$ |
+
+<Callout type="info">
+$998244353$ is the default NTT prime in competitive programming. Most problems that say "mod 998244353" are hint that NTT will be used.
+</Callout>
+
+---
+
+## Finding the Primitive Root of Unity
+
+```cpp
+// For NTT of size n = 2^k mod prime p (p = c * 2^K + 1, k <= K)
+long long primitive_nth_root(long long p, long long n) {
+    // g = primitive root of p (usually 3 for standard NTT primes)
+    long long g = primitive_root(p);
+    // omega = g^((p-1)/n) mod p
+    return power(g, (p - 1) / n, p);
+}
+```
+
+---
+
+## NTT Implementation
+
+```cpp
+const long long MOD = 998244353;
+const long long g_root = 3;  // primitive root of MOD
+
+void ntt(vector<long long>& a, bool inv) {
+    int n = a.size();
+    for (int i = 1, j = 0; i < n; i++) {
+        int bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) swap(a[i], a[j]);
+    }
+    for (int len = 2; len <= n; len <<= 1) {
+        long long w = inv ? power(g_root, MOD - 1 - (MOD - 1) / len, MOD)
+                         : power(g_root, (MOD - 1) / len, MOD);
+        for (int i = 0; i < n; i += len) {
+            long long wn = 1;
+            for (int j = 0; j < len / 2; j++) {
+                long long u = a[i + j], v = a[i + j + len/2] * wn % MOD;
+                a[i + j] = (u + v) % MOD;
+                a[i + j + len/2] = (u - v + MOD) % MOD;
+                wn = wn * w % MOD;
+            }
+        }
+    }
+    if (inv) {
+        long long n_inv = power(n, MOD - 2, MOD);
+        for (auto& x : a) x = x * n_inv % MOD;
+    }
+}
+
+vector<long long> multiply(vector<long long> a, vector<long long> b) {
+    int result_size = a.size() + b.size() - 1;
+    int n = 1;
+    while (n < result_size) n <<= 1;
+    a.resize(n); b.resize(n);
+    ntt(a, false); ntt(b, false);
+    for (int i = 0; i < n; i++) a[i] = a[i] * b[i] % MOD;
+    ntt(a, true);
+    a.resize(result_size);
+    return a;
+}
+```
+
+---
+
+## Multi-Modulus NTT + Garner
+
+When result coefficients exceed $p \approx 10^9$ (e.g., counts up to $n^2 \approx 10^{18}$), use 2–3 NTT primes:
+
+```cpp
+const long long P1 = 998244353, P2 = 985661441, P3 = 754974721;
+
+// Compute convolution mod each prime separately, then Garner to recover mod target_mod
+vector<long long> multiply_mod(vector<long long> a, vector<long long> b, long long mod) {
+    auto r1 = multiply_mod_p(a, b, P1);
+    auto r2 = multiply_mod_p(a, b, P2);
+    auto r3 = multiply_mod_p(a, b, P3);
+    
+    int n = r1.size();
+    vector<long long> result(n);
+    for (int i = 0; i < n; i++) {
+        // Garner reconstruction for coefficient i
+        result[i] = garner({r1[i], r2[i], r3[i]}, {P1, P2, P3}, mod);
+    }
+    return result;
+}
+```
+
+**Capacity**: $P1 \cdot P2 \cdot P3 \approx 7.4 \times 10^{26}$ — handles coefficients up to this value.
+
+---
+
+## Choosing Number of Primes
+
+| Max coefficient | Primes needed |
+|----------------|--------------|
+| $< 10^9$ | 1 (direct NTT) |
+| $< 10^{18}$ | 2 primes |
+| $< 10^{26}$ | 3 primes |
+| $< 10^{35}$ | 4 primes |
+
+For convolution of two polynomials of degree $n$ with coefficients $\leq C$: max coefficient $\approx n \cdot C^2$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "NTT of size n", time: "O(n log n)", space: "O(n)" },
+  { operation: "Polynomial multiply (degree n)", time: "O(n log n)", space: "O(n)" },
+  { operation: "Multi-prime NTT + Garner (k primes)", time: "O(k · n log n)", space: "O(n)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Convolution (mod 998244353)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/convolution_mod",
+    difficulty: "1400",
+    concepts: ["NTT", "polynomial multiply"],
+    tier: "warmup"
+  },
+  {
+    name: "Convolution (arbitrary mod)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/convolution_mod_1000000007",
+    difficulty: "1800",
+    concepts: ["multi-prime NTT", "Garner"],
+    tier: "standard"
+  },
+  {
+    name: "Polynomial Multiply",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/632/E",
+    difficulty: "2300",
+    concepts: ["NTT", "polynomial operations"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Garner's Algorithm](/math/advanced-number-theory/garner) — the reconstruction step for multi-prime NTT
+- [Primitive Roots](/math/number-theory/primitive-roots) — primitive root of NTT prime gives the root of unity
+- [Chinese Remainder Theorem](/math/number-theory/crt) — multi-prime CRT is Garner's algorithm
+- [Generating Functions](/math/combinatorics/generating-functions) — NTT computes polynomial product in $O(n \log n)$
+
+---
+
+## References
+
+1. cp-algorithms — [Fast Fourier Transform](https://cp-algorithms.com/algebra/fft.html)
+2. KACTL — [polynomial operations](https://github.com/kth-competitive-programming/kactl)
+3. Nussbaumer, H.J. — Fast Fourier Transform and Convolution Algorithms (1981)

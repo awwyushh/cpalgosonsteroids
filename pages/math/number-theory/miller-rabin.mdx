@@ -1,0 +1,214 @@
+---
+title: Miller-Rabin Primality Test
+description: Deterministic Miller-Rabin for integers up to 3.3×10²⁴ — fast probabilistic primality testing
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Miller-Rabin Primality Test
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" },
+  { title: "Primes & Sieves", href: "/math/number-theory/primes-sieve" }
+]} />
+
+## Why This Topic Matters
+
+For $n \leq 10^{18}$, trial division takes $O(10^9)$ — too slow. Miller-Rabin tests primality in $O(k \log^2 n)$ with $k$ witnesses. With the right deterministic witness sets, it's exact (not probabilistic) for all $n < 3.3 \times 10^{24}$.
+
+**Contest relevance**: Any problem requiring primality of large numbers ($n \leq 10^{18}$), combined with Pollard's rho for factorization.
+
+---
+
+## Learning Objectives
+
+- Understand the Miller-Rabin strong pseudoprime test
+- Implement deterministic version with fixed witnesses
+- Know which witness sets give deterministic results for which ranges
+- Combine with Pollard's rho for complete factorization
+
+---
+
+## Fermat's Little Theorem Base
+
+If $p$ is prime, then $a^{p-1} \equiv 1 \pmod{p}$ for all $a \not\equiv 0$.
+
+**Fermat primality test**: check $a^{n-1} \equiv 1 \pmod{n}$. If fails, $n$ is composite. If passes, $n$ is *probably* prime.
+
+**Problem**: Carmichael numbers pass for all $a$ coprime to $n$.
+
+---
+
+## Miller-Rabin Refinement
+
+Write $n - 1 = 2^s \cdot d$ with $d$ odd.
+
+For a prime $p$, either $a^d \equiv 1 \pmod{p}$ or $a^{2^r d} \equiv -1 \pmod{p}$ for some $0 \leq r < s$.
+
+**Test**: if neither holds, $n$ is **composite**. Repeat with multiple witnesses $a$.
+
+```cpp
+using ll = long long;
+using ull = unsigned long long;
+
+ll mulmod(ll a, ll b, ll m) {
+    return (__int128)a * b % m;
+}
+
+ll powmod(ll a, ll b, ll m) {
+    ll res = 1;
+    a %= m;
+    while (b > 0) {
+        if (b & 1) res = mulmod(res, a, m);
+        a = mulmod(a, a, m);
+        b >>= 1;
+    }
+    return res;
+}
+
+bool miller_rabin(ll n, ll a) {
+    if (n % a == 0) return n == a;
+    ll d = n - 1;
+    int s = 0;
+    while (d % 2 == 0) { d /= 2; s++; }
+    ll x = powmod(a, d, n);
+    if (x == 1 || x == n - 1) return true;
+    for (int r = 1; r < s; r++) {
+        x = mulmod(x, x, n);
+        if (x == n - 1) return true;
+    }
+    return false;
+}
+
+bool is_prime(ll n) {
+    if (n < 2) return false;
+    if (n == 2 || n == 3 || n == 5 || n == 7) return true;
+    if (n % 2 == 0 || n % 3 == 0) return false;
+    // Deterministic for n < 3,317,044,064,679,887,385,961,981
+    for (ll a : {2LL, 3LL, 5LL, 7LL, 11LL, 13LL, 17LL, 19LL, 23LL, 29LL, 31LL, 37LL})
+        if (!miller_rabin(n, a)) return false;
+    return true;
+}
+```
+
+<Callout type="info">
+The 12 witnesses {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37} give **deterministic** results for all $n < 3.3 \times 10^{24}$. For $n < 3.2 \times 10^{18}$, only 7 witnesses are needed: {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31}.
+</Callout>
+
+---
+
+## Deterministic Witness Sets
+
+| Range | Sufficient witnesses |
+|-------|---------------------|
+| $n < 2{,}047$ | {2} |
+| $n < 1{,}373{,}653$ | {2, 3} |
+| $n < 9{,}080{,}191$ | {31, 73} |
+| $n < 25{,}326{,}001$ | {2, 3, 5} |
+| $n < 3.2 \times 10^{18}$ | {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31} |
+| $n < 3.3 \times 10^{24}$ | {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37} |
+
+---
+
+## Optimized Version for n ≤ 10^18
+
+```cpp
+bool is_prime_fast(ll n) {
+    if (n < 2) return false;
+    for (ll p : {2, 3, 5, 7, 11, 13}) if (n == p) return true;
+    for (ll p : {2, 3, 5, 7, 11, 13}) if (n % p == 0) return false;
+    // Only need these for n < 3.2e18
+    for (ll a : {2LL, 3LL, 5LL, 7LL, 11LL, 13LL, 17LL, 19LL, 23LL, 29LL, 31LL})
+        if (!miller_rabin(n, a)) return false;
+    return true;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Miller-Rabin with k witnesses", time: "O(k log² n)", space: "O(1)" },
+  { operation: "Deterministic test (12 witnesses)", time: "O(12 log² n)", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Large prime check**: `is_prime(n)` for $n \leq 10^{18}$
+2. **Combined with Pollard rho**: test each factor for primality
+3. **Counting primes near $10^{18}$**: Miller-Rabin for each candidate
+
+---
+
+## Common Mistakes
+
+1. **Overflow in `a * a % n`**: always use `mulmod` with `__int128` when $n > 10^9$.
+2. **Not handling $n = 2$ or small primes**: edge cases at the start.
+3. **Using too few witnesses**: {2, 3, 5} is not sufficient for $n > 25$ million.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Primes and Squares",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/576/A",
+    difficulty: "1100",
+    concepts: ["primality test"],
+    tier: "warmup"
+  },
+  {
+    name: "Vasya and Endless Photos",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/294/F",
+    difficulty: "2000",
+    concepts: ["Miller-Rabin", "large numbers"],
+    tier: "standard"
+  },
+  {
+    name: "The Number of Products",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033/F",
+    difficulty: "2200",
+    concepts: ["Miller-Rabin", "Pollard rho"],
+    tier: "advanced"
+  },
+  {
+    name: "Factorize",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1082",
+    difficulty: "1500",
+    concepts: ["Miller-Rabin", "primality"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Pollard Rho](/math/number-theory/pollard-rho) — combine with Miller-Rabin for complete $O(n^{1/4})$ factorizer
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — every round is `powmod(a, d, n)` with overflow protection
+- [Prime Factorization](/math/number-theory/prime-factorization) — Miller-Rabin is the large-$n$ alternative to trial division
+- [Primitive Roots](/math/number-theory/primitive-roots) — after finding prime $p$, often need to find its primitive root
+
+---
+
+## References
+
+1. cp-algorithms — [Miller-Rabin Primality Test](https://cp-algorithms.com/algebra/primality_tests.html)
+2. Miller, G.L. — Riemann's hypothesis and tests for primality (1976)
+3. Rabin, M.O. — Probabilistic algorithm for testing primality (1980)
+4. Deterministic witness table — Pomerance, Selfridge, Wagstaff (1980) + Jaeschke (1993)

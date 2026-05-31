@@ -1,0 +1,176 @@
+---
+title: Powerful Number Sieve
+description: Compute multiplicative function sums using powerful numbers and Dirichlet convolution reduction
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Powerful Number Sieve
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Möbius Function & Inversion", href: "/math/number-theory/mobius" },
+  { title: "Du Jiao Sieve", href: "/math/advanced-number-theory/du-jiao-sieve" },
+  { title: "Min-25 Sieve", href: "/math/advanced-number-theory/min25-sieve" }
+]} />
+
+## Why This Topic Matters
+
+The powerful number sieve computes $\sum_{i=1}^{n} f(i)$ by decomposing $f = g * h$ where $g$ has an easy prefix sum and $h$ is supported only on **powerful numbers** (integers where every prime factor appears at least twice). Since powerful numbers up to $n$ number only $O(\sqrt{n})$, we enumerate them explicitly.
+
+**Contest relevance**: CF Div.1 F, when target $f$ is close to a simpler function $g$ but Du Jiao is hard to apply directly.
+
+---
+
+## Powerful Numbers
+
+$n$ is **powerful** if $p | n \Rightarrow p^2 | n$ (every prime divides with multiplicity $\geq 2$).
+
+Count of powerful numbers $\leq n$: $O(\sqrt{n})$.
+
+**Examples**: $1, 4, 8, 9, 16, 25, 27, 32, 36, 49, 64, 72, \ldots$
+
+Every powerful number $= a^2 b^3$ for some integers $a, b$.
+
+---
+
+## Core Idea
+
+Write $f = g * h$ where:
+- $g$ is a multiplicative function with **easy prefix sum** $G(n) = \sum_{i=1}^n g(i)$
+- $h$ is multiplicative, with $h(p) = 0$ for all primes $p$ — so $h$ is supported only on powerful numbers
+
+Then:
+
+$$\sum_{i=1}^{n} f(i) = \sum_{k \text{ powerful}, k \leq n} h(k) \cdot G(\lfloor n/k \rfloor)$$
+
+---
+
+## Constructing h from f and g
+
+Since $h = f * g^{-1}$ (Dirichlet inverse of $g$):
+
+At prime powers (using multiplicativity):
+- $h(p) = f(p) - g(p)$ (must be 0 by construction — choose $g$ so $g(p) = f(p)$)
+- $h(p^2) = f(p^2) - g(p) h(p) - g(p^2)$
+- $h(p^k) = f(p^k) - \sum_{j=1}^{k} g(p^j) h(p^{k-j})$
+
+**Choice of g**: set $g(p^k) = f(p^k)$ for $k = 1$ (matches $f$ on primes) and choose $g$ to be completely multiplicative or a standard function.
+
+---
+
+## Implementation
+
+```cpp
+using ll = long long;
+
+// Precompute G(n) = sum_{i=1}^n g(i) for floor values (using prime sum sieve or formula)
+// Precompute h on prime powers up to sqrt(n)
+
+ll answer = 0;
+
+// DFS over powerful numbers (enumerate as a^2 * b^3 products)
+void dfs_powerful(ll cur, ll max_n, ll h_val, vector<ll>& primes, int pi, ll n) {
+    answer += h_val * G(n / cur);  // G = prefix sum of g
+    
+    for (int i = pi; i < (int)primes.size(); i++) {
+        ll p = primes[i];
+        if (cur * p * p > max_n) break;
+        
+        ll pe = p * p;
+        ll hpe = h(p, 2);  // h(p^2)
+        for (int e = 2; cur * pe <= max_n; e++, pe *= p) {
+            dfs_powerful(cur * pe, max_n, h_val * hpe, primes, i + 1, n);
+            hpe = h(p, e + 1);  // h(p^(e+1))
+        }
+    }
+}
+
+ll powerful_number_sum(ll n) {
+    answer = 0;
+    vector<ll> primes = sieve_primes_up_to((ll)sqrt(n));
+    dfs_powerful(1, n, 1, primes, 0, n);
+    return answer;
+}
+```
+
+<Callout type="info">
+The DFS visits $O(\sqrt{n})$ powerful numbers. For each, computing $G(\lfloor n/k \rfloor)$ takes $O(1)$ if $G$ has a closed form (like $G(n) = n(n+1)/2$ for $g = \text{id}$) or $O(1)$ with precomputed floor values.
+</Callout>
+
+---
+
+## Example: Sum of Euler Phi
+
+$f = \phi$. Choose $g(p^k) = p^k - p^{k-1}$ (i.e., $g = \phi$ on prime powers, $G(n) = n(n+1)/2 - 1$... actually $G(n) = \sum_{i=1}^n \phi(i)$ which is what we want to compute. 
+
+Instead: choose $g = \text{id}$ (identity, $G(n) = n(n+1)/2$), then $h = \phi * \text{id}^{-1} = \phi * \text{id}^{-1}$. On primes: $h(p) = \phi(p) - p = (p-1) - p = -1$. On $p^2$: $h(p^2) = \phi(p^2) - p \cdot h(p) - p^2 \cdot h(1) = p(p-1) + p - p^2 = 0$. So $h$ is supported on 1 and primes only — but $h(p) = -1 \neq 0$ means this decomposition doesn't work directly via powerful numbers.
+
+**Better choice**: $g(n) = n \cdot [\text{n is squarefree}]$ — then $h(p) = 0$ and $h$ is on powerful numbers.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "DFS over powerful numbers ≤ n", time: "O(√n)", space: "O(log n)" },
+  { operation: "Full sum (with O(1) G evaluation)", time: "O(√n)", space: "O(√n)" },
+  { operation: "Full sum (with precomputed G via prime sieve)", time: "O(n^(2/3))", space: "O(n^(2/3))" },
+]} />
+
+---
+
+## When to Use Which Sieve
+
+| Situation | Best tool |
+|-----------|-----------|
+| $f = \phi$ or $f = \mu$, $n \leq 10^{11}$ | Du Jiao sieve |
+| Arbitrary multiplicative $f$, $n \leq 10^{11}$ | Min-25 sieve |
+| $f = g$ on primes, $g$ has closed-form prefix sum | Powerful number sieve |
+| $n \leq 10^6$, any $f$ | Linear sieve |
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Prefix Sum of Multiplicative Function",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/sum_of_multiplicative_function",
+    difficulty: "2600",
+    concepts: ["powerful number sieve", "multiplicative function sum"],
+    tier: "advanced"
+  },
+  {
+    name: "Ynoi2015 - 苟且利己",
+    platform: "Luogu",
+    link: "https://www.luogu.com.cn/problem/P5325",
+    difficulty: "2800",
+    concepts: ["powerful number sieve", "Dirichlet convolution"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Du Jiao Sieve](/math/advanced-number-theory/du-jiao-sieve) — simpler when $f * g$ has easy prefix sum
+- [Min-25 Sieve](/math/advanced-number-theory/min25-sieve) — more general; works for any multiplicative $f$
+- [Möbius Function](/math/number-theory/mobius) — Dirichlet inverse appears in $h = f * g^{-1}$
+- [Divisors](/math/number-theory/divisors) — all three sieves ultimately enumerate divisors or prime powers
+
+---
+
+## References
+
+1. Powerful number sieve — [CF blog by skywalkert](https://codeforces.com/blog/entry/54090)
+2. Apostol, T.M. — Introduction to Analytic Number Theory, Ch. 2 — Dirichlet convolution and inverses
+3. Montgomery, H.L. & Vaughan, R.C. — Multiplicative Number Theory I, Ch. 1

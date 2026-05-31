@@ -1,0 +1,91 @@
+---
+title: Advanced Number Theory
+description: Sublinear sieves, p-adic methods, Dirichlet series, and expert-level NT techniques for CP
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Advanced Number Theory
+
+<TopicGrid>
+  <TopicCard
+    title="Min-25 Sieve"
+    href="/math/advanced-number-theory/min25-sieve"
+    description="Count primes and sum multiplicative functions up to 10^11 in O(n^(2/3)) time."
+    difficulty="expert"
+    time="5h"
+    tags={["prime counting", "multiplicative", "O(n^(2/3))", "sublinear"]}
+  />
+  <TopicCard
+    title="Du Jiao Sieve"
+    href="/math/advanced-number-theory/du-jiao-sieve"
+    description="Prefix sums of φ(n) and μ(n) in O(n^(2/3)) using Dirichlet convolution."
+    difficulty="expert"
+    time="4h"
+    tags={["Du Jiao", "phi sum", "Möbius sum", "O(n^(2/3))"]}
+  />
+  <TopicCard
+    title="Powerful Number Sieve"
+    href="/math/advanced-number-theory/powerful-number-sieve"
+    description="Third sublinear sieve variant using powerful number decomposition."
+    difficulty="expert"
+    time="4h"
+    tags={["powerful numbers", "multiplicative", "sublinear"]}
+  />
+  <TopicCard
+    title="Möbius Inversion (Advanced)"
+    href="/math/advanced-number-theory/mobius-inversion"
+    description="Dirichlet convolution algebra, GCD sum patterns, advanced inversion techniques."
+    difficulty="expert"
+    time="4h"
+    tags={["Möbius", "Dirichlet convolution", "GCD sum", "multiplicative"]}
+  />
+  <TopicCard
+    title="Dirichlet Series for CP"
+    href="/math/advanced-number-theory/dirichlet-series"
+    description="Formal Dirichlet series, Euler products, prefix/suffix transforms in O(N log log N)."
+    difficulty="expert"
+    time="4h"
+    tags={["Dirichlet series", "Euler product", "transforms", "arithmetic functions"]}
+  />
+  <TopicCard
+    title="NTT-Friendly Primes & CRT"
+    href="/math/advanced-number-theory/ntt-primes"
+    description="NTT moduli selection, multi-prime NTT with Garner for arbitrary-coefficient convolutions."
+    difficulty="hard"
+    time="3h"
+    tags={["NTT", "998244353", "multi-prime", "convolution"]}
+  />
+  <TopicCard
+    title="Garner's Algorithm"
+    href="/math/advanced-number-theory/garner"
+    description="Reconstruct a large number mod p from CRT residues without computing it directly."
+    difficulty="hard"
+    time="2h"
+    tags={["Garner", "CRT", "mixed radix", "NTT reconstruction"]}
+  />
+  <TopicCard
+    title="Extended Lucas Theorem"
+    href="/math/advanced-number-theory/lucas-extended"
+    description="Binomial coefficients mod prime powers and composite moduli — Granville extension."
+    difficulty="expert"
+    time="5h"
+    tags={["extended Lucas", "Granville", "prime power", "binomial mod"]}
+  />
+  <TopicCard
+    title="Hensel's Lemma"
+    href="/math/advanced-number-theory/hensel"
+    description="Lift solutions of polynomial congruences from mod p to mod p^k via Newton's method."
+    difficulty="expert"
+    time="4h"
+    tags={["Hensel", "p-adic", "lifting", "Newton's method"]}
+  />
+  <TopicCard
+    title="GCD & LCM Convolution"
+    href="/math/advanced-number-theory/gcd-convolution"
+    description="Compute h[d] = Σ_{gcd(i,j)=d} f[i]g[j] for all d via Dirichlet transforms."
+    difficulty="hard"
+    time="3h"
+    tags={["GCD convolution", "LCM convolution", "Möbius transform", "Dirichlet"]}
+  />
+</TopicGrid>

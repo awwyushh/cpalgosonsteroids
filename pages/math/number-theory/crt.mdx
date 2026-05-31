@@ -1,0 +1,215 @@
+---
+title: Chinese Remainder Theorem
+description: CRT for combining modular congruences, Garner's algorithm for arbitrary moduli
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Chinese Remainder Theorem
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" },
+  { title: "GCD & LCM", href: "/math/foundations/gcd-lcm" }
+]} />
+
+## Why This Topic Matters
+
+CRT reconstructs a unique integer from its residues modulo pairwise coprime moduli. Essential for:
+- Combining answers computed mod different primes (avoid 64-bit overflow)
+- Solving systems of congruences
+- NTT with multiple primes for large convolution
+- Competitive math problems with "find x ≡ a₁ (mod m₁), x ≡ a₂ (mod m₂)"
+
+**Contest relevance**: CF Div.1 C–D, NTT-heavy problems, any system of congruences.
+
+---
+
+## Learning Objectives
+
+- State and apply CRT for coprime moduli
+- Implement iterative CRT (pair-wise combination)
+- Apply Garner's algorithm for general (non-coprime) moduli
+- Use CRT for large number representation
+
+---
+
+## CRT Statement
+
+**Theorem**: Given pairwise coprime $m_1, m_2, \ldots, m_k$ and any $a_1, \ldots, a_k$, there exists a unique $x \in [0, M)$ where $M = \prod m_i$ such that:
+
+$$x \equiv a_i \pmod{m_i} \quad \forall i$$
+
+---
+
+## Two-Moduli Case
+
+Combine $x \equiv a \pmod{m_1}$ and $x \equiv b \pmod{m_2}$ where $\gcd(m_1, m_2) = 1$:
+
+```cpp
+// Returns (value, modulus) of combined congruence
+// x ≡ a (mod m1), x ≡ b (mod m2)
+pair<long long, long long> crt2(long long a, long long m1, long long b, long long m2) {
+    long long x, y;
+    long long g = ext_gcd(m1, m2, x, y);
+    // g must be 1 (coprime)
+    long long lcm = m1 * m2;  // use __int128 if large
+    long long result = ((__int128)a * m2 % lcm * y % lcm + (__int128)b * m1 % lcm * x % lcm) % lcm;
+    result = (result % lcm + lcm) % lcm;
+    return {result, lcm};
+}
+```
+
+---
+
+## General CRT (Iterative Combination)
+
+Works even for non-coprime moduli if a solution exists:
+
+```cpp
+// Solve system x ≡ r[i] (mod m[i])
+// Returns {-1, -1} if no solution
+pair<long long, long long> crt(vector<long long> r, vector<long long> m) {
+    long long cur_r = 0, cur_m = 1;
+    for (int i = 0; i < (int)r.size(); i++) {
+        long long g = __gcd(cur_m, m[i]);
+        if ((r[i] - cur_r) % g != 0) return {-1, -1};
+        long long lcm = cur_m / g * m[i];
+        long long diff = (r[i] - cur_r) / g;
+        long long inv = modinv(cur_m / g, m[i] / g);
+        cur_r = (cur_r + cur_m * (diff % (m[i]/g) * inv % (m[i]/g))) % lcm;
+        cur_m = lcm;
+    }
+    return {(cur_r % cur_m + cur_m) % cur_m, cur_m};
+}
+```
+
+---
+
+## Garner's Algorithm
+
+Represent a large number $x$ as mixed-radix with moduli $m_1, \ldots, m_k$:
+
+$$x = a_1 + a_2 m_1 + a_3 m_1 m_2 + \cdots$$
+
+Compute the mixed-radix digits $a_i$ without computing $x$ directly (which may be huge):
+
+```cpp
+// Garner's algorithm: recover x mod final_mod
+// x ≡ r[i] (mod p[i]) where p[i] are distinct primes
+long long garner(vector<long long> r, vector<long long> p, long long mod) {
+    int n = r.size();
+    // coefficients a[i] in mixed-radix representation
+    vector<long long> a(r);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            // a[i] = (a[i] - a[j]) * modinv(p[j], p[i]) mod p[i]
+            a[i] = (a[i] - a[j]) % p[i];
+            a[i] = a[i] * modinv(p[j] % p[i], p[i]) % p[i];
+            a[i] = (a[i] + p[i]) % p[i];
+        }
+    }
+    // Reconstruct x mod final_mod
+    long long result = 0, prod = 1;
+    for (int i = 0; i < n; i++) {
+        result = (result + a[i] % mod * prod) % mod;
+        prod = prod * (p[i] % mod) % mod;
+    }
+    return result;
+}
+```
+
+**Use case**: NTT with 3 primes ($p_1 \approx p_2 \approx p_3 \approx 10^9$), then Garner to recover result mod $10^9+7$.
+
+---
+
+## NTT + Garner Pattern
+
+```cpp
+// Compute polynomial convolution mod large prime using 3 NTT-friendly primes
+const long long P1 = 998244353, P2 = 985661441, P3 = 754974721;
+// 1. Compute conv mod P1, P2, P3 separately
+// 2. For each coefficient, use Garner to recover value mod desired_mod
+// This handles coefficients up to ~P1*P2*P3 ≈ 7.4×10^26
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Combine 2 congruences", time: "O(log min(m1,m2))", space: "O(1)" },
+  { operation: "CRT for k congruences", time: "O(k log M)", space: "O(k)" },
+  { operation: "Garner's algorithm", time: "O(k² log M)", space: "O(k)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Overflow in $m_1 \cdot m_2$**: use `__int128` or check before multiplying.
+2. **Non-coprime moduli**: standard CRT fails; use general iterative version.
+3. **Negative residues**: normalize with `(r % m + m) % m`.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Chinese Remainder Theorem I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1689",
+    difficulty: "1200",
+    concepts: ["CRT", "modular arithmetic"],
+    tier: "warmup"
+  },
+  {
+    name: "Chinese Remainder Theorem II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1690",
+    difficulty: "1400",
+    concepts: ["CRT", "non-coprime moduli"],
+    tier: "standard"
+  },
+  {
+    name: "k-Factorization",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1000/F",
+    difficulty: "2200",
+    concepts: ["CRT", "number theory"],
+    tier: "advanced"
+  },
+  {
+    name: "Remainders Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/688/E",
+    difficulty: "2000",
+    concepts: ["CRT", "LCM"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Modular Inverse](/math/foundations/modular-inverse) — CRT combination uses modular inverse of $m_1$ mod $m_2$
+- [GCD & LCM](/math/foundations/gcd-lcm) — extended GCD is the core of CRT combination
+- [Diophantine Equations](/math/number-theory/diophantine) — CRT solves the system; Diophantine equation is solved per pair
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — NTT + Garner pattern needs all three moduli
+- [Pohlig-Hellman](/math/number-theory/discrete-log) — DLOG in smooth groups reduces via CRT
+
+---
+
+## References
+
+1. cp-algorithms — [Chinese Remainder Theorem](https://cp-algorithms.com/algebra/chinese-remainder-theorem.html)
+2. Garner, H.L. — The residue number system (1959)
+3. Knuth, D. — TAOCP Vol. 2, §4.3.2 — modular arithmetic and CRT

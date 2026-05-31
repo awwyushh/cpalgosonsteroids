@@ -1,0 +1,229 @@
+---
+title: GCD & LCM Convolution
+description: GCD convolution, LCM convolution, and their connection to Dirichlet prefix/Möbius transforms
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# GCD & LCM Convolution
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Möbius Inversion (Advanced)", href: "/math/advanced-number-theory/mobius-inversion" },
+  { title: "Dirichlet Series for CP", href: "/math/advanced-number-theory/dirichlet-series" }
+]} />
+
+## Why This Topic Matters
+
+GCD convolution computes $h[d] = \sum_{\gcd(i,j)=d} f[i] \cdot g[j]$ for all $d$ in $O(N \log N)$. LCM convolution is analogous with $\text{lcm}$ instead of $\gcd$. Both are solved via Dirichlet transforms — analogous to how XOR/AND/OR convolutions use subset-sum transforms.
+
+**Contest relevance**: CF Div.1 D/E, problems where the answer depends on $\gcd$ of pairs, GCD-distribution questions.
+
+---
+
+## GCD Convolution
+
+**Definition**: $h[d] = \sum_{i=1}^{N} \sum_{j=1}^{N} [\gcd(i,j) = d] \cdot f[i] \cdot g[j]$
+
+**Algorithm** (via suffix sum + pointwise product + Möbius inversion):
+
+1. Compute $F[d] = \sum_{d | i} f[i]$ for all $d$ (Dirichlet suffix transform of $f$)
+2. Compute $G[d] = \sum_{d | j} g[j]$ for all $d$ (Dirichlet suffix transform of $g$)
+3. $H[d] = F[d] \cdot G[d]$ (pointwise product)
+4. Apply Möbius inversion to $H$ to get $h$ where $h[d] = \sum_{d | e} \mu(e/d) H[e]$
+
+```cpp
+// GCD convolution: h[d] = sum_{gcd(i,j)=d} f[i]*g[j]
+// O(N log N)
+
+void suffix_sum(vector<ll>& f, int N) {
+    // f[d] += sum of f[i] for all multiples i of d
+    for (int d = N; d >= 1; d--)
+        for (int k = 2 * d; k <= N; k += d)
+            f[d] += f[k];
+}
+
+void mobius_transform(vector<ll>& f, int N) {
+    // Inverse of suffix_sum: Möbius inversion
+    for (int d = 1; d <= N; d++)
+        for (int k = 2 * d; k <= N; k += d)
+            f[d] -= f[k];
+}
+
+vector<ll> gcd_convolution(vector<ll> f, vector<ll> g, int N) {
+    suffix_sum(f, N);
+    suffix_sum(g, N);
+    vector<ll> h(N + 1);
+    for (int d = 1; d <= N; d++)
+        h[d] = f[d] * g[d];
+    mobius_transform(h, N);
+    return h;
+}
+```
+
+---
+
+## LCM Convolution
+
+**Definition**: $h[l] = \sum_{i=1}^{N} \sum_{j=1}^{N} [\text{lcm}(i,j) = l] \cdot f[i] \cdot g[j]$
+
+**Algorithm** (via prefix sum + pointwise product + Möbius inversion on divisors):
+
+1. Compute $F[d] = \sum_{i | d} f[i]$ for all $d$ (Dirichlet prefix transform of $f$)
+2. Compute $G[d] = \sum_{j | d} g[j]$ for all $d$ (Dirichlet prefix transform of $g$)
+3. $H[d] = F[d] \cdot G[d]$
+4. Möbius inversion on $H$: $h[d] = \sum_{i | d} \mu(d/i) H[i]$
+
+```cpp
+void prefix_sum(vector<ll>& f, int N) {
+    // f[d] += sum of f[i] for all divisors i of d
+    for (int d = 1; d <= N; d++)
+        for (int k = 2 * d; k <= N; k += d)
+            f[k] += f[d];
+}
+
+void prefix_mobius(vector<ll>& f, int N) {
+    // Inverse of prefix_sum
+    for (int d = N; d >= 1; d--)
+        for (int k = 2 * d; k <= N; k += d)
+            f[k] -= f[d];
+}
+
+vector<ll> lcm_convolution(vector<ll> f, vector<ll> g, int N) {
+    prefix_sum(f, N);
+    prefix_sum(g, N);
+    vector<ll> h(N + 1);
+    for (int d = 1; d <= N; d++)
+        h[d] = f[d] * g[d];
+    prefix_mobius(h, N);
+    return h;
+}
+```
+
+---
+
+## Connection to Transforms
+
+| Convolution | Transform to use | Inverse |
+|-------------|-----------------|---------|
+| GCD: $[\gcd(i,j)=d]$ | Suffix sum (sum over multiples) | Möbius on multiples |
+| LCM: $[\text{lcm}(i,j)=l]$ | Prefix sum (sum over divisors) | Möbius on divisors |
+| AND: bitwise | Suffix sum (SOS) | Möbius over subsets |
+| OR: bitwise | Prefix sum (SOS) | Möbius over subsets |
+
+GCD/LCM convolutions are the "divisor lattice" analogues of AND/OR convolutions on the "subset lattice".
+
+---
+
+## Variant: All Pairs GCD Sum
+
+$\sum_{i=1}^{n} \sum_{j=1}^{n} f(\gcd(i,j))$ where $f$ is given:
+
+```cpp
+// Precompute count[d] = number of pairs (i,j) with gcd(i,j) = d
+// = h[d] where f[i] = g[i] = 1 for all i in [1,n]
+
+vector<ll> f(N + 1, 0), g(N + 1, 0);
+for (int i = 1; i <= n; i++) f[i] = g[i] = 1;
+auto count = gcd_convolution(f, g, N);  // count[d] = # pairs with gcd exactly d
+
+ll answer = 0;
+for (int d = 1; d <= n; d++)
+    answer += val[d] * count[d];  // val[d] = f(d) from problem
+```
+
+---
+
+## Prime-Based Fast Implementation
+
+For the Dirichlet suffix transform, iterating over primes gives $O(N \log \log N)$:
+
+```cpp
+void suffix_sum_fast(vector<ll>& f, int N, vector<int>& primes) {
+    for (int p : primes) {
+        if (p > N) break;
+        for (int d = N / p; d >= 1; d--)
+            f[d] += f[d * p];
+    }
+}
+
+void mobius_fast(vector<ll>& f, int N, vector<int>& primes) {
+    for (int p : primes) {
+        if (p > N) break;
+        for (int d = 1; d * p <= N; d++)
+            f[d] -= f[d * p];
+    }
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "GCD/LCM convolution (all-divisors)", time: "O(N log N)", space: "O(N)" },
+  { operation: "GCD/LCM convolution (prime-based)", time: "O(N log log N)", space: "O(N)" },
+  { operation: "Single point h[d] via Möbius", time: "O(N)", space: "O(N)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Coprime Integers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2183",
+    difficulty: "1600",
+    concepts: ["GCD convolution", "Möbius"],
+    tier: "warmup"
+  },
+  {
+    name: "GCD Convolution",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/gcd_convolution",
+    difficulty: "1800",
+    concepts: ["GCD convolution", "Dirichlet transforms"],
+    tier: "standard"
+  },
+  {
+    name: "LCM Sum",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/364/E",
+    difficulty: "2400",
+    concepts: ["LCM convolution", "Möbius inversion"],
+    tier: "advanced"
+  },
+  {
+    name: "GCD Extreme",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/582/E",
+    difficulty: "2600",
+    concepts: ["GCD sum", "Möbius", "advanced"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Dirichlet Series for CP](/math/advanced-number-theory/dirichlet-series) — prefix/suffix transforms are the computational tools here
+- [Möbius Inversion (Advanced)](/math/advanced-number-theory/mobius-inversion) — Möbius transform is the inverse of both GCD and LCM forward transform
+- [Möbius Function](/math/number-theory/mobius) — Möbius function $\mu$ appears explicitly in the inversions
+- [Divisors](/math/number-theory/divisors) — both transforms iterate over divisors/multiples
+
+---
+
+## References
+
+1. cp-algorithms — [GCD convolution](https://cp-algorithms.com/algebra/phi-function.html)
+2. Rota, G.-C. — On the foundations of combinatorial theory I: Theory of Möbius functions (1964)
+3. Stanley, R.P. — Enumerative Combinatorics, Ch. 3 — partially ordered sets and Möbius functions

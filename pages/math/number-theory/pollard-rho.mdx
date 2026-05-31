@@ -1,0 +1,245 @@
+---
+title: Pollard Rho Factorization
+description: Pollard's rho algorithm for fast factorization of large numbers up to 10^18
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Pollard Rho Factorization
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Miller-Rabin Primality Test", href: "/math/number-theory/miller-rabin" },
+  { title: "GCD & LCM", href: "/math/foundations/gcd-lcm" }
+]} />
+
+## Why This Topic Matters
+
+For $n \leq 10^{18}$, trial division is $O(10^9)$ — too slow. Pollard's rho factorizes $n$ in expected $O(n^{1/4})$ time. Combined with Miller-Rabin, it fully factorizes any $n \leq 10^{18}$ in milliseconds.
+
+**Contest relevance**: CF Div.1 D/E problems with large number factorization, number theory problems with $n \leq 10^{18}$.
+
+---
+
+## Learning Objectives
+
+- Understand the birthday paradox basis of Pollard's rho
+- Implement Floyd's cycle detection version
+- Implement Brent's cycle detection (faster in practice)
+- Build a complete factorizer combining Miller-Rabin + Pollard rho
+
+---
+
+## Core Idea: Birthday Paradox
+
+To find a non-trivial factor of $n$: pick random $x_1, x_2, \ldots$ in $\mathbb{Z}_n$. By birthday paradox, after $O(\sqrt{p})$ steps (where $p$ is the smallest prime factor), two values collide mod $p$: $x_i \equiv x_j \pmod{p}$, so $\gcd(|x_i - x_j|, n)$ gives a factor.
+
+**Generate "random" sequence**: $f(x) = (x^2 + c) \bmod n$ for some constant $c$.
+
+**Cycle detection** (Floyd): run tortoise/hare to find the cycle.
+
+---
+
+## Implementation (Brent's Variant)
+
+```cpp
+using ll = long long;
+using ull = unsigned long long;
+
+ll mulmod(ll a, ll b, ll m) {
+    return (__int128)a * b % m;
+}
+
+ll powmod(ll a, ll b, ll m) {
+    ll res = 1; a %= m;
+    for (; b > 0; b >>= 1) {
+        if (b & 1) res = mulmod(res, a, m);
+        a = mulmod(a, a, m);
+    }
+    return res;
+}
+
+// Miller-Rabin (from previous page)
+bool is_prime(ll n);
+
+ll pollard_rho(ll n) {
+    if (n % 2 == 0) return 2;
+    ll x = rand() % (n - 2) + 2;
+    ll y = x;
+    ll c = rand() % (n - 1) + 1;
+    ll d = 1;
+    while (d == 1) {
+        x = (mulmod(x, x, n) + c) % n;
+        y = (mulmod(y, y, n) + c) % n;
+        y = (mulmod(y, y, n) + c) % n;
+        d = __gcd(abs(x - y), n);
+    }
+    return d;
+}
+
+// Complete factorization
+map<ll, int> factorize(ll n) {
+    if (n == 1) return {};
+    if (is_prime(n)) return {{n, 1}};
+    ll d = n;
+    while (d == n) d = pollard_rho(n);
+    auto f1 = factorize(d);
+    auto f2 = factorize(n / d);
+    for (auto [p, e] : f2) f1[p] += e;
+    return f1;
+}
+```
+
+<Callout type="warning">
+The basic Floyd version can fail (d == n) — use random restart with different `c`. The implementation above retries implicitly via the outer loop.
+</Callout>
+
+---
+
+## Brent's Improved Version (Faster)
+
+```cpp
+ll brent_rho(ll n) {
+    if (n % 2 == 0) return 2;
+    ll y = rand() % (n - 1) + 1;
+    ll c = rand() % (n - 1) + 1;
+    ll m = rand() % (n - 1) + 1;
+    ll g = 1, q = 1, r = 1;
+    ll ys, x;
+    while (g == 1) {
+        x = y;
+        for (ll i = 0; i < r; i++)
+            y = (mulmod(y, y, n) + c) % n;
+        ll k = 0;
+        while (k < r && g == 1) {
+            ys = y;
+            for (ll i = 0; i < min(m, r - k); i++) {
+                y = (mulmod(y, y, n) + c) % n;
+                q = mulmod(q, abs(x - y), n);
+            }
+            g = __gcd(q, n);
+            k += m;
+        }
+        r *= 2;
+    }
+    if (g == n) {
+        do {
+            ys = (mulmod(ys, ys, n) + c) % n;
+            g = __gcd(abs(x - ys), n);
+        } while (g == 1);
+    }
+    return g;
+}
+```
+
+---
+
+## Complete Factorizer
+
+```cpp
+map<ll, int> factorize_complete(ll n) {
+    if (n == 1) return {};
+    if (is_prime(n)) return {{n, 1}};
+    
+    ll d = n;
+    while (d == n) d = brent_rho(n);
+    
+    map<ll, int> f1 = factorize_complete(d);
+    map<ll, int> f2 = factorize_complete(n / d);
+    for (auto& [p, e] : f2) f1[p] += e;
+    return f1;
+}
+
+// Usage:
+// auto factors = factorize_complete(n);
+// for (auto [p, e] : factors) cout << p << "^" << e << " ";
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Pollard rho (expected)", time: "O(n^(1/4) log n)", space: "O(log n)" },
+  { operation: "Full factorization of n ≤ 10^18", time: "O(n^(1/4) polylog)", space: "O(log n)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **All prime factors of n**: `factorize_complete(n)`
+2. **Number of divisors of n**: from factorization, $\prod (e_i + 1)$
+3. **Minimum prime factor**: iterate and take minimum key
+4. **Check if perfect square**: all exponents even
+
+---
+
+## Common Mistakes
+
+1. **Infinite loop when d = n**: happens with bad `c` — restart with new random `c`.
+2. **Not seeding random**: use `mt19937` for reproducibility.
+3. **Missing small prime check**: trial divide by 2, 3, 5 first for speed.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1713",
+    difficulty: "1200",
+    concepts: ["factorization", "Pollard rho"],
+    tier: "standard"
+  },
+  {
+    name: "Divisors",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/631/E",
+    difficulty: "2200",
+    concepts: ["Pollard rho", "large factorization"],
+    tier: "advanced"
+  },
+  {
+    name: "Almost Prime",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/26/A",
+    difficulty: "1500",
+    concepts: ["factorization"],
+    tier: "standard"
+  },
+  {
+    name: "Factorize (Library Checker)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/factorize",
+    difficulty: "1800",
+    concepts: ["Pollard rho", "Brent", "Miller-Rabin"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Miller-Rabin](/math/number-theory/miller-rabin) — required to identify prime factors after Pollard splits $n$
+- [GCD & LCM](/math/foundations/gcd-lcm) — Pollard rho's core step is `__gcd(|xi - xj|, n)`
+- [Prime Factorization](/math/number-theory/prime-factorization) — Pollard rho is the fast path for $n \leq 10^{18}$
+- [Divisors](/math/number-theory/divisors) — with full factorization, enumerate divisors in $O(d(n))$
+
+---
+
+## References
+
+1. cp-algorithms — [Pollard's Rho](https://cp-algorithms.com/algebra/factorization.html)
+2. Pollard, J.M. — A Monte Carlo method for factorization (1975)
+3. Brent, R.P. — An improved Monte Carlo factorization algorithm (1980)
+4. Floyd, R.W. — cycle detection as used in Pollard's original algorithm

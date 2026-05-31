@@ -1,0 +1,204 @@
+---
+title: Du Jiao Sieve
+description: Compute prefix sums of multiplicative functions in O(n^(2/3)) using Dirichlet convolution
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Du Jiao Sieve
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Möbius Function & Inversion", href: "/math/number-theory/mobius" },
+  { title: "Euler Phi Function", href: "/math/number-theory/euler-phi" },
+  { title: "Floor & Ceiling Identities", href: "/math/foundations/floor-ceil" }
+]} />
+
+## Why This Topic Matters
+
+Du Jiao sieve (杜教筛) computes $S(n) = \sum_{i=1}^{n} f(i)$ for multiplicative $f$ in $O(n^{2/3})$ time with $O(n^{2/3})$ space — faster than the $O(n)$ linear sieve. It works when $f$ has a Dirichlet convolution partner $g$ with easy-to-compute prefix sums.
+
+**Contest relevance**: CF Div.1 E/F, problems summing $\phi(k)$ or $\mu(k)$ up to $n \leq 10^{11}$.
+
+---
+
+## Core Formula
+
+If $h = f * g$ (Dirichlet convolution), then:
+
+$$\sum_{i=1}^{n} h(i) = \sum_{i=1}^{n} \sum_{d|i} f(d) g(i/d) = \sum_{d=1}^{n} g(d) \sum_{k=1}^{\lfloor n/d \rfloor} f(k)$$
+
+Let $S_f(n) = \sum_{i=1}^{n} f(i)$ and $H(n) = \sum_{i=1}^{n} h(i)$. Then:
+
+$$g(1) \cdot S_f(n) = H(n) - \sum_{d=2}^{n} g(d) \cdot S_f(\lfloor n/d \rfloor)$$
+
+This gives a recurrence for $S_f(n)$ using:
+1. $H(n)$ — prefix sum of $h = f * g$, which must be easy to compute
+2. $g(1) = 1$ typically (if $g = \mathbf{1}$, the constant-1 function)
+3. $S_f(\lfloor n/d \rfloor)$ — which recurses on smaller values
+
+---
+
+## Key Identity: Euler Phi Sum
+
+Choose $f = \phi$, $g = \mathbf{1}$, so $h = \phi * \mathbf{1} = \text{id}$ (since $\sum_{d|n} \phi(d) = n$):
+
+$$S_\phi(n) = \frac{n(n+1)}{2} - \sum_{d=2}^{n} S_\phi(\lfloor n/d \rfloor)$$
+
+```cpp
+using ll = long long;
+
+unordered_map<ll, ll> memo_phi;
+
+ll S_phi(ll n) {
+    if (n <= MAXSMALL) return phi_prefix[n];  // precomputed for small n
+    if (memo_phi.count(n)) return memo_phi[n];
+    
+    ll res = n * (n + 1) / 2;
+    for (ll l = 2, r; l <= n; l = r + 1) {
+        r = n / (n / l);
+        res -= (r - l + 1) * S_phi(n / l);
+    }
+    return memo_phi[n] = res;
+}
+```
+
+---
+
+## Key Identity: Möbius Sum
+
+Choose $f = \mu$, $g = \mathbf{1}$, so $h = \mu * \mathbf{1} = \varepsilon$ (identity for Dirichlet: $[n=1]$):
+
+$$S_\mu(n) = 1 - \sum_{d=2}^{n} S_\mu(\lfloor n/d \rfloor)$$
+
+```cpp
+unordered_map<ll, ll> memo_mu;
+
+ll S_mu(ll n) {
+    if (n <= MAXSMALL) return mu_prefix[n];  // precomputed
+    if (memo_mu.count(n)) return memo_mu[n];
+    
+    ll res = 1;
+    for (ll l = 2, r; l <= n; l = r + 1) {
+        r = n / (n / l);
+        res -= (r - l + 1) * S_mu(n / l);
+    }
+    return memo_mu[n] = res;
+}
+```
+
+---
+
+## General Template
+
+```cpp
+// Du Jiao sieve template
+// f: target multiplicative function
+// g: chosen so that h = f*g has easy prefix sum H
+// Precompute f and g up to SMALL = n^(2/3) using linear sieve
+
+const int SMALL = /* n^(2/3) */;
+ll f_prefix[SMALL + 1];  // prefix sum of f, precomputed
+unordered_map<ll, ll> cache;
+
+ll S_f(ll n) {
+    if (n <= SMALL) return f_prefix[n];
+    if (cache.count(n)) return cache[n];
+    
+    ll res = H(n);  // prefix sum of h = f*g, must be O(1) or O(log n)
+    for (ll l = 2, r; l <= n; l = r + 1) {
+        r = n / (n / l);
+        // sum_{d=l}^{r} g(d) * S_f(n/d) — if g = 1, simplifies to (r-l+1) * S_f(n/l)
+        res -= (r - l + 1) * S_f(n / l);  // for g = 1
+    }
+    return cache[n] = res;
+}
+```
+
+<Callout type="info">
+Precomputing the first $n^{2/3}$ values linearly cuts the recursion depth. Without it, the time is $O(n^{3/4})$.
+</Callout>
+
+---
+
+## Choosing g
+
+| Target $f$ | Choose $g$ | Convolution $h = f * g$ | $H(n)$ |
+|-----------|-----------|------------------------|--------|
+| $\phi$ | $\mathbf{1}$ | $\text{id}$: $h(n) = n$ | $n(n+1)/2$ |
+| $\mu$ | $\mathbf{1}$ | $\varepsilon$: $h(n) = [n=1]$ | $1$ |
+| $\text{id}$ | $\mu$ | $\varepsilon$ | $1$ |
+| $f$ (general) | Find $g$ s.t. $h$ is easy | — | varies |
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "S_f(n) with precomputed n^(2/3) prefix", time: "O(n^(2/3))", space: "O(n^(2/3))" },
+  { operation: "S_f(n) without precomputation", time: "O(n^(3/4))", space: "O(n^(1/2))" },
+  { operation: "Linear sieve precompute up to n^(2/3)", time: "O(n^(2/3))", space: "O(n^(2/3))" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Wrong g choice**: $g$ must make $h = f * g$ have a closed-form prefix sum; otherwise Du Jiao doesn't help.
+2. **Missing base case**: precomputed prefix for small $n$ is critical; recursion alone is $O(n^{3/4})$.
+3. **Negative intermediate values**: Möbius sum can be negative — use signed integers throughout.
+4. **Hash map collisions**: `unordered_map` can TLE on adversarial inputs; use custom hash or `map` for safety.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Sum of Euler's Totient",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1228/E",
+    difficulty: "2700",
+    concepts: ["Du Jiao sieve", "phi prefix sum"],
+    tier: "standard"
+  },
+  {
+    name: "Yzhang and Two Subsequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1699/E",
+    difficulty: "2700",
+    concepts: ["Du Jiao sieve", "Möbius sum"],
+    tier: "advanced"
+  },
+  {
+    name: "Coprime Triples",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1285/F",
+    difficulty: "2800",
+    concepts: ["Du Jiao sieve", "Möbius", "coprime counting"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Min-25 Sieve](/math/advanced-number-theory/min25-sieve) — handles arbitrary multiplicative functions; Du Jiao requires convolution structure
+- [Möbius Function](/math/number-theory/mobius) — $S_\mu(n)$ is the classic Du Jiao application
+- [Euler Phi Function](/math/number-theory/euler-phi) — $S_\phi(n)$ is the other classic application
+- [Floor & Ceiling Identities](/math/foundations/floor-ceil) — floor grouping in the inner loop is the key speedup
+
+---
+
+## References
+
+1. Du Jiao (杜教筛) — [Original blog (Chinese)](https://blog.csdn.net/skywalkert/article/details/50500009)
+2. cp-algorithms — [Sum of multiplicative functions](https://cp-algorithms.com/algebra/phi-function.html)
+3. Apostol, T.M. — Introduction to Analytic Number Theory, Ch. 2 — Dirichlet convolution

@@ -1,0 +1,235 @@
+---
+title: Möbius Inversion (Advanced)
+description: Dirichlet convolution algebra, multiplicative function sieves, and inversion at scale
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Möbius Inversion (Advanced)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Möbius Function & Inversion", href: "/math/number-theory/mobius" },
+  { title: "Euler Phi Function", href: "/math/number-theory/euler-phi" },
+  { title: "Divisors", href: "/math/number-theory/divisors" }
+]} />
+
+## Why This Topic Matters
+
+This page covers advanced applications: Dirichlet series as formal algebraic objects, inversion at scale with floor grouping, and computational patterns that appear in Div.1 E/F counting problems. The basic Möbius inversion page covers definitions; this page covers techniques for applying it efficiently.
+
+**Contest relevance**: CF Div.1 E/F, problems with $\sum_{d} \mu(d) f(\lfloor n/d \rfloor)$ style reductions.
+
+---
+
+## Dirichlet Convolution Algebra
+
+The set of arithmetic functions forms a ring under:
+- **Addition**: $(f + g)(n) = f(n) + g(n)$
+- **Dirichlet convolution**: $(f * g)(n) = \sum_{d|n} f(d) g(n/d)$
+
+Key functions and their relationships:
+
+| Function | Symbol | Definition | Dirichlet inverse |
+|---------|--------|------------|------------------|
+| Identity | $\varepsilon$ | $[n=1]$ | itself |
+| Constant 1 | $\mathbf{1}$ | $1$ for all $n$ | $\mu$ |
+| Möbius | $\mu$ | $(-1)^{\omega(n)}$ if squarefree, else $0$ | $\mathbf{1}$ |
+| Identity map | $\text{id}$ | $n$ | $\mu \cdot \text{id}^{-1}$... |
+| Euler phi | $\phi$ | $\phi(n)$ | $\mu * \mu \cdot \text{id}$ |
+| Divisor count | $\tau$ | $d(n)$ | $\tau * \mu^2 \cdot ..$ |
+
+**Key identities** (as Dirichlet products):
+
+$$\phi * \mathbf{1} = \text{id}, \quad \mu * \mathbf{1} = \varepsilon, \quad \tau = \mathbf{1} * \mathbf{1}, \quad \sigma = \text{id} * \mathbf{1}$$
+
+---
+
+## Advanced Inversion Pattern: GCD Sum
+
+**Problem**: compute $\sum_{i=1}^{n} \sum_{j=1}^{n} f(\gcd(i,j))$.
+
+**Technique**: write $\sum_{d} f(d) \cdot [\gcd = d]$ then use $[\gcd(i,j) = d] = \sum_{k | \gcd(i,j)/d} \mu(k)$.
+
+$$\sum_{i,j} f(\gcd(i,j)) = \sum_{d=1}^{n} f(d) \sum_{k=1}^{\lfloor n/d \rfloor} \mu(k) \lfloor n/(dk) \rfloor^2$$
+
+Let $T = dk$, reindex by $T$:
+
+$$= \sum_{T=1}^{n} \lfloor n/T \rfloor^2 \sum_{d|T} f(d) \mu(T/d) = \sum_{T=1}^{n} \lfloor n/T \rfloor^2 (f * \mu)(T)$$
+
+```cpp
+// Precompute h[T] = (f * mu)[T] via sieve: O(N log N)
+// Then sum = sum_{T=1}^{n} floor(n/T)^2 * h[T]
+// With floor grouping: O(sqrt(n)) groups
+
+long long gcd_pair_sum(int n) {
+    // Precompute h = f * mu
+    vector<long long> h(n + 1, 0);
+    for (int d = 1; d <= n; d++)
+        for (int k = 1; d * k <= n; k++)
+            h[d * k] += f(d) * mu[k];  // f and mu precomputed
+    
+    // Prefix sum of h
+    vector<long long> H(n + 1, 0);
+    for (int i = 1; i <= n; i++) H[i] = H[i-1] + h[i];
+    
+    // Floor grouping sum
+    long long result = 0;
+    for (long long l = 1, r; l <= n; l = r + 1) {
+        r = n / (n / l);
+        long long q = n / l;
+        result += q * q * (H[r] - H[l-1]);
+    }
+    return result;
+}
+```
+
+---
+
+## Multiplicative Function Table Computation
+
+Compute $f(n)$ for all $n \leq N$ via linear sieve when $f$ is multiplicative:
+
+```cpp
+vector<int> primes, spf;  // spf = smallest prime factor
+vector<long long> f_val(N + 1);
+
+void multiplicative_sieve(int N) {
+    spf.assign(N + 1, 0);
+    f_val[1] = 1;
+    
+    for (int i = 2; i <= N; i++) {
+        if (!spf[i]) {
+            primes.push_back(i);
+            spf[i] = i;
+            f_val[i] = f_prime(i);  // value at prime
+        }
+        for (int p : primes) {
+            if ((long long)i * p > N) break;
+            spf[i * p] = p;
+            if (i % p == 0) {
+                // i = p^e * m, gcd(m, p) = 1
+                // f(i*p) = f(p^(e+1)) * f(m)
+                // Need to track p-adic valuation
+                f_val[i * p] = f_val[i] / f_prime_pow(p, e) * f_prime_pow(p, e + 1);
+                break;
+            }
+            f_val[i * p] = f_val[i] * f_val[p];  // gcd(i,p)=1: multiplicativity
+        }
+    }
+}
+```
+
+---
+
+## Sum over Divisors at Scale
+
+**Problem**: for each $n \leq N$, compute $g(n) = \sum_{d|n} f(d)$.
+
+Direct: $O(N \log N)$ via outer loop over $d$.
+
+With Möbius inversion: recover $f$ from $g$ in $O(N \log N)$.
+
+```cpp
+// Dirichlet prefix: g[n] = sum_{d|n} f[d]
+void dirichlet_prefix(vector<ll>& f, vector<ll>& g, int N) {
+    g = f;
+    for (int p = 2; p <= N; p++) {
+        if (!is_prime[p]) continue;  // optional: sum over primes for log N
+        for (int k = p; k <= N; k += p)
+            g[k] += g[k / p];  // Euler product sieve style
+    }
+}
+
+// Dirichlet Möbius transform (inversion): f from g
+void dirichlet_moebius(vector<ll>& g, vector<ll>& f, int N) {
+    f = g;
+    for (int p = 2; p <= N; p++) {
+        if (!is_prime[p]) continue;
+        for (int k = p; k <= N; k += p)
+            f[k] -= f[k / p];
+    }
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Linear sieve for multiplicative f", time: "O(N)", space: "O(N)" },
+  { operation: "Dirichlet convolution table", time: "O(N log N)", space: "O(N)" },
+  { operation: "GCD pair sum with floor grouping", time: "O(N log N + √N)", space: "O(N)" },
+  { operation: "Large-n sum via Du Jiao/Min-25", time: "O(n^(2/3))", space: "O(n^(2/3))" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **$\sum f(\gcd(i,j))$**: expand $\gcd$ indicator with $\mu$, reindex, floor group
+2. **$\sum f(\text{lcm}(i,j))$**: lcm identity $[n = \text{lcm}]$ is harder; use $\mu$ on divisors of product
+3. **Counting pairs by GCD**: classic $\mu$ application, combine with inclusion-exclusion
+4. **Computing $f$ on prime powers only**: use multiplicativity to extend from primes
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Coprime Integers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2183",
+    difficulty: "1600",
+    concepts: ["Möbius", "floor grouping"],
+    tier: "warmup"
+  },
+  {
+    name: "GCD Sum",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/786/C",
+    difficulty: "2200",
+    concepts: ["Möbius inversion", "floor grouping"],
+    tier: "standard"
+  },
+  {
+    name: "Counting Coprime Pairs",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1285/F",
+    difficulty: "2500",
+    concepts: ["advanced Möbius", "multiplicative", "floor sum"],
+    tier: "advanced"
+  },
+  {
+    name: "Maximum GCD",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1458/C",
+    difficulty: "2700",
+    concepts: ["Dirichlet convolution", "advanced Möbius"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Möbius Function & Inversion](/math/number-theory/mobius) — fundamentals; this page builds on them
+- [Du Jiao Sieve](/math/advanced-number-theory/du-jiao-sieve) — prefix sum of $\mu$ and $\phi$ at large $n$
+- [Dirichlet Series](/math/advanced-number-theory/dirichlet-series) — formal generating functions for arithmetic functions
+- [GCD Convolution](/math/advanced-number-theory/gcd-convolution) — related transform on divisor lattice
+
+---
+
+## References
+
+1. cp-algorithms — [Möbius Function](https://cp-algorithms.com/algebra/mobius.html)
+2. Apostol, T.M. — Introduction to Analytic Number Theory, Ch. 2–3
+3. Hardy & Wright — Theory of Numbers, Ch. 17 — multiplicative functions and Dirichlet series

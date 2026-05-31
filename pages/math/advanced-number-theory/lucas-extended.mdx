@@ -1,0 +1,222 @@
+---
+title: Extended Lucas Theorem
+description: Lucas theorem generalization to prime powers — Andrew Granville's extension for composite moduli
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Extended Lucas Theorem
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Lucas Theorem", href: "/math/combinatorics/lucas" },
+  { title: "Chinese Remainder Theorem", href: "/math/number-theory/crt" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+Lucas theorem computes $\binom{n}{k} \bmod p$ for prime $p$. But many CP problems need $\binom{n}{k} \bmod m$ for composite $m$ or prime powers $p^e$. The extended Lucas (Granville extension) handles this, combining Legendre's formula for the $p$-adic valuation with CRT for the full answer.
+
+**Contest relevance**: CF Div.1 D/E, any $\binom{n}{k} \bmod m$ problem where $m$ is not prime.
+
+---
+
+## The Problem
+
+For prime power modulus $p^e$: $\binom{n}{k} \bmod p^e$.
+
+Standard Lucas works only for $e = 1$. For $e > 1$, we need the **Andrew Granville extension**.
+
+---
+
+## Key Lemma: Wilson's Theorem Generalization
+
+For prime $p$ and any $n$, define:
+
+$$n!_p = \prod_{\substack{1 \leq i \leq n \\ p \nmid i}} i$$
+
+(the product of all integers up to $n$ not divisible by $p$).
+
+**Granville's lemma**: for prime $p$ and prime power $p^e$:
+
+$$n! = p^{\lfloor n/p \rfloor} \cdot \lfloor n/p \rfloor! \cdot n!_p \bmod p^e$$
+
+And $n!_p \bmod p^e$ is **periodic with period $p^e$**, so it can be precomputed.
+
+---
+
+## Computing $\binom{n}{k} \bmod p^e$ (Granville Extension)
+
+```cpp
+// Extended Lucas: C(n, k) mod p^e
+// Uses Granville's method
+
+long long pe;  // p^e (the modulus)
+long long p;   // the prime
+int e;         // the exponent
+vector<long long> fact_table;  // fact_table[i] = product of i!_p mod pe for one period
+
+// Precompute fact_table of size pe
+void precompute(long long _pe, long long _p, int _e) {
+    pe = _pe; p = _p; e = _e;
+    fact_table.resize(pe);
+    fact_table[0] = 1;
+    for (long long i = 1; i < pe; i++)
+        fact_table[i] = (i % p == 0) ? fact_table[i-1] : fact_table[i-1] * i % pe;
+}
+
+// Compute e_p(n!) = exponent of p in n! = sum floor(n/p^k)
+long long legendre(long long n) {
+    long long res = 0;
+    while (n > 0) { n /= p; res += n; }
+    return res;
+}
+
+// Compute n!_p mod pe (stripped factorial: product of integers up to n not divisible by p)
+long long fact_p(long long n) {
+    long long res = 1;
+    // Complete blocks of size pe contribute fact_table[pe-1] ^ floor(n/pe) (mod pe)
+    res = power(fact_table[pe - 1], n / pe, pe);
+    res = res * fact_table[n % pe] % pe;
+    // Recurse: the p-divisible part = (n/p)!_p
+    if (n / p > 0) res = res * fact_p(n / p) % pe;
+    return res;
+}
+
+// Compute C(n, k) mod p^e
+// Returns {value mod pe, p-adic valuation v_p(C(n,k))}
+pair<long long, long long> binom_pe(long long n, long long k) {
+    if (k < 0 || k > n) return {0, 0};
+    long long v = legendre(n) - legendre(k) - legendre(n - k);
+    // v = v_p(C(n,k))
+    long long num = fact_p(n);
+    long long den = fact_p(k) * fact_p(n - k) % pe;
+    long long val = num * modinv(den, pe) % pe * power(p, v % (pe * (p - 1)), pe) % pe;
+    // Careful: if v >= e, answer is 0 mod p^e
+    if (v >= e) return {0, v};
+    return {power(p, v, pe) * val % pe, v};
+}
+```
+
+<Callout type="warning">
+The extended Lucas is significantly more complex than standard Lucas. For prime $p$ (i.e., $e = 1$), standard Lucas is always preferred.
+</Callout>
+
+---
+
+## Full Composite Modulus: CRT Combination
+
+For $m = p_1^{e_1} \cdots p_k^{e_k}$, compute $\binom{n}{k} \bmod p_i^{e_i}$ for each prime power, then CRT:
+
+```cpp
+long long binom_composite(long long n, long long k, long long m) {
+    auto factors = factorize(m);  // {prime, exponent} pairs
+    
+    vector<long long> residues, moduli;
+    for (auto [p, e] : factors) {
+        long long pe = power(p, e, LLONG_MAX);  // p^e
+        precompute(pe, p, e);
+        auto [val, v] = binom_pe(n, k);
+        residues.push_back(val);
+        moduli.push_back(pe);
+    }
+    return crt(residues, moduli).first;  // combine with CRT
+}
+```
+
+---
+
+## Simpler Case: Lucas for Prime Moduli (Recap)
+
+For prime $p$ (no need for extension):
+
+```cpp
+long long binom_prime(long long n, long long k, long long p) {
+    if (k > n) return 0;
+    long long res = 1;
+    while (n || k) {
+        long long ni = n % p, ki = k % p;
+        if (ki > ni) return 0;  // Lucas digit check
+        res = res * binom_small(ni, ki, p) % p;
+        n /= p; k /= p;
+    }
+    return res;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Precompute for prime power p^e", time: "O(p^e)", space: "O(p^e)" },
+  { operation: "Single C(n,k) mod p^e query", time: "O(log_p n · log p^e)", space: "O(1)" },
+  { operation: "Full C(n,k) mod m (factored m)", time: "O(Σ p_i^(e_i) + log n)", space: "O(max p_i^(e_i))" },
+]} />
+
+---
+
+## When to Use Extended Lucas
+
+| Modulus type | Method |
+|-------------|--------|
+| Prime $p$, $n \leq 10^{18}$ | Lucas theorem |
+| Prime $p$, $n < p$ | Direct precomputed factorial |
+| $p^2$ or $p^e$, small | Extended Lucas |
+| $m = p_1 p_2 \cdots$ (squarefree), all $p_i$ small | Lucas + CRT |
+| General $m \leq 10^6$ | Extended Lucas + CRT |
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Binomial Coefficients (mod prime)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1079",
+    difficulty: "1300",
+    concepts: ["Lucas", "binomial mod prime"],
+    tier: "warmup"
+  },
+  {
+    name: "Central Binomial Coefficient",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1089/I",
+    difficulty: "2400",
+    concepts: ["extended Lucas", "prime power modulus"],
+    tier: "advanced"
+  },
+  {
+    name: "C(n, k) mod m",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/282/E",
+    difficulty: "2700",
+    concepts: ["extended Lucas", "composite modulus", "CRT"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Lucas Theorem](/math/combinatorics/lucas) — prerequisite; handles prime moduli
+- [Chinese Remainder Theorem](/math/number-theory/crt) — combines prime power answers to composite modulus
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — standard mod prime computations
+- [Legendre's Formula](/math/number-theory/prime-factorization) — computes $v_p(n!)$ used in extended Lucas
+
+---
+
+## References
+
+1. Granville, A. — Binomial coefficients modulo prime powers (1997)
+2. cp-algorithms — [Lucas' theorem](https://cp-algorithms.com/combinatorics/lucas_theorem.html)
+3. Andrew Granville — [The arithmetic of binomial coefficients](https://dms.umontreal.ca/~andrew/)

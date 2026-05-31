@@ -1,0 +1,212 @@
+---
+title: Primitive Roots
+description: Primitive roots, generators of Z_p*, order of elements, and discrete logarithm setup
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Primitive Roots
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Euler Phi Function", href: "/math/number-theory/euler-phi" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+Primitive roots are generators of the multiplicative group $(\mathbb{Z}/p\mathbb{Z})^*$. They are the foundation for:
+- Discrete logarithm problems
+- Index calculus
+- Number-theoretic transforms (NTT uses primitive root of modulus)
+- Counting solutions to polynomial congruences
+
+**Contest relevance**: CF Div.1 D/E, problems involving discrete log, counting periodic structures.
+
+---
+
+## Learning Objectives
+
+- Define the order of an element mod $n$
+- Define primitive root as element of maximum order $\phi(n)$
+- Determine when primitive roots exist
+- Find a primitive root of $p$ efficiently
+
+---
+
+## Order of an Element
+
+The **order** of $a$ modulo $n$ (when $\gcd(a,n) = 1$) is the smallest positive $k$ with $a^k \equiv 1 \pmod{n}$.
+
+- Order divides $\phi(n)$ (by Lagrange's theorem)
+- $a^m \equiv 1 \pmod{n}$ iff $\text{ord}(a) \mid m$
+
+```cpp
+long long order(long long a, long long n) {
+    long long phi_n = euler_phi(n);
+    long long ord = phi_n;
+    // Try all divisors of phi_n in increasing order
+    auto factors = factorize(phi_n);
+    for (auto [p, e] : factors) {
+        while (ord % p == 0 && power(a, ord / p, n) == 1)
+            ord /= p;
+    }
+    return ord;
+}
+```
+
+---
+
+## Primitive Root Definition
+
+$g$ is a **primitive root** mod $n$ if $\text{ord}(g) = \phi(n)$, i.e., $g$ generates all of $(\mathbb{Z}/n\mathbb{Z})^*$.
+
+**When do primitive roots exist?**
+
+Primitive roots mod $n$ exist iff $n \in \{1, 2, 4, p^k, 2p^k\}$ where $p$ is an odd prime.
+
+- **Primes $p$**: always has primitive root; there are $\phi(p-1)$ of them.
+- **$p^k$**: has primitive root.
+- **2, 4**: yes. **$2^k$ for $k \geq 3$**: no primitive root.
+- **Composite $n$ with two odd prime factors**: no primitive root.
+
+---
+
+## Finding a Primitive Root
+
+For prime $p$: try $g = 2, 3, 4, \ldots$ until one is a primitive root.
+
+**Check**: $g$ is a primitive root mod $p$ iff $g^{(p-1)/q} \not\equiv 1 \pmod{p}$ for all prime factors $q$ of $p-1$.
+
+```cpp
+long long primitive_root(long long p) {
+    long long phi = p - 1;  // for prime p
+    auto factors = factorize(phi);  // prime factors of phi
+    
+    for (long long g = 2; g < p; g++) {
+        bool is_root = true;
+        for (auto [q, e] : factors) {
+            if (power(g, phi / q, p) == 1) {
+                is_root = false;
+                break;
+            }
+        }
+        if (is_root) return g;
+    }
+    return -1;  // shouldn't happen for prime p
+}
+```
+
+<Callout type="info">
+For most primes, the smallest primitive root is small (often 2, 3, 5, or 6). Expected number of trials: $O(\log p \log \log p)$.
+</Callout>
+
+---
+
+## Primitive Roots mod p^k
+
+If $g$ is a primitive root mod $p$, then either $g$ or $g + p$ is a primitive root mod $p^k$.
+
+```cpp
+long long primitive_root_pk(long long p, int k) {
+    long long g = primitive_root(p);
+    long long pk = 1;
+    for (int i = 0; i < k; i++) pk *= p;
+    // Check if g is primitive root mod p^2
+    if (power(g, p - 1, p * p) != 1) return g;
+    return g + p;  // g + p is guaranteed to work
+}
+```
+
+---
+
+## All Primitive Roots
+
+If $g$ is one primitive root mod $n$, then $g^k$ is also a primitive root iff $\gcd(k, \phi(n)) = 1$.
+
+Total count: $\phi(\phi(n))$.
+
+```cpp
+vector<long long> all_primitive_roots(long long p) {
+    long long g = primitive_root(p);
+    long long phi = p - 1;
+    vector<long long> roots;
+    long long cur = 1;
+    for (long long k = 1; k < phi; k++) {
+        cur = cur * g % p;
+        if (__gcd(k, phi) == 1) roots.push_back(cur);
+    }
+    return roots;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Order of a mod p", time: "O(√p + log p · ω(p-1))", space: "O(ω(p-1))" },
+  { operation: "Find smallest primitive root mod p", time: "O(p^(1/4) log p) expected", space: "O(ω(p-1))" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Primitive Root",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/50/E",
+    difficulty: "2000",
+    concepts: ["primitive root", "order"],
+    tier: "standard"
+  },
+  {
+    name: "Discrete Root",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1106/F",
+    difficulty: "2300",
+    concepts: ["primitive root", "discrete log"],
+    tier: "advanced"
+  },
+  {
+    name: "NTT modulus selection",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/776/E",
+    difficulty: "2100",
+    concepts: ["primitive root", "NTT"],
+    tier: "advanced"
+  },
+  {
+    name: "Primitive Root (CSES)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2420",
+    difficulty: "1800",
+    concepts: ["primitive root", "order"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Euler Phi Function](/math/number-theory/euler-phi) — order divides $\phi(n)$; exactly $\phi(\phi(n))$ primitive roots
+- [Discrete Logarithm](/math/number-theory/discrete-log) — primitive root is required to set up BSGS
+- [Quadratic Residues](/math/number-theory/quadratic-residues) — $a$ is QR iff discrete log base $g$ is even
+- [Miller-Rabin & Pollard Rho](/math/number-theory/pollard-rho) — need to factor $p-1$ to check/find primitive root
+
+---
+
+## References
+
+1. cp-algorithms — [Primitive Root](https://cp-algorithms.com/algebra/primitive-root.html)
+2. Ireland & Rosen — A Classical Introduction to Modern Number Theory, Ch. 4
+3. Gauss, C.F. — Disquisitiones Arithmeticae (1801) — primitive roots of primes

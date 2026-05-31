@@ -1,0 +1,182 @@
+---
+title: Garner's Algorithm
+description: Mixed-radix representation and efficient reconstruction of large numbers from modular residues
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Garner's Algorithm
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Chinese Remainder Theorem", href: "/math/number-theory/crt" },
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" }
+]} />
+
+## Why This Topic Matters
+
+CRT gives a unique $x \in [0, M)$ (where $M = \prod m_i$) from residues mod coprime $m_i$. But $M$ can be enormous. Garner's algorithm computes $x \bmod p$ for any $p$ without ever materializing $x$ — used in multi-prime NTT to recover coefficients mod $10^9 + 7$.
+
+**Contest relevance**: any problem requiring polynomial convolution with large coefficients, or recovering a number from CRT residues without computing the large product.
+
+---
+
+## Mixed-Radix Representation
+
+Given $x \equiv r_i \pmod{p_i}$ for $i = 1, \ldots, k$ (distinct primes), write $x$ in mixed radix:
+
+$$x = a_1 + a_2 p_1 + a_3 p_1 p_2 + \cdots + a_k p_1 p_2 \cdots p_{k-1}$$
+
+where $0 \leq a_i < p_i$.
+
+**Key**: $a_i$ are the mixed-radix digits. We compute them from the residues $r_i$.
+
+---
+
+## Computing Mixed-Radix Digits
+
+From $x \equiv r_1 \pmod{p_1}$: $a_1 = r_1$.
+
+From $x \equiv r_2 \pmod{p_2}$: $a_1 + a_2 p_1 \equiv r_2 \pmod{p_2}$, so $a_2 = (r_2 - a_1) \cdot p_1^{-1} \bmod p_2$.
+
+In general:
+
+$$a_i = \left(r_i - \sum_{j=1}^{i-1} a_j \prod_{l=1}^{j-1} p_l\right) \cdot \left(\prod_{l=1}^{i-1} p_l\right)^{-1} \bmod p_i$$
+
+---
+
+## Implementation
+
+```cpp
+// Garner's algorithm
+// Input: r[i] = x mod p[i], p[i] distinct primes
+// Output: x mod final_mod (without computing x directly)
+long long garner(vector<long long> r, vector<long long> p, long long final_mod) {
+    int n = r.size();
+    // Compute mixed-radix coefficients a[i]
+    // a[i] is stored in r[i] after modification
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            // r[i] = (r[i] - r[j]) * modinv(p[j], p[i]) mod p[i]
+            r[i] = (r[i] - r[j] % p[i] + p[i]) % p[i];
+            r[i] = r[i] * modinv(p[j] % p[i], p[i]) % p[i];
+        }
+    }
+    // Reconstruct x mod final_mod
+    long long result = 0, prod = 1;
+    for (int i = 0; i < n; i++) {
+        result = (result + r[i] % final_mod * prod) % final_mod;
+        prod = prod * (p[i] % final_mod) % final_mod;
+    }
+    return result;
+}
+```
+
+<Callout type="info">
+Precompute inverses $p_j^{-1} \bmod p_i$ for all pairs $(j, i)$ to save time when running Garner on many values (e.g., all polynomial coefficients after multi-prime NTT).
+</Callout>
+
+---
+
+## Optimized: Precomputed Inverses
+
+```cpp
+// For multi-prime NTT: same primes every call, precompute inverses
+const long long P[] = {998244353, 985661441, 754974721};
+const int K = 3;
+
+long long inv[K][K];  // inv[j][i] = P[j]^{-1} mod P[i]
+
+void precompute_garner() {
+    for (int i = 0; i < K; i++)
+        for (int j = 0; j < i; j++)
+            inv[j][i] = modinv(P[j] % P[i], P[i]);
+}
+
+long long garner_fast(long long r[K], long long mod) {
+    // In-place modification of r
+    for (int i = 0; i < K; i++)
+        for (int j = 0; j < i; j++) {
+            r[i] = (r[i] - r[j] % P[i] + P[i]) % P[i];
+            r[i] = r[i] * inv[j][i] % P[i];
+        }
+    long long result = 0, prod = 1;
+    for (int i = 0; i < K; i++) {
+        result = (result + r[i] % mod * prod) % mod;
+        prod = prod * (P[i] % mod) % mod;
+    }
+    return result;
+}
+```
+
+---
+
+## Correctness Argument
+
+Garner constructs the unique $x \in [0, P_1 P_2 \cdots P_k)$ satisfying all congruences (guaranteed by CRT). By computing $x \bmod p$ coefficient by coefficient, it avoids big-integer arithmetic entirely.
+
+**Range of representable values**: $[0, P_1 P_2 \cdots P_k)$. With the three standard NTT primes:
+$$998244353 \times 985661441 \times 754974721 \approx 7.4 \times 10^{26}$$
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Garner for k residues", time: "O(k²)", space: "O(k)" },
+  { operation: "Multi-prime NTT + Garner (n coefficients)", time: "O(k · n log n + k² · n)", space: "O(k · n)" },
+  { operation: "Precomputed-inverse Garner (k residues)", time: "O(k²) preprocessing + O(k²) per call", space: "O(k²)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Modular subtraction**: `(r[i] - r[j]) % p[i]` can be negative — add `p[i]` before taking mod.
+2. **Product overflow**: `prod * (p[i] % mod)` — if `prod` and `p[i] % mod` are both $\approx 10^9$, use `__int128`.
+3. **Same-prime check**: if $p_j = p_i$ for some pair, Garner fails — all primes must be distinct.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Convolution (arbitrary mod)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/convolution_mod_1000000007",
+    difficulty: "1800",
+    concepts: ["Garner", "multi-prime NTT"],
+    tier: "standard"
+  },
+  {
+    name: "Large Integer Reconstruction",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1106/F",
+    difficulty: "2300",
+    concepts: ["CRT", "Garner", "residue reconstruction"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Chinese Remainder Theorem](/math/number-theory/crt) — Garner is CRT for output mod $p$ without materializing $x$
+- [NTT-Friendly Primes](/math/advanced-number-theory/ntt-primes) — Garner reconstructs multi-prime NTT results
+- [Modular Inverse](/math/foundations/modular-inverse) — Garner inner loop computes $p_j^{-1} \bmod p_i$
+
+---
+
+## References
+
+1. Garner, H.L. — The residue number system, IRE Trans. Electronic Computers (1959)
+2. cp-algorithms — [Garner's Algorithm](https://cp-algorithms.com/algebra/garner.html)
+3. Knuth, D. — TAOCP Vol. 2, §4.3.2 — mixed-radix conversion

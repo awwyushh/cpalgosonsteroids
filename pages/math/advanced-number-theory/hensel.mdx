@@ -1,0 +1,210 @@
+---
+title: Hensel's Lemma
+description: Lifting solutions of polynomial congruences from mod p to mod p^k — Newton's method for integers
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Hensel's Lemma
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" },
+  { title: "Extended Lucas Theorem", href: "/math/advanced-number-theory/lucas-extended" }
+]} />
+
+## Why This Topic Matters
+
+Hensel's lemma is "Newton's method over $\mathbb{Z}_p$". Given $f(a) \equiv 0 \pmod{p}$ with $f'(a) \not\equiv 0 \pmod{p}$, it lifts the solution to $\bmod p^2, p^4, \ldots$ doubling precision each step. Essential for computing $p$-adic square roots, cube roots, and polynomial roots.
+
+**Contest relevance**: CF Div.1 D/E — $p$-adic inverse, $\sqrt{a} \bmod p^k$, $n$-th roots modulo prime powers.
+
+---
+
+## The Lemma
+
+**Hensel's Lemma**: If $f(a) \equiv 0 \pmod{p}$ and $f'(a) \not\equiv 0 \pmod{p}$, then for all $k \geq 1$ there is a unique $b \equiv a \pmod{p}$ with $f(b) \equiv 0 \pmod{p^k}$.
+
+**Lifting formula** (Newton step):
+
+$$b = a - f(a) \cdot (f'(a))^{-1} \pmod{p^{k+1}}$$
+
+Each lift doubles the number of correct $p$-adic digits.
+
+---
+
+## Lifting Square Roots mod p^k
+
+Compute $\sqrt{a} \bmod p^k$ given $r^2 \equiv a \pmod{p}$:
+
+```cpp
+// Lift sqrt(a) from mod p to mod p^k using Hensel lifting
+// f(x) = x^2 - a, f'(x) = 2x
+long long sqrt_pk(long long a, long long r, long long p, int k) {
+    long long pk = p;  // current modulus = p^1
+    long long cur = r % p;  // solution mod p
+    
+    for (int i = 1; i < k; i++) {
+        long long pk2 = pk * p;  // next modulus = p^(i+1)
+        // cur is solution mod pk
+        // f(cur) = cur^2 - a
+        // f'(cur) = 2 * cur
+        long long f_val = ((__int128)cur * cur - a % pk2 + pk2 * 10) % pk2;
+        long long f_prime = 2 * cur % pk2;
+        long long f_prime_inv = modinv(f_prime, pk2);
+        // New solution: cur - f(cur) * f'(cur)^{-1} mod pk2
+        cur = (cur - (__int128)f_val * f_prime_inv % pk2 + pk2) % pk2;
+        pk = pk2;
+    }
+    return cur;
+}
+```
+
+<Callout type="info">
+Each Newton iteration doubles precision: after $\lceil \log_2 k \rceil$ steps, we have the solution mod $p^k$. Total cost: $O(\log k \cdot \log p)$ multiplications.
+</Callout>
+
+---
+
+## Lifting Modular Inverses
+
+Compute $a^{-1} \bmod p^k$: set $f(x) = ax - 1$, $f'(x) = a$.
+
+Newton step: $x_{i+1} = x_i \cdot (2 - a x_i) \bmod p^{2^{i+1}}$
+
+```cpp
+// Compute a^{-1} mod p^k via Hensel lifting
+// More efficient: compute mod p first, then double precision
+long long modinv_pk(long long a, long long p, int k) {
+    long long pk = p;
+    long long inv = modinv(a % p, p);  // start: a^{-1} mod p
+    
+    for (int i = 1; i < k; i++) {
+        pk *= p;
+        // inv = inv * (2 - a * inv) mod pk
+        inv = (__int128)inv * (2 - (__int128)a * inv % pk + pk * 10) % pk;
+        inv = (inv % pk + pk) % pk;
+    }
+    return inv;
+}
+```
+
+---
+
+## p-adic Logarithm and Exponential
+
+For $p$-adic analysis (rare in CP but appears in advanced problems):
+
+$$\log_p(1 + x) = x - \frac{x^2}{2} + \frac{x^3}{3} - \cdots \pmod{p^k}$$
+
+$$\exp_p(x) = 1 + x + \frac{x^2}{2!} + \cdots \pmod{p^k}$$
+
+Both converge $p$-adically when $v_p(x) \geq 1$ (i.e., $p | x$).
+
+```cpp
+// p-adic exp: compute exp(x) mod p^k, requires v_p(x) >= 1
+long long padic_exp(long long x, long long p, int k, long long pk) {
+    long long result = 1, term = 1, factorial = 1;
+    for (int i = 1; i < k * (int)log(p) + 1; i++) {
+        factorial = factorial * i % pk;
+        term = (__int128)term * x % pk;
+        long long contrib = (__int128)term * modinv(factorial, pk) % pk;
+        result = (result + contrib) % pk;
+    }
+    return result;
+}
+```
+
+---
+
+## Application: nth Root mod p^k
+
+Compute $a^{1/n} \bmod p^k$ (n-th root): $f(x) = x^n - a$, $f'(x) = n x^{n-1}$.
+
+```cpp
+long long nth_root_pk(long long a, int n, long long p, int k) {
+    // 1. Find r such that r^n ≡ a (mod p) using BSGS or primitive root
+    long long r = nth_root_prime(a, n, p);
+    if (r == -1) return -1;  // no solution
+    
+    // 2. Lift via Hensel
+    long long pk = p;
+    long long cur = r;
+    for (int i = 1; i < k; i++) {
+        long long pk2 = pk * p;
+        long long f = (power(cur, n, pk2) - a % pk2 + pk2) % pk2;
+        long long fp = (__int128)n * power(cur, n - 1, pk2) % pk2;
+        cur = (cur - (__int128)f * modinv(fp, pk2) % pk2 + pk2) % pk2;
+        pk = pk2;
+    }
+    return cur;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Lift from mod p to mod p^k", time: "O(log k · M(log p^k))", space: "O(1)" },
+  { operation: "Square root mod p^k", time: "O(log k · log² p^k)", space: "O(1)" },
+  { operation: "Modular inverse mod p^k", time: "O(log k · log p^k)", space: "O(1)" },
+]} />
+
+where $M(\ell)$ is the cost of multiplying two $\ell$-bit numbers.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Square Root mod p",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/3514",
+    difficulty: "1600",
+    concepts: ["Tonelli-Shanks", "sqrt mod prime"],
+    tier: "warmup"
+  },
+  {
+    name: "Primitive Root Lift",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1106/F",
+    difficulty: "2400",
+    concepts: ["Hensel lifting", "primitive root mod p^k"],
+    tier: "advanced"
+  },
+  {
+    name: "p-adic Arithmetic",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/986/F",
+    difficulty: "2700",
+    concepts: ["Hensel's lemma", "p-adic lifting"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Quadratic Residues](/math/number-theory/quadratic-residues) — Tonelli-Shanks finds $\sqrt{a} \bmod p$; Hensel lifts to $\bmod p^k$
+- [Extended Lucas Theorem](/math/advanced-number-theory/lucas-extended) — also uses Legendre's formula for prime powers
+- [Modular Inverse](/math/foundations/modular-inverse) — Hensel lifting for inverses is Newton's method over $\mathbb{Z}_p$
+- [Primitive Roots](/math/number-theory/primitive-roots) — if $g$ is primitive root mod $p$, either $g$ or $g+p$ is primitive root mod $p^k$ (Hensel)
+
+---
+
+## References
+
+1. Hensel, K. — Über eine neue Begründung der Theorie der algebraischen Zahlen (1897)
+2. cp-algorithms — [Hensel's Lemma](https://cp-algorithms.com/algebra/hensel.html)
+3. Gouvêa, F.Q. — p-adic Numbers: An Introduction (2nd ed., 2003)
+4. Ireland & Rosen — A Classical Introduction to Modern Number Theory, Ch. 2

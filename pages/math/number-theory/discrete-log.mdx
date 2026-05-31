@@ -1,0 +1,195 @@
+---
+title: Discrete Logarithm
+description: Baby-step Giant-step algorithm for solving a^x ≡ b (mod p) in O(√p)
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Discrete Logarithm
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" },
+  { title: "Primitive Roots", href: "/math/number-theory/primitive-roots" }
+]} />
+
+## Why This Topic Matters
+
+Discrete logarithm (DLOG): find $x$ such that $a^x \equiv b \pmod{p}$. Baby-step Giant-step solves it in $O(\sqrt{p})$ time and space. Pohlig-Hellman reduces to smaller subgroups when $p-1$ is smooth.
+
+**Contest relevance**: CF Div.1 D/E, cryptography-flavored CP problems.
+
+---
+
+## Learning Objectives
+
+- Understand the DLOG problem and why it's hard in general
+- Implement Baby-step Giant-step (BSGS) in $O(\sqrt{p})$
+- Apply Pohlig-Hellman for smooth order groups
+- Handle the case where $a$ is not a generator
+
+---
+
+## Baby-Step Giant-Step (BSGS)
+
+Solve $a^x \equiv b \pmod{p}$ for $0 \leq x < p-1$.
+
+Let $m = \lceil\sqrt{p}\rceil$. Write $x = im - j$ for $0 \leq i, j < m$.
+
+Then $a^{im} \equiv b \cdot a^j \pmod{p}$.
+
+1. **Baby steps**: precompute $b \cdot a^j \bmod p$ for $j = 0, 1, \ldots, m-1$. Store in hash map.
+2. **Giant steps**: for each $i = 1, 2, \ldots, m$, compute $a^{im} \bmod p$ and look up in table.
+
+```cpp
+long long baby_giant(long long a, long long b, long long p) {
+    long long m = (long long)ceil(sqrt(p)) + 1;
+    unordered_map<long long, long long> table;
+    
+    // Baby steps: b * a^j mod p
+    long long val = b % p;
+    for (long long j = 0; j < m; j++) {
+        table[val] = j;
+        val = val * a % p;
+    }
+    
+    // Giant steps: a^(im) mod p
+    long long am = power(a, m, p);
+    val = 1;
+    for (long long i = 1; i <= m; i++) {
+        val = val * am % p;
+        if (table.count(val)) {
+            long long x = i * m - table[val];
+            return (x % (p - 1) + (p - 1)) % (p - 1);
+        }
+    }
+    return -1;  // no solution
+}
+```
+
+<Callout type="info">
+BSGS requires $p$ prime and $\gcd(a, p) = 1$. For general moduli, use the extended BSGS variant.
+</Callout>
+
+---
+
+## Generalized BSGS (Non-Prime Modulus)
+
+For $a^x \equiv b \pmod{n}$ with general $n$ (not prime):
+
+Reduce to: let $g = \gcd(a, n)$. If $g \nmid b$, no solution.
+
+Divide: $(a/g)^x \equiv (b/g) \pmod{n/g}$ — repeat until $\gcd(a, n/g^k) = 1$, then apply BSGS.
+
+```cpp
+// Generalized BSGS: solve a^x = b mod n
+long long gen_bsgs(long long a, long long b, long long n) {
+    if (b == 1 || n == 1) return 0;
+    long long cnt = 0, t = 1;
+    for (long long g = __gcd(a, n); g != 1; g = __gcd(a, n)) {
+        if (b % g != 0) return -1;
+        n /= g; b /= g;
+        t = t * (a / g) % n;
+        cnt++;
+        if (t == b) return cnt;
+    }
+    // Now gcd(a, n) = 1, apply BSGS on a^x * t ≡ b (mod n)
+    long long m = (long long)ceil(sqrt(n)) + 1;
+    unordered_map<long long, long long> table;
+    long long val = b;
+    for (long long j = 0; j < m; j++) {
+        table[val] = j;
+        val = val * a % n;
+    }
+    long long am = power(a, m, n);
+    val = t;
+    for (long long i = 1; i <= m + 1; i++) {
+        val = val * am % n;
+        if (table.count(val))
+            return i * m - table[val] + cnt;
+    }
+    return -1;
+}
+```
+
+---
+
+## Pohlig-Hellman
+
+When $p - 1$ factors as $p_1^{e_1} \cdots p_k^{e_k}$ (smooth $p-1$), use CRT to combine subgroup solutions.
+
+**Key idea**: solve $a^x \equiv b \pmod{p}$ in each subgroup of order $p_i^{e_i}$, then CRT.
+
+**Complexity**: $O(\sum e_i (\log p_i + \sqrt{p_i}))$ — much faster when all prime factors of $p-1$ are small.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "BSGS (prime modulus)", time: "O(√p log √p)", space: "O(√p)" },
+  { operation: "BSGS (general modulus)", time: "O(log n + √n)", space: "O(√n)" },
+  { operation: "Pohlig-Hellman (smooth p-1)", time: "O(Σ eᵢ(log p + √pᵢ))", space: "O(√max_pᵢ)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Off-by-one**: $x = im - j$ range; ensure $i$ goes up to $m$, not $m-1$.
+2. **No solution case**: BSGS returns $-1$; handle when $a$ is not a primitive root.
+3. **Modular issues**: use `(x % (p-1) + (p-1)) % (p-1)` to normalize.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Discrete Logarithm",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2418",
+    difficulty: "1800",
+    concepts: ["BSGS", "discrete log"],
+    tier: "standard"
+  },
+  {
+    name: "Discrete Root",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1106/F",
+    difficulty: "2300",
+    concepts: ["BSGS", "primitive root"],
+    tier: "advanced"
+  },
+  {
+    name: "Discrete Log (Library Checker)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/discrete_logarithm_mod",
+    difficulty: "2500",
+    concepts: ["discrete log", "BSGS", "Pohlig-Hellman"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Primitive Roots](/math/number-theory/primitive-roots) — DLOG requires a generator; Pohlig-Hellman uses primitive root structure
+- [Chinese Remainder Theorem](/math/number-theory/crt) — Pohlig-Hellman reduces to CRT combination of subgroup solutions
+- [Miller-Rabin & Pollard Rho](/math/number-theory/pollard-rho) — factor $p-1$ to run Pohlig-Hellman
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — every BSGS step is a modular exponentiation
+
+---
+
+## References
+
+1. cp-algorithms — [Discrete Logarithm](https://cp-algorithms.com/algebra/discrete-log.html)
+2. Pohlig, S. & Hellman, M. — An improved algorithm for computing logarithms (1978)
+3. Shank, D. — Baby-step Giant-step algorithm (BSGS, 1971)

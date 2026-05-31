@@ -1,0 +1,225 @@
+---
+title: Dirichlet Series for CP
+description: Formal Dirichlet series, Euler products, and Dirichlet prefix/suffix transforms for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Dirichlet Series for CP
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Möbius Inversion (Advanced)", href: "/math/advanced-number-theory/mobius-inversion" },
+  { title: "Divisors", href: "/math/number-theory/divisors" }
+]} />
+
+## Why This Topic Matters
+
+Dirichlet series are the generating functions for arithmetic functions — just as OGFs are for sequences. The Euler product connects Dirichlet series to primes. For CP, the key tools are: Dirichlet prefix/suffix sum transforms ($O(N \log \log N)$), and using Euler products to derive explicit formulas.
+
+**Contest relevance**: CF Div.1 E/F — any problem with "for all $n$, compute $\sum_{d|n} f(d)$" for all $n$ simultaneously.
+
+---
+
+## Formal Definition
+
+The Dirichlet series of an arithmetic function $f$ is:
+
+$$\mathcal{D}(f)(s) = \sum_{n=1}^{\infty} \frac{f(n)}{n^s}$$
+
+In CP, we work with the **formal** (finite) truncated version: just the coefficients $f(1), f(2), \ldots, f(N)$.
+
+**Key property**: if $h = f * g$ (Dirichlet convolution), then $\mathcal{D}(h) = \mathcal{D}(f) \cdot \mathcal{D}(g)$.
+
+---
+
+## Euler Product
+
+For completely multiplicative $f$ (i.e., $f(mn) = f(m)f(n)$ for all $m,n$):
+
+$$\mathcal{D}(f)(s) = \prod_{p \text{ prime}} \frac{1}{1 - f(p)/p^s}$$
+
+For multiplicative $f$:
+
+$$\mathcal{D}(f)(s) = \prod_{p} \left(1 + \frac{f(p)}{p^s} + \frac{f(p^2)}{p^{2s}} + \cdots\right)$$
+
+**Standard series**:
+
+| Function | Dirichlet series |
+|---------|-----------------|
+| $\mathbf{1}$ | $\zeta(s)$ |
+| $\mu$ | $1/\zeta(s)$ |
+| $\text{id}$ | $\zeta(s-1)$ |
+| $\phi$ | $\zeta(s-1)/\zeta(s)$ |
+| $\tau$ | $\zeta(s)^2$ |
+| $\sigma$ | $\zeta(s)\zeta(s-1)$ |
+| $\lambda$ (Liouville) | $\zeta(2s)/\zeta(s)$ |
+
+---
+
+## Dirichlet Prefix Sum Transform
+
+Compute $g(n) = \sum_{d|n} f(d)$ for all $n \leq N$ simultaneously in $O(N \log \log N)$:
+
+```cpp
+// Dirichlet prefix (sum over divisors): g[n] = sum_{d|n} f[d]
+// Equivalent to: Dirichlet convolution of f with constant-1
+void dirichlet_prefix(vector<ll>& f, int N) {
+    for (int p = 2; p <= N; p++) {
+        if (!is_prime[p]) continue;
+        // For each prime p, add contributions from all multiples
+        for (int k = p; k <= N; k += p)
+            f[k] += f[k / p];
+    }
+    // After processing all primes: f[n] = original sum over divisors
+}
+
+// Alternatively (faster constant): sieve over all integers (not just primes)
+void dirichlet_prefix_all(vector<ll>& f, int N) {
+    for (int d = 2; d <= N; d++) {
+        for (int k = 2 * d; k <= N; k += d)
+            f[k] += f[d];
+    }
+}
+// The prime-based version is O(N log log N); the all-divisors version is O(N log N)
+```
+
+---
+
+## Dirichlet Suffix Sum Transform
+
+Compute $g(n) = \sum_{n|d, d \leq N} f(d)$ — sum over multiples:
+
+```cpp
+// Sum over multiples: g[n] = sum_{k=1}^{N/n} f[k*n]
+void dirichlet_suffix(vector<ll>& f, int N) {
+    for (int d = 1; d <= N; d++) {
+        for (int k = 2 * d; k <= N; k += d)
+            f[d] += f[k];
+    }
+    // After: f[d] = sum of original f[k] for all multiples k of d
+}
+```
+
+---
+
+## Möbius Inversion via Transform
+
+Given $g(n) = \sum_{d|n} f(d)$, recover $f$ by applying the Möbius transform (inverse):
+
+```cpp
+// Möbius inverse: f[n] = sum_{d|n} mu[d] * g[n/d]
+// Implemented as the "Dirichlet Möbius" transform:
+void dirichlet_moebius(vector<ll>& g, int N) {
+    for (int p = 2; p <= N; p++) {
+        if (!is_prime[p]) continue;
+        for (int k = p; k <= N; k += p)
+            g[k] -= g[k / p];
+    }
+}
+```
+
+These three transforms (prefix, suffix, Möbius) are analogous to prefix-sum, suffix-sum, and difference-array — but on the divisor lattice.
+
+---
+
+## GCD Convolution
+
+For arrays indexed by divisors: $h[d] = \sum_{\gcd(i,j)=d} f[i] g[j]$:
+
+```cpp
+// Compute h[d] = sum over pairs with gcd = d
+// 1. Compute F[d] = sum_{d|i} f[i] (Dirichlet suffix of f)
+// 2. Compute G[d] = sum_{d|j} g[j] (Dirichlet suffix of g)  
+// 3. H[d] = F[d] * G[d]
+// 4. Apply Möbius inversion to H to get h
+
+void gcd_convolution(vector<ll>& f, vector<ll>& g, vector<ll>& h, int N) {
+    vector<ll> F = f, G = g;
+    dirichlet_suffix(F, N);
+    dirichlet_suffix(G, N);
+    h.resize(N + 1);
+    for (int d = 1; d <= N; d++) h[d] = F[d] * G[d];
+    dirichlet_moebius(h, N);
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Dirichlet prefix/Möbius transform (prime-based)", time: "O(N log log N)", space: "O(N)" },
+  { operation: "Dirichlet prefix (all-divisors)", time: "O(N log N)", space: "O(N)" },
+  { operation: "GCD convolution (size N)", time: "O(N log N)", space: "O(N)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **For-all-n divisor sum**: Dirichlet prefix transform in $O(N \log \log N)$
+2. **GCD counting**: GCD convolution via suffix + pointwise product + Möbius
+3. **Dirichlet inverse**: identity is $\varepsilon$; inverse of $\mathbf{1}$ is $\mu$
+4. **Product decomposition**: verify a formula by checking Euler products at each prime
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Sum of Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1240",
+    difficulty: "1400",
+    concepts: ["Dirichlet prefix", "divisor sum"],
+    tier: "warmup"
+  },
+  {
+    name: "Counting Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1713",
+    difficulty: "1400",
+    concepts: ["Dirichlet convolution", "divisor count"],
+    tier: "warmup"
+  },
+  {
+    name: "GCD and LCM",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1610/F",
+    difficulty: "2500",
+    concepts: ["Dirichlet series", "GCD convolution"],
+    tier: "advanced"
+  },
+  {
+    name: "Divisor Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1009/G",
+    difficulty: "2800",
+    concepts: ["Dirichlet series", "formal generating functions"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Möbius Inversion (Advanced)](/math/advanced-number-theory/mobius-inversion) — Möbius inversion is the inverse Dirichlet prefix transform
+- [GCD & LCM Convolution](/math/advanced-number-theory/gcd-convolution) — specialized GCD/LCM transforms
+- [Divisors](/math/number-theory/divisors) — Dirichlet convolution table is $O(N \log N)$ precomputation
+
+---
+
+## References
+
+1. cp-algorithms — [Arithmetic functions](https://cp-algorithms.com/algebra/phi-function.html)
+2. Apostol, T.M. — Introduction to Analytic Number Theory, Ch. 11 — Dirichlet series
+3. Hardy & Wright — Theory of Numbers, Ch. 17 — Euler product and Riemann zeta

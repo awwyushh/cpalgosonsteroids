@@ -1,0 +1,201 @@
+---
+title: Möbius Function & Inversion
+description: Möbius function, Möbius inversion formula, and sieve-based coprimality counting
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Möbius Function & Inversion
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Prime Factorization", href: "/math/number-theory/prime-factorization" },
+  { title: "Euler Phi Function", href: "/math/number-theory/euler-phi" }
+]} />
+
+## Why This Topic Matters
+
+Möbius inversion is the key tool for "summing over divisors" problems. Counting coprime pairs, computing multiplicative functions from their Dirichlet series, sieve-based cancellation — all use $\mu$.
+
+**Contest relevance**: CF Div.1 D/E, IOI-style counting problems, inclusion-exclusion at scale.
+
+---
+
+## Learning Objectives
+
+- Define $\mu(n)$ and compute it via sieve
+- State and apply Möbius inversion: $f = g * \mathbf{1} \Leftrightarrow g = f * \mu$
+- Count coprime pairs using $\mu$
+- Apply to counting squarefree numbers, GCD sums
+
+---
+
+## Definition
+
+$$\mu(n) = \begin{cases} 1 & n = 1 \\ (-1)^k & n = p_1 p_2 \cdots p_k \text{ (distinct primes)} \\ 0 & p^2 \mid n \text{ for some prime } p \end{cases}$$
+
+$\mu$ is multiplicative with $\mu(p) = -1$ and $\mu(p^k) = 0$ for $k \geq 2$.
+
+Key identity: $\sum_{d|n} \mu(d) = [n = 1]$.
+
+---
+
+## Möbius Sieve
+
+```cpp
+const int MAXN = 1e6 + 5;
+int mu[MAXN];
+bool is_composite[MAXN];
+int primes[MAXN], pcnt;
+
+void mobius_sieve() {
+    mu[1] = 1;
+    for (int i = 2; i < MAXN; i++) {
+        if (!is_composite[i]) {
+            primes[pcnt++] = i;
+            mu[i] = -1;
+        }
+        for (int j = 0; j < pcnt && (long long)i * primes[j] < MAXN; j++) {
+            is_composite[i * primes[j]] = true;
+            if (i % primes[j] == 0) {
+                mu[i * primes[j]] = 0;
+                break;
+            }
+            mu[i * primes[j]] = -mu[i];
+        }
+    }
+}
+```
+
+---
+
+## Möbius Inversion Formula
+
+**Divisor form**: if $g(n) = \sum_{d|n} f(d)$, then:
+
+$$f(n) = \sum_{d|n} \mu(d) \cdot g(n/d)$$
+
+**Multiple form**: if $g(n) = \sum_{n|d} f(d)$, then:
+
+$$f(n) = \sum_{n|d} \mu(d/n) \cdot g(d)$$
+
+---
+
+## Counting Coprime Pairs
+
+Count pairs $(a, b)$ with $1 \leq a \leq b \leq n$ and $\gcd(a, b) = 1$:
+
+$$\sum_{k=1}^{n} \mu(k) \lfloor n/k \rfloor^2$$
+
+(Since $[\gcd(a,b) = 1] = \sum_{d | \gcd(a,b)} \mu(d)$.)
+
+```cpp
+long long count_coprime_pairs(int n) {
+    // Precompute mu via sieve
+    mobius_sieve();
+    long long result = 0;
+    for (int k = 1; k <= n; k++) {
+        if (mu[k]) {
+            long long q = n / k;
+            result += mu[k] * q * q;
+        }
+    }
+    // Pairs (a,b) with a ≤ b: (result + 1) / 2 + adjustment for a=b=1
+    return result;
+}
+```
+
+---
+
+## Count Squarefree Numbers
+
+Count squarefree $n \leq N$: use $\sum_{k=1}^{\lfloor\sqrt{N}\rfloor} \mu(k) \lfloor N/k^2 \rfloor$.
+
+```cpp
+long long count_squarefree(long long n) {
+    mobius_sieve();
+    long long result = 0;
+    for (long long k = 1; k * k <= n; k++)
+        result += mu[k] * (n / (k * k));
+    return result;
+}
+```
+
+---
+
+## GCD Sum
+
+$$\sum_{i=1}^{n} \sum_{j=1}^{n} \gcd(i,j) = \sum_{d=1}^{n} d \cdot \phi(d) \cdot \left(2\lfloor n/d \rfloor - 1\right)$$
+
+Using Möbius inversion on $\gcd(i,j) = \sum_{d|\gcd(i,j)} \phi(d)$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Linear sieve for μ", time: "O(N)", space: "O(N)" },
+  { operation: "Coprime pair count", time: "O(N)", space: "O(N)" },
+  { operation: "Squarefree count up to N", time: "O(√N)", space: "O(√N)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **$\mu(p^k) = 0$ for $k \geq 2$**: not $(-1)^k$. Only squarefree numbers have nonzero $\mu$.
+2. **Forgetting $[n=1]$ identity**: $\sum_{d|n} \mu(d) = 0$ for $n > 1$, not $-1$.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Coprime Integers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2183",
+    difficulty: "1600",
+    concepts: ["Möbius", "coprime counting"],
+    tier: "standard"
+  },
+  {
+    name: "Count GCD",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1285/F",
+    difficulty: "2400",
+    concepts: ["Möbius inversion", "multiplicative functions"],
+    tier: "killer"
+  },
+  {
+    name: "Squarefree Numbers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1559/E",
+    difficulty: "2200",
+    concepts: ["Möbius", "squarefree"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Euler Phi Function](/math/number-theory/euler-phi) — $\phi = \mu * \text{id}$ (Dirichlet convolution); $\phi$ sieve uses same linear sieve
+- [Divisors](/math/number-theory/divisors) — Dirichlet convolution: $\tau = \mathbf{1} * \mathbf{1}$, $\sigma = \text{id} * \mathbf{1}$; all inverted with $\mu$
+- [Floor & Ceiling](/math/foundations/floor-ceil) — floor grouping speeds up $\sum_{k \leq n} \mu(k) \lfloor n/k \rfloor$ from $O(n)$ to $O(\sqrt{n})$
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — $\mu$ is the algebraic formulation of PIE over divisors
+
+---
+
+## References
+
+1. cp-algorithms — [Möbius Function and Inversion](https://cp-algorithms.com/algebra/mobius.html)
+2. Hardy & Wright — An Introduction to the Theory of Numbers, Ch. 16
+3. Apostol, T.M. — Introduction to Analytic Number Theory, Ch. 2
