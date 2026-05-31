@@ -1,0 +1,235 @@
+---
+title: Bell & Stirling Numbers
+description: Stirling numbers of first and second kind, Bell numbers, set and cycle partitions
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Bell & Stirling Numbers
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Inclusion-Exclusion", href: "/math/combinatorics/inclusion-exclusion" }
+]} />
+
+## Why This Topic Matters
+
+Stirling numbers partition sets and permutations by structure. They appear in problems counting "group elements into exactly $k$ non-empty subsets", cycle decompositions of permutations, and converting between polynomial bases.
+
+**Contest relevance**: CF Div.1 C–D, problems about partitions, colorings with exactly $k$ colors, or permutation cycle structures.
+
+---
+
+## Stirling Numbers of the Second Kind $S(n,k)$
+
+$S(n,k)$ = number of ways to partition a set of $n$ elements into **exactly $k$ non-empty** subsets.
+
+### Recurrence
+
+$$S(n,k) = k \cdot S(n-1,k) + S(n-1,k-1)$$
+
+- Add element $n$ to one of the $k$ existing subsets: $k \cdot S(n-1,k)$
+- Start a new singleton subset with $n$: $S(n-1,k-1)$
+
+Base cases: $S(0,0)=1$, $S(n,0)=0$ for $n>0$, $S(0,k)=0$ for $k>0$.
+
+```cpp
+const int MAXN = 505;
+long long S2[MAXN][MAXN];  // S(n,k) = Stirling 2nd kind
+
+void stirling2(int n) {
+    S2[0][0] = 1;
+    for (int i = 1; i <= n; i++)
+        for (int k = 1; k <= i; k++)
+            S2[i][k] = (k * S2[i-1][k] + S2[i-1][k-1]) % MOD;
+}
+```
+
+### Explicit Formula (via IE)
+
+$$S(n,k) = \frac{1}{k!} \sum_{j=0}^{k} (-1)^{k-j} \binom{k}{j} j^n$$
+
+This is the surjection count divided by $k!$.
+
+### Key Values
+
+- $S(n,1) = 1$ — all in one subset
+- $S(n,n) = 1$ — each in its own subset
+- $S(n,n-1) = \binom{n}{2}$ — exactly one pair, rest singletons
+- $S(n,2) = 2^{n-1} - 1$
+
+---
+
+## Bell Numbers $B_n$
+
+$B_n = \sum_{k=0}^{n} S(n,k)$ = total number of partitions of $[n]$ (any number of subsets).
+
+$B_0=1, B_1=1, B_2=2, B_3=5, B_4=15, B_5=52, B_6=203, \ldots$
+
+### Bell Triangle
+
+```
+Row 0:  1
+Row 1:  1  2
+Row 2:  2  3  5
+Row 3:  5  7 10 15
+Row 4: 15 20 27 37 52
+```
+
+Rule: first element of row $n$ = last element of row $n-1$; each subsequent element = previous element + element above-left.
+
+```cpp
+long long bell[MAXN][MAXN];
+
+void bell_triangle(int n) {
+    bell[0][0] = 1;
+    for (int i = 1; i <= n; i++) {
+        bell[i][0] = bell[i-1][i-1];
+        for (int j = 1; j <= i; j++)
+            bell[i][j] = (bell[i][j-1] + bell[i-1][j-1]) % MOD;
+    }
+    // B[n] = bell[n][0]
+}
+```
+
+**Complexity**: $O(n^2)$ time and space.
+
+---
+
+## Stirling Numbers of the First Kind $s(n,k)$
+
+$s(n,k)$ (unsigned) = number of permutations of $[n]$ with **exactly $k$ cycles**.
+
+### Recurrence
+
+$$s(n,k) = (n-1) \cdot s(n-1,k) + s(n-1,k-1)$$
+
+- Element $n$ inserted into one of $n-1$ positions within existing cycles: $(n-1)\cdot s(n-1,k)$
+- Element $n$ forms a new 1-cycle: $s(n-1,k-1)$
+
+```cpp
+long long s1[MAXN][MAXN];  // unsigned Stirling 1st kind
+
+void stirling1(int n) {
+    s1[0][0] = 1;
+    for (int i = 1; i <= n; i++)
+        for (int k = 1; k <= i; k++)
+            s1[i][k] = ((i-1) * s1[i-1][k] + s1[i-1][k-1]) % MOD;
+}
+```
+
+### Rising/Falling Factorials Connection
+
+$$x^{\overline{n}} = x(x+1)\cdots(x+n-1) = \sum_{k=0}^{n} s(n,k) x^k$$
+
+$$x^{\underline{n}} = x(x-1)\cdots(x-n+1) = \sum_{k=0}^{n} (-1)^{n-k} s(n,k) x^k$$
+
+These convert between power bases — useful when a sum involves falling/rising factorials.
+
+### Key Values
+
+- $s(n,1) = (n-1)!$ — one big cycle
+- $s(n,n) = 1$ — all 1-cycles (identity permutation)
+- $s(n,n-1) = \binom{n}{2}$ — one 2-cycle, rest 1-cycles
+- $\sum_{k} s(n,k) = n!$
+
+---
+
+## Orthogonality
+
+Stirling numbers of the first and second kinds are inverses:
+
+$$\sum_{k} s(n,k) S(k,m) = [n=m] = \sum_k S(n,k) s(k,m)$$
+
+This is the change-of-basis identity between the standard polynomial basis $\{x^n\}$ and the falling factorial basis $\{x^{\underline{n}}\}$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Stirling S(n,k) for all k ≤ n", time: "O(n²)", space: "O(n²)" },
+  { operation: "Bell numbers up to B_n (triangle)", time: "O(n²)", space: "O(n²)" },
+  { operation: "Single S(n,k) via explicit formula", time: "O(k log n)", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Partition n students into k groups**: $S(n,k)$ (unlabeled groups) or $k! \cdot S(n,k)$ (labeled groups = surjections)
+2. **Color n objects with exactly k colors (all used)**: $k! \cdot S(n,k)$
+3. **Permutations with exactly k cycles**: Stirling 1st kind $s(n,k)$
+4. **Sum over all partitions**: Bell number $B_n$
+5. **Polynomial change of basis**: use Stirling 1st/2nd kind relationship
+
+---
+
+## Common Mistakes
+
+1. **Labeled vs unlabeled groups**: $S(n,k)$ = unlabeled. Surjections = $k! \cdot S(n,k)$ (labeled).
+2. **Signed vs unsigned Stirling 1st**: unsigned $s(n,k) \geq 0$; signed version alternates — check which is needed.
+3. **Bell triangle row ordering**: first element of row $n$ = LAST of row $n-1$, not first.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Counting Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/980/E",
+    difficulty: "2200",
+    concepts: ["Stirling", "set partition"],
+    tier: "advanced"
+  },
+  {
+    name: "Coloring of Vertices",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1081/G",
+    difficulty: "2400",
+    concepts: ["Stirling 2nd kind", "inclusion-exclusion"],
+    tier: "killer"
+  },
+  {
+    name: "Permutation Groups",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1063/F",
+    difficulty: "2200",
+    concepts: ["Stirling 1st kind", "cycle structure"],
+    tier: "advanced"
+  },
+  {
+    name: "Bell Numbers",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/BELLNUM/",
+    difficulty: "1400",
+    concepts: ["Bell numbers", "Bell triangle"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Inclusion-Exclusion](/math/combinatorics/inclusion-exclusion) — explicit Stirling formula via PIE
+- [Generating Functions](/math/combinatorics/generating-functions) — EGF of Bell numbers: $e^{e^x - 1}$
+- [Partition Numbers](/math/combinatorics/partition) — integer partitions vs set partitions
+- [Burnside's Lemma](/math/combinatorics/burnside) — cycle index uses Stirling 1st kind structure
+
+---
+
+## References
+
+1. cp-algorithms — [Stirling Numbers](https://cp-algorithms.com/combinatorics/stirling-numbers.html)
+2. Concrete Mathematics (Graham, Knuth, Patashnik) §6 — Stirling numbers and their duality
+3. Stanley, Enumerative Combinatorics Vol. 1 §1.9 — Permutations by cycle type

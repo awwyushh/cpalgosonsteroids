@@ -1,0 +1,196 @@
+---
+title: Burnside's Lemma
+description: Counting distinct objects under group symmetry — cycle index, necklaces, colorings
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Burnside's Lemma
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "GCD & LCM", href: "/math/foundations/gcd-lcm" }
+]} />
+
+## Why This Topic Matters
+
+Burnside's lemma counts objects that are "the same" under some symmetry group. Necklaces with beads where rotations are equivalent, colorings of a cube where rotations are the same — these require Burnside, not naive counting.
+
+**Contest relevance**: CF Div.1 C–D, any problem involving "distinct up to rotation/reflection", necklace counting, symmetric coloring.
+
+---
+
+## The Lemma
+
+Given a group $G$ acting on a set $X$ (configurations), the number of **distinct orbits** (equivalence classes under symmetry) is:
+
+$$|X/G| = \frac{1}{|G|} \sum_{g \in G} |X^g|$$
+
+where $X^g = \{x \in X : g \cdot x = x\}$ = configurations **fixed** by $g$.
+
+**English**: average number of configurations fixed by each group element.
+
+---
+
+## Necklace Counting (Rotations Only)
+
+$n$ beads, $k$ colors, rotations equivalent. Group = cyclic group $C_n$ (rotations by $0, 1, \ldots, n-1$ positions).
+
+A rotation by $d$ positions fixes a coloring iff the coloring is periodic with period $d$, i.e., $\text{period} \mid d$.
+
+Number of colorings fixed by rotation $d$: $k^{\gcd(d, n)}$.
+
+$$\text{Necklaces} = \frac{1}{n} \sum_{d=0}^{n-1} k^{\gcd(d,n)} = \frac{1}{n} \sum_{d \mid n} \phi(d) \cdot k^d$$
+
+(Group terms by $\gcd$ value, using $|\{d : \gcd(d,n)=j\}| = \phi(n/j)$.)
+
+```cpp
+// Count distinct necklaces: n beads, k colors, rotations equivalent
+long long necklaces(int n, int k) {
+    long long result = 0;
+    for (int d = 1; d <= n; d++) {
+        if (n % d == 0) {
+            // d = gcd(rotation, n) for phi(n/d) rotations
+            result += euler_phi(n / d) * power(k, d, MOD);
+            result %= MOD;
+        }
+    }
+    return result * modinv(n, MOD) % MOD;
+}
+```
+
+**With reflections (bracelets)**: add the dihedral group $D_n$ (rotations + reflections). For $n$ odd: each reflection fixes $k^{(n+1)/2}$ colorings. For $n$ even: two types of reflections.
+
+---
+
+## Cube Face Coloring
+
+Color the 6 faces of a cube with $k$ colors, rotations equivalent.
+
+The rotation group of a cube has 24 elements:
+- 1 identity: fixes $k^6$
+- 6 face rotations (90°, 270°): fixes $k^3$
+- 3 face rotations (180°): fixes $k^4$
+- 8 vertex rotations (120°, 240°): fixes $k^2$
+- 6 edge rotations (180°): fixes $k^3$
+
+$$\text{Distinct colorings} = \frac{k^6 + 3k^4 + 12k^3 + 8k^2}{24}$$
+
+---
+
+## General Template
+
+```cpp
+// Burnside for general group G acting on configurations
+// fixedCount(g) = number of configurations fixed by group element g
+long long burnside(vector<function<long long()>>& fixed_counts) {
+    long long total = 0;
+    for (auto& f : fixed_counts)
+        total += f();
+    // Divide by |G| — use modular inverse if computing mod prime
+    return total / fixed_counts.size();  // exact division if not modular
+}
+```
+
+---
+
+## Cycle Index
+
+For Pólya enumeration (generalization), compute the **cycle index** polynomial of the group $G$:
+
+$$Z(G; x_1, x_2, \ldots) = \frac{1}{|G|} \sum_{g \in G} \prod_i x_i^{c_i(g)}$$
+
+where $c_i(g)$ = number of $i$-cycles in the permutation $g$.
+
+For necklaces: substituting $x_i = k$ for all $i$ gives the Burnside count.
+For weighted colorings: substitute $x_i = \sum_{\text{colors}} w^i$ (Pólya's theorem, see [Pólya Enumeration](/math/combinatorics/polya)).
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Necklaces (n beads, k colors)", time: "O(√n · log n)", space: "O(1)" },
+  { operation: "General Burnside (|G| elements)", time: "O(|G| · cost per fixed count)", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Necklaces with rotation**: $\frac{1}{n}\sum_{d|n} \phi(d) k^d$
+2. **Bracelets with reflection**: add reflection terms, divide by $2n$
+3. **Cube/polyhedra colorings**: enumerate 24/48/60 rotations explicitly
+4. **Grid with rotation by 90°**: 4-element group $\{0°, 90°, 180°, 270°\}$
+5. **Permutation group acting on positions**: count using cycle structure of each permutation
+
+---
+
+## Common Mistakes
+
+1. **Forgetting reflections**: necklace vs bracelet. Problem says "rotations AND reflections" → use $D_n$.
+2. **$\gcd(d, n)$** not $\gcd(d, k)$: fixed colorings by rotation $d$ use $k^{\gcd(d,n)}$.
+3. **Non-integer result**: Burnside sum must be divisible by $|G|$ — if not, you have a bug.
+4. **Modular division**: divide by $|G|$ using modular inverse, not integer division.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Necklaces",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2209",
+    difficulty: "1600",
+    concepts: ["Burnside", "necklace", "Euler phi"],
+    tier: "standard"
+  },
+  {
+    name: "Coloring",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1081/G",
+    difficulty: "2400",
+    concepts: ["Burnside", "inclusion-exclusion"],
+    tier: "killer"
+  },
+  {
+    name: "Cube",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/624/F",
+    difficulty: "2200",
+    concepts: ["Burnside", "cube rotations"],
+    tier: "advanced"
+  },
+  {
+    name: "Regular Polygon",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/662/C",
+    difficulty: "2000",
+    concepts: ["Burnside", "dihedral group"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Pólya Enumeration](/math/combinatorics/polya) — weighted generalization of Burnside
+- [Euler's Totient](/math/number-theory/euler-phi) — necklace formula uses $\phi(d)$
+- [GCD & LCM](/math/foundations/gcd-lcm) — $\gcd(d, n)$ determines fixed colorings per rotation
+
+---
+
+## References
+
+1. cp-algorithms — [Burnside's Lemma](https://cp-algorithms.com/combinatorics/burnside.html)
+2. Burnside, W. — Theory of Groups of Finite Order (1897)
+3. Concrete Mathematics §7.4 — Counting equivalence classes

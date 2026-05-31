@@ -1,0 +1,226 @@
+---
+title: Integer Partitions
+description: Counting ways to write n as a sum of positive integers — DP, generating functions, pentagonal theorem
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Integer Partitions
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Generating Functions", href: "/math/combinatorics/generating-functions" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Integer partitions count representations $n = a_1 + a_2 + \cdots + a_k$ with $a_1 \geq a_2 \geq \cdots \geq a_k \geq 1$. They appear in problems involving coin change with count, knapsack variants, and theoretical number theory.
+
+**Contest relevance**: CSES, CF Div.1 D, combinatorics problems with "sum equals n using parts from a set".
+
+---
+
+## Counting Unrestricted Partitions
+
+$p(n)$ = number of partitions of $n$ (order doesn't matter, parts are positive integers).
+
+$p(0)=1, p(1)=1, p(2)=2, p(3)=3, p(4)=5, p(5)=7, p(6)=11, \ldots$
+
+### DP Approach
+
+```cpp
+// p(n) mod m using DP — O(n²) time
+const int MAXN = 1005;
+long long dp[MAXN];  // dp[i] = p(i) mod MOD
+
+void partition_dp(int n) {
+    dp[0] = 1;
+    for (int part = 1; part <= n; part++)
+        for (int i = part; i <= n; i++)
+            dp[i] = (dp[i] + dp[i - part]) % MOD;
+    // dp[n] = p(n)
+}
+```
+
+This is the classic unbounded knapsack formulation.
+
+### Restricted: Parts from Set S
+
+```cpp
+// Partitions of n using only parts from set S
+long long dp[MAXN] = {};
+dp[0] = 1;
+for (int part : S)
+    for (int i = part; i <= n; i++)
+        dp[i] = (dp[i] + dp[i - part]) % MOD;
+```
+
+---
+
+## Euler's Pentagonal Number Theorem
+
+$$\prod_{k=1}^{\infty} (1 - x^k) = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k-1)/2}$$
+
+Pentagonal numbers: $1, 2, 5, 7, 12, 15, 22, 26, \ldots$ ($\omega_k = k(3k-1)/2$ for $k = 1, -1, 2, -2, \ldots$)
+
+This gives a recurrence for $p(n)$ in $O(n\sqrt{n})$:
+
+$$p(n) = \sum_{k \neq 0} (-1)^{k+1} p(n - \omega_k)$$
+
+where $\omega_k = k(3k-1)/2$ for $k = 1,-1,2,-2,3,-3,\ldots$ and $p(0)=1$, $p(\text{negative})=0$.
+
+```cpp
+// O(n * sqrt(n)) using pentagonal recurrence
+long long p[MAXN];
+
+void partition_fast(int n) {
+    p[0] = 1;
+    for (int i = 1; i <= n; i++) {
+        p[i] = 0;
+        for (int k = 1; ; k++) {
+            long long w1 = (long long)k * (3*k - 1) / 2;
+            long long w2 = (long long)k * (3*k + 1) / 2;
+            if (w1 > i) break;
+            p[i] += (k % 2 == 1 ? 1 : -1) * p[i - w1];
+            if (w2 <= i)
+                p[i] += (k % 2 == 1 ? 1 : -1) * p[i - w2];
+        }
+        p[i] = ((p[i] % MOD) + MOD) % MOD;
+    }
+}
+```
+
+---
+
+## Restricted Partitions
+
+| Restriction | Count | Notes |
+|------------|-------|-------|
+| Parts $\leq k$ | $q(n, k)$ | DP or generating function |
+| Exactly $k$ parts | $q(n, k)$ (same table) | by conjugate partition duality |
+| Distinct parts | $q_d(n)$ | DP with each part used ≤ once |
+| Odd parts only | = distinct parts | Euler's identity |
+| Parts ≤ n, exactly k parts | $p(n, k)$ | 2D DP |
+
+### Partitions into Distinct Parts
+
+```cpp
+// dp[i] = number of partitions of i into distinct parts
+long long dp[MAXN] = {};
+dp[0] = 1;
+for (int part = 1; part <= n; part++)
+    for (int i = n; i >= part; i--)  // reverse loop = 0-1 knapsack
+        dp[i] = (dp[i] + dp[i - part]) % MOD;
+```
+
+### 2D Partition DP
+
+```cpp
+// dp[i][j] = partitions of i into exactly j parts
+long long dp[MAXN][MAXN];
+dp[0][0] = 1;
+for (int i = 1; i <= n; i++)
+    for (int j = 1; j <= i; j++)
+        dp[i][j] = (dp[i-1][j-1] + (j <= i-j ? dp[i-j][j] : 0)) % MOD;
+// dp[i][j] = dp[i-1][j-1] + dp[i-j][j] (add new smallest part or increase smallest)
+```
+
+---
+
+## Generating Function
+
+$$\sum_{n=0}^{\infty} p(n) x^n = \prod_{k=1}^{\infty} \frac{1}{1-x^k}$$
+
+Each factor $\frac{1}{1-x^k} = 1 + x^k + x^{2k} + \cdots$ counts how many times part $k$ is used.
+
+For distinct parts: $\prod_{k=1}^{\infty} (1 + x^k)$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Partition DP (all p(0)..p(n))", time: "O(n²)", space: "O(n)" },
+  { operation: "Pentagonal recurrence", time: "O(n√n)", space: "O(n)" },
+  { operation: "Partitions into distinct parts", time: "O(n²)", space: "O(n)" },
+  { operation: "2D partition table", time: "O(n²)", space: "O(n²)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Coin change (count ways)**: partition into parts from given set — unbounded knapsack
+2. **Distinct parts = odd parts**: Euler's identity, useful in proofs
+3. **Conjugate partition**: swap rows/columns in Young diagram — parts $\leq k$ ↔ at most $k$ parts
+4. **Large $n$ quickly**: pentagonal recurrence for $n$ up to $10^5$
+
+---
+
+## Common Mistakes
+
+1. **Order matters vs doesn't**: compositions (order matters) vs partitions (order doesn't). Partition DP uses outer loop over parts.
+2. **Distinct parts**: need 0-1 knapsack (reverse inner loop), not unbounded.
+3. **Pentagonal sign**: $(-1)^{k+1}$, positive for $k$ odd (i.e., $k=1,-1,3,-3,\ldots$).
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Coin Combinations II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1636",
+    difficulty: "1000",
+    concepts: ["partition DP", "unbounded knapsack"],
+    tier: "warmup"
+  },
+  {
+    name: "Integer Partitions",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2110",
+    difficulty: "1500",
+    concepts: ["partition count", "DP"],
+    tier: "standard"
+  },
+  {
+    name: "Counting Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1278/F",
+    difficulty: "2000",
+    concepts: ["partition", "distinct parts"],
+    tier: "advanced"
+  },
+  {
+    name: "Partition Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1536/C",
+    difficulty: "2000",
+    concepts: ["partition", "game theory"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Generating Functions](/math/combinatorics/generating-functions) — OGF of partitions is $\prod \frac{1}{1-x^k}$
+- [Bell & Stirling Numbers](/math/combinatorics/bell-stirling) — set partitions (labeled) vs integer partitions (unlabeled)
+- [Stars & Bars](/math/combinatorics/stars-bars) — compositions (ordered) vs partitions (unordered)
+
+---
+
+## References
+
+1. cp-algorithms — [Integer Partition](https://cp-algorithms.com/combinatorics/partition.html)
+2. Andrews, G.E. — The Theory of Partitions (1998)
+3. Hardy & Ramanujan — Asymptotic formula for $p(n) \approx \frac{e^{\pi\sqrt{2n/3}}}{4n\sqrt{3}}$

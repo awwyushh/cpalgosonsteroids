@@ -1,0 +1,208 @@
+---
+title: Lucas Theorem
+description: C(n,k) mod prime via base-p digits, Andrew Granville extension for prime powers
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Lucas Theorem
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Binomial Coefficients", href: "/math/combinatorics/binomial-coefficients" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Computing $\binom{n}{k} \bmod p$ when $n$ can be up to $10^{18}$ but $p$ is prime (possibly small) requires Lucas theorem. The factorial precomputation approach fails for large $n$; Lucas decomposes $n,k$ in base $p$ and multiplies small binomials.
+
+**Contest relevance**: CSES Binomial Coefficients, CF problems with large $n$ and prime or prime-power mod.
+
+---
+
+## Lucas Theorem
+
+For prime $p$, write $n = n_s p^s + \cdots + n_1 p + n_0$ and $k = k_s p^s + \cdots + k_1 p + k_0$ in base $p$:
+
+$$\binom{n}{k} \equiv \prod_{i=0}^{s} \binom{n_i}{k_i} \pmod{p}$$
+
+**Consequence**: $\binom{n}{k} \equiv 0 \pmod{p}$ iff any base-$p$ digit of $k$ exceeds the corresponding digit of $n$ (Kummer's theorem).
+
+---
+
+## Implementation
+
+```cpp
+// Precompute small binomials mod p for base cases
+// Then recursively apply Lucas
+long long small_C[1005][1005];
+
+void precompute_lucas(long long p) {
+    int pp = (int)p;
+    for (int i = 0; i <= pp; i++) {
+        small_C[i][0] = 1;
+        for (int j = 1; j <= i; j++)
+            small_C[i][j] = (small_C[i-1][j-1] + small_C[i-1][j]) % p;
+    }
+}
+
+long long lucas(long long n, long long k, long long p) {
+    if (k == 0) return 1;
+    if (k > n) return 0;
+    return small_C[n % p][k % p] * lucas(n / p, k / p, p) % p;
+}
+```
+
+**Depth of recursion**: $O(\log_p n)$.
+
+For large prime $p$ (say $p = 10^9+7$): if $n < p$, no recursion needed — just precompute factorials up to $p-1$.
+
+---
+
+## When to Use Which Method
+
+| Constraint | Method |
+|-----------|--------|
+| $n \leq 10^6$, $p$ prime | Precompute fact/inv_fact, $O(1)$ query |
+| $n \leq 10^{18}$, $p$ prime, $p \leq 10^6$ | Lucas theorem |
+| $n \leq 10^{18}$, $p$ large prime | If $n < p$: factorial; if $n \geq p$: Lucas |
+| $n \leq 10^{18}$, $m = p^a$ prime power | Andrew Granville's extension |
+| $n \leq 10^{18}$, $m$ composite | Factor $m$, apply per prime power, CRT |
+
+---
+
+## Andrew Granville Extension (Prime Powers)
+
+For $\binom{n}{k} \bmod p^a$:
+
+The key idea: $n! = p^{v_p(n!)} \cdot (n!/p^{v_p(n!)})$ where $v_p$ is the $p$-adic valuation.
+
+The non-$p$ part of $n!$ mod $p^a$ is periodic with period $p^a$. Use:
+
+$$\binom{n}{k} \equiv (-1)^{v_p(\binom{n}{k})} \cdot \frac{f(n)}{f(k)f(n-k)} \cdot \prod_i \binom{n_i}{k_i} \pmod{p^a}$$
+
+where $f(n) = \prod_{1 \leq j \leq n, p \nmid j} j$ (product of non-multiples of $p$ up to $n$, mod $p^a$).
+
+```cpp
+// Granville's algorithm — full implementation at cp-algorithms
+// Key primitives needed:
+// 1. f(n) mod p^a — product of non-multiples of p up to n
+// 2. v_p(n!) — Legendre's formula
+// 3. Small Stirling/Pascal for the residue digits
+```
+
+<Callout type="info">
+Full Granville implementation is ~50 lines. For most contests, Lucas for prime mod suffices. Only implement Granville if problem explicitly requires composite or prime-power mod.
+</Callout>
+
+---
+
+## Kummer's Theorem
+
+The $p$-adic valuation of $\binom{n}{k}$ equals the number of carries when adding $k$ and $n-k$ in base $p$:
+
+$$v_p\left(\binom{n}{k}\right) = \text{number of carries when adding } k \text{ and } n-k \text{ in base } p$$
+
+**Consequence**: $p \nmid \binom{n}{k}$ iff there are no carries iff $k_i \leq n_i$ for all base-$p$ digits.
+
+```cpp
+// Check if p divides C(n,k)
+// Returns false if C(n,k) ≡ 0 (mod p)
+bool nonzero_mod_p(long long n, long long k, long long p) {
+    while (k > 0) {
+        if (k % p > n % p) return false;
+        k /= p; n /= p;
+    }
+    return true;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Precompute small Pascal for p ≤ P", time: "O(P²)", space: "O(P²)" },
+  { operation: "Lucas query", time: "O(log_p(n))", space: "O(1)" },
+  { operation: "Kummer's theorem check", time: "O(log_p(n))", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **$\binom{n}{k} \bmod p$ for large $n$**: Lucas directly
+2. **Check divisibility**: Kummer's theorem (count carries)
+3. **Count $k \leq n$ with $p \nmid \binom{n}{k}$**: equals $\prod (n_i + 1)$ by Lucas (each digit independently valid)
+4. **Sum of row of Pascal's triangle mod $p$**: $2^{\text{(number of 1-bits of n in base p)}}$ by Lucas
+
+---
+
+## Common Mistakes
+
+1. **Base case**: `lucas(n, 0, p) = 1` always, before recursive call.
+2. **Small $p$ precomputation**: need `small_C[i][j]` for all $0 \leq j \leq i \leq p$, not just $i < p$.
+3. **Large prime optimization**: if $p > n$, Lucas degenerates to $\binom{n}{k} \bmod p$ directly — no recursion needed.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Binomial Coefficients",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1079",
+    difficulty: "1000",
+    concepts: ["Lucas theorem", "large n"],
+    tier: "warmup"
+  },
+  {
+    name: "Lucas Theorem",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/582/E",
+    difficulty: "2000",
+    concepts: ["Lucas theorem", "Kummer"],
+    tier: "standard"
+  },
+  {
+    name: "k-th divisor",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1041/F",
+    difficulty: "2100",
+    concepts: ["Lucas", "composite mod", "CRT"],
+    tier: "advanced"
+  },
+  {
+    name: "Stars and Bars 2",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1349/F",
+    difficulty: "2400",
+    concepts: ["Lucas", "prime power mod", "Granville"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Binomial Coefficients](/math/combinatorics/binomial-coefficients) — factorial method for $n \leq 10^6$
+- [Chinese Remainder Theorem](/math/number-theory/crt) — combine results mod different prime powers
+- [Prime Factorization](/math/number-theory/prime-factorization) — Legendre formula for $v_p(n!)$
+- [Modular Inverse](/math/foundations/modular-inverse) — needed for inverse factorials
+
+---
+
+## References
+
+1. cp-algorithms — [Lucas Theorem](https://cp-algorithms.com/combinatorics/lucas_theorem.html)
+2. Andrew Granville — [Binomial coefficients modulo prime powers](https://web.archive.org/web/20170202003812/http://www.dms.umontreal.ca/~andrew/PDF/BinCoeff.pdf)
+3. Kummer, E. — Über die Ergänzungssätze zu den allgemeinen Reciprocitätsgesetzen (1852)
