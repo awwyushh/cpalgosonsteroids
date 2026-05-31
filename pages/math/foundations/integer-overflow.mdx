@@ -1,0 +1,259 @@
+---
+title: Integer Overflow & Precision
+description: Preventing overflow in CP — int vs long long vs __int128, safe arithmetic, and floating-point pitfalls
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Integer Overflow & Precision
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Essential</span>
+</div>
+
+## Why This Topic Matters
+
+Integer overflow is the #1 source of WA on problems that appear correct. A single `int * int` with values near $10^9$ silently produces a wrong answer with no runtime error. Understanding types and overflow prevention is a prerequisite for all competitive programming.
+
+**Contest relevance**: Every single contest. This is foundational.
+
+---
+
+## Learning Objectives
+
+- Know the limits of `int`, `long long`, `unsigned long long`, `__int128`
+- Detect when multiplication/addition will overflow
+- Use safe arithmetic patterns
+- Understand floating-point precision limits
+
+---
+
+## Type Limits
+
+| Type | Range | Max value |
+|------|-------|-----------|
+| `int` (32-bit) | $[-2^{31}, 2^{31}-1]$ | ~$2.1 \times 10^9$ |
+| `long long` (64-bit) | $[-2^{63}, 2^{63}-1]$ | ~$9.2 \times 10^{18}$ |
+| `unsigned long long` | $[0, 2^{64}-1]$ | ~$1.8 \times 10^{19}$ |
+| `__int128` | $[-2^{127}, 2^{127}-1]$ | ~$1.7 \times 10^{38}$ |
+| `double` (53-bit mantissa) | exact integers up to $2^{53}$ | ~$9 \times 10^{15}$ |
+
+---
+
+## Common Overflow Patterns
+
+**`int * int`** — most common mistake:
+```cpp
+int a = 1e9, b = 3;
+int bad = a * b;         // OVERFLOW: 3e9 > INT_MAX
+long long good = (long long)a * b;  // correct: cast one operand
+```
+
+**Array index overflow**:
+```cpp
+int n = 1e5;
+int arr[n * n];  // n*n computed as int — overflow if n > ~46340
+// Fix: long long idx = (long long)n * n;
+```
+
+**LCM overflow**:
+```cpp
+long long a = 1e18, b = 2;
+long long bad = a / __gcd(a,b) * b;  // still overflows if not careful
+// Always check: lcm <= LLONG_MAX / b before computing
+```
+
+<Callout type="warning">
+The expression `a * b % mod` has **undefined behavior** if `a * b` overflows `long long`. Compute `a % mod * (b % mod) % mod` or use `__int128`.
+</Callout>
+
+---
+
+## Safe Multiplication
+
+**Option 1**: use `__int128` (GCC extension, not MSVC):
+```cpp
+long long mulmod(long long a, long long b, long long mod) {
+    return (__int128)a * b % mod;
+}
+```
+
+**Option 2**: GCC built-in overflow check:
+```cpp
+long long result;
+if (__builtin_mul_overflow(a, b, &result)) {
+    // overflow occurred
+}
+```
+
+**Option 3**: manual check before multiply:
+```cpp
+// Safe: if a > 0 && b > LLONG_MAX / a, overflow
+bool will_overflow(long long a, long long b) {
+    if (a == 0 || b == 0) return false;
+    return abs(a) > LLONG_MAX / abs(b);
+}
+```
+
+---
+
+## __int128 Basics
+
+```cpp
+__int128 x = (__int128)1e18 * 1e18;  // no overflow
+// Print __int128 (no direct cout support):
+void print128(__int128 x) {
+    if (x < 0) { cout << '-'; x = -x; }
+    if (x > 9) print128(x / 10);
+    cout << (char)('0' + x % 10);
+}
+```
+
+---
+
+## Floating Point Precision
+
+`double` has 53-bit mantissa — exact integers only up to $2^{53} \approx 9 \times 10^{15}$.
+
+```cpp
+double x = 1e16 + 1;
+cout << (long long)x;  // may print 10000000000000000, not 10000000000000001
+
+// For geometry: use epsilon comparisons
+const double EPS = 1e-9;
+if (abs(a - b) < EPS) { /* treat as equal */ }
+```
+
+**When to use `long double`**: when `double` loses precision near $10^{15}$-$10^{18}$. `long double` gives ~18-19 significant digits (80-bit extended precision on x86).
+
+---
+
+## Undefined Behavior vs Defined Wrap
+
+**Signed overflow is undefined behavior** in C++. The compiler may assume it never happens and optimize accordingly — producing wrong code silently.
+
+```cpp
+int x = INT_MAX;
+x++;            // UB — compiler may optimize away overflow checks
+x + 1 > x;     // compiler may assume always true (elides check)
+```
+
+**Unsigned overflow is well-defined** — wraps mod $2^{32}$ or $2^{64}$:
+```cpp
+unsigned int x = UINT_MAX;
+x++;            // x == 0, defined behavior
+```
+
+<Callout type="warning">
+Never rely on signed integer wrap. Use `unsigned` or `long long` explicitly, or check before the operation.
+</Callout>
+
+**Shift UB**:
+```cpp
+1 << 31;        // UB for int (shifting into sign bit)
+1LL << 31;      // fine — 2^31 fits in long long
+1 << 63;        // UB even for long long (shifting past width)
+(long long)1 << 62;  // fine
+```
+
+---
+
+## Sentinel Values (INF)
+
+Standard CP patterns for "infinity":
+```cpp
+const int INF   = 0x3f3f3f3f;       // ~1.06e9, safe for int; 0x3f3f3f3f + 0x3f3f3f3f won't overflow int
+const long long LINF = 0x3f3f3f3f3f3f3f3fLL;  // ~4.3e18, safe for long long
+// Both work with memset(arr, 0x3f, sizeof(arr))
+
+// Alternative: explicit
+const int INF = 1e9 + 7;
+const long long LINF = 2e18;
+
+// Using INF safely in Dijkstra:
+dist[src] = 0;
+memset(dist, 0x3f, sizeof(dist));  // all set to INF
+```
+
+`0x3f3f3f3f` is popular because:
+- `memset(arr, 0x3f, sizeof(arr))` fills it correctly
+- `INF + INF = 0x7e7e7e7e` which fits in `int` — no overflow when adding two distances
+
+---
+
+## Practical Rules for CP
+
+1. **Default to `long long`** unless you know values fit in `int`.
+2. **Any multiplication of two numbers near $10^9$**: use `(long long)a * b`.
+3. **Modular multiplication**: `1LL * a * b % mod` or `(__int128)a * b % mod`.
+4. **Sums of up to $10^6$ values each up to $10^9$**: result fits in `long long` ($10^{15}$).
+5. **Sums of up to $10^{18}$ values each up to $10^9$**: use `__int128` or careful modular arithmetic.
+
+---
+
+## Common Mistakes
+
+1. **`int n = 1e9; n * n`**: this is `int` multiplication — wraps silently.
+2. **`1 << 31`**: undefined behavior for `int`. Use `1LL << 31`.
+3. **`-INT_MIN`**: undefined behavior! `INT_MIN = -2^31`, and `2^31` doesn't fit in `int`.
+4. **Dividing before checking**: `a / gcd * b` can still overflow if `a/gcd * b > LLONG_MAX`.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Overflow",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1A",
+    difficulty: "1000",
+    concepts: ["integer overflow", "long long"],
+    tier: "warmup"
+  },
+  {
+    name: "Lucky Numbers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/489/C",
+    difficulty: "1500",
+    concepts: ["__int128", "large multiplication"],
+    tier: "standard"
+  },
+  {
+    name: "Vasya and Multisets",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1093/G",
+    difficulty: "2000",
+    concepts: ["overflow prevention", "large numbers"],
+    tier: "advanced"
+  },
+  {
+    name: "Helpful Maths",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/339/B",
+    difficulty: "1600",
+    concepts: ["large sums", "long long"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Modular Arithmetic](/math/foundations/modular-arithmetic) — modular reduction prevents overflow in most number theory problems
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — uses `__int128` for safe `mulmod` when mod $> 2^{31}$
+- [GCD & LCM](/math/foundations/gcd-lcm) — LCM overflow is a classic trap
+- [Miller-Rabin](/math/number-theory/miller-rabin) — requires `mulmod` with `__int128` for $n \leq 10^{18}$
+
+---
+
+## References
+
+1. cppreference — [Arithmetic operators & overflow](https://en.cppreference.com/w/cpp/language/operator_arithmetic)
+2. C++ standard §8.5 — Signed integer overflow is undefined behavior
+3. GCC docs — [`__builtin_add_overflow`, `__builtin_mul_overflow`](https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html)
