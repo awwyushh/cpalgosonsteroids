@@ -1,0 +1,263 @@
+---
+title: Berlekamp-Massey Algorithm
+description: Find the minimal linear recurrence for a given sequence in O(n²) — LFSR connection and full proof
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Berlekamp-Massey Algorithm
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Linear Recurrences", href: "/math/linear-algebra/linear-recurrences" },
+  { title: "Gaussian Elimination", href: "/math/linear-algebra/gaussian-elimination" }
+]} />
+
+## Why This Topic Matters
+
+Given a sequence $a_0, a_1, \ldots, a_{n-1}$, Berlekamp-Massey finds the **shortest linear recurrence** that generates it. This is used to: detect that a DP sequence has a linear recurrence (then use Kitamasa for fast computation), solve LFSR problems, and find recurrences in competitive programming.
+
+**Contest relevance**: CF Div.1 E/F, problems where you can compute the first $2k$ terms of a sequence and want to find the $n$-th term for huge $n$.
+
+---
+
+## LFSR Background
+
+A **Linear Feedback Shift Register (LFSR)** of length $L$ generates a sequence via:
+
+$$s_n = c_1 s_{n-1} + c_2 s_{n-2} + \cdots + c_L s_{n-L}$$
+
+The **connection polynomial** (characteristic polynomial) is:
+
+$$C(x) = 1 - c_1 x - c_2 x^2 - \cdots - c_L x^L$$
+
+The minimal LFSR for a sequence has length = order of the minimal linear recurrence.
+
+---
+
+## Algorithm Overview
+
+Berlekamp-Massey builds the minimal connection polynomial $C(x)$ iteratively.
+
+**Invariant**: after processing $s_0, \ldots, s_{n-1}$, we maintain:
+- $C(x)$ — current candidate connection polynomial (degree $L$)
+- $B(x)$ — previous best polynomial
+- $L$ — current LFSR length
+- $m$ — steps since last length increase
+- $b$ — the discrepancy at the last length increase
+
+**Discrepancy** at step $n$:
+
+$$d = s_n + \sum_{i=1}^{L} c_i s_{n-i}$$
+
+If $d = 0$: current $C$ still works, increment $m$.
+
+If $d \neq 0$:
+- Update $C(x) \leftarrow C(x) - (d/b) \cdot x^m \cdot B(x)$
+- If $2L \leq n$: update $L = n + 1 - L$, $B = C_{old}$, $b = d$, $m = 1$
+- Else: $m \leftarrow m + 1$
+
+---
+
+## Implementation (Over Any Field)
+
+```cpp
+// Berlekamp-Massey: find minimal linear recurrence over a field (prime modulus)
+// Input: sequence s[0..n-1]
+// Output: coefficients c[1..L] such that s[i] = c[1]*s[i-1] + ... + c[L]*s[i-L]
+
+const long long MOD = 1e9 + 7;
+
+long long modinv(long long a, long long m) {
+    return power(a, m - 2, m);
+}
+
+vector<long long> berlekamp_massey(vector<long long> s) {
+    int n = s.size();
+    vector<long long> C = {1}, B = {1};
+    long long b = 1;
+    int L = 0, m = 1;
+    
+    for (int i = 0; i < n; i++) {
+        // Compute discrepancy d = s[i] + sum_{j=1}^{L} C[j] * s[i-j]
+        long long d = s[i];
+        for (int j = 1; j < (int)C.size(); j++)
+            d = (d + C[j] * s[i - j]) % MOD;
+        
+        if (d == 0) {
+            m++;
+            continue;
+        }
+        
+        vector<long long> T = C;
+        long long coef = d * modinv(b, MOD) % MOD;
+        
+        // C(x) -= coef * x^m * B(x)
+        if ((int)C.size() < (int)B.size() + m)
+            C.resize(B.size() + m, 0);
+        for (int j = 0; j < (int)B.size(); j++)
+            C[j + m] = (C[j + m] - coef * B[j]) % MOD;
+        
+        if (2 * L <= i) {
+            L = i + 1 - L;
+            B = T;
+            b = d;
+            m = 1;
+        } else {
+            m++;
+        }
+    }
+    
+    // C = {1, -c[1], -c[2], ...}; return recurrence coefficients c[1..L]
+    vector<long long> rec(C.size() - 1);
+    for (int i = 1; i < (int)C.size(); i++)
+        rec[i - 1] = (MOD - C[i]) % MOD;  // c[i] = -C[i] mod MOD
+    return rec;
+}
+```
+
+<Callout type="info">
+The algorithm guarantees that with $2L$ terms observed, the LFSR of length $L$ is uniquely determined. So: compute $2L$ terms, run BM, you have the recurrence.
+</Callout>
+
+---
+
+## Correctness Argument
+
+**Key invariant**: at step $i$, $C$ generates $s_0, \ldots, s_{i-1}$ (discrepancy 0 for all previous). When discrepancy $d \neq 0$ at step $i$:
+
+The correction $C \leftarrow C - (d/b) x^m B$ ensures:
+- The new $C$ has discrepancy 0 at step $i$ (by construction, the correction cancels $d$)
+- The new $C$ has the same discrepancies for steps $< i$ as $C$ (the correction shifts $B$ right by $m$, beyond step $i$'s range)
+
+**Minimality**: By the Massey theorem (1969), if we ever reach a state where the current polynomial $C$ fails (produces nonzero discrepancy at step $i$), and if updating $L$ is necessary ($2L \leq i$), then any shorter polynomial also fails — so the length increase is required. The proof uses a pigeonhole argument on the space of possible polynomials. $\square$
+
+---
+
+## Implementation over GF(2) (Simpler)
+
+For binary sequences (mod 2):
+
+```cpp
+vector<int> berlekamp_massey_gf2(vector<int> s) {
+    int n = s.size();
+    vector<int> C = {1}, B = {1};
+    int L = 0, m = 1;
+    
+    for (int i = 0; i < n; i++) {
+        int d = 0;
+        for (int j = 0; j < (int)C.size(); j++)
+            d ^= (C[j] & s[i - j < 0 ? 0 : i - j]);  // careful indexing
+        
+        if (!d) { m++; continue; }
+        
+        vector<int> T = C;
+        if ((int)C.size() < (int)B.size() + m)
+            C.resize(B.size() + m, 0);
+        for (int j = 0; j < (int)B.size(); j++)
+            C[j + m] ^= B[j];  // over GF(2): coef = 1, no division needed
+        
+        if (2 * L <= i) {
+            L = i + 1 - L;
+            B = T;
+            m = 1;
+        } else {
+            m++;
+        }
+    }
+    
+    vector<int> rec(C.size() - 1);
+    for (int i = 1; i < (int)C.size(); i++) rec[i-1] = C[i];
+    return rec;
+}
+```
+
+---
+
+## Combined with Kitamasa
+
+```cpp
+// Pattern: compute 2k terms, find recurrence, then use Kitamasa for n-th term
+
+vector<long long> seq(2 * MAX_K);
+for (int i = 0; i < 2 * MAX_K; i++)
+    seq[i] = compute_term(i);  // whatever DP computes f(i)
+
+auto rec = berlekamp_massey(seq);
+int k = rec.size();
+
+// Now use nth_term(n, rec, {seq[0], ..., seq[k-1]}) for O(k^2 log n)
+```
+
+**Warning**: need at least $2L$ terms to uniquely determine length-$L$ recurrence. Compute generously.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Berlekamp-Massey on n terms", time: "O(n · L) where L = min recurrence length", space: "O(n)" },
+  { operation: "Worst case L = n/2", time: "O(n²)", space: "O(n)" },
+  { operation: "Verification (check recurrence holds)", time: "O(nL)", space: "O(L)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Find Linear Recurrence",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/find_linear_recurrence",
+    difficulty: "1600",
+    concepts: ["Berlekamp-Massey"],
+    tier: "standard"
+  },
+  {
+    name: "k-th Term (with BM + Kitamasa)",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/kth_term_of_linearly_recurrent_sequence",
+    difficulty: "1800",
+    concepts: ["Berlekamp-Massey", "Kitamasa", "linear recurrence"],
+    tier: "standard"
+  },
+  {
+    name: "Guess the Sequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1442/E",
+    difficulty: "2600",
+    concepts: ["Berlekamp-Massey", "LFSR"],
+    tier: "advanced"
+  },
+  {
+    name: "Minimal Polynomial",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/954/I",
+    difficulty: "2800",
+    concepts: ["Berlekamp-Massey", "minimal polynomial"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Linear Recurrences](/math/linear-algebra/linear-recurrences) — theory behind what BM finds
+- [Kitamasa Algorithm](/math/linear-algebra/kitamasa) — use BM to find recurrence, then Kitamasa for $n$-th term
+- [GF(2) Linear Algebra](/math/linear-algebra/gf2) — BM over GF(2) for binary LFSR problems
+
+---
+
+## References
+
+1. Berlekamp, E.R. — Algebraic Coding Theory (1968) — original algorithm for BCH decoding
+2. Massey, J.L. — Shift-register synthesis and BCH decoding, IEEE Trans. (1969)
+3. cp-algorithms — [Berlekamp-Massey](https://cp-algorithms.com/algebra/berlekamp_massey.html)

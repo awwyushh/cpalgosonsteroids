@@ -1,0 +1,244 @@
+---
+title: BEST Theorem & Arborescences
+description: Count Eulerian circuits and directed spanning trees (arborescences) via the BEST theorem and directed Laplacian
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# BEST Theorem & Arborescences
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Matrix-Tree Theorem", href: "/math/linear-algebra/matrix-tree" },
+  { title: "Gaussian Elimination", href: "/math/linear-algebra/gaussian-elimination" }
+]} />
+
+## Why This Topic Matters
+
+The **BEST theorem** (de Bruijn–van Aardenne-Ehrenfest–Smith–Tutte) counts **Eulerian circuits** in directed graphs using arborescences. An **arborescence** is a directed spanning tree rooted at a vertex (all edges point toward the root). The directed matrix-tree theorem counts arborescences.
+
+**Contest relevance**: CF Div.1 E/F, problems counting distinct Eulerian circuits, arborescences in directed graphs.
+
+---
+
+## Directed Laplacian (Kirchhoff Matrix for Digraphs)
+
+For a directed graph, define the **in-degree Laplacian** $L^{in}$:
+
+$$L^{in}_{ij} = \begin{cases} \text{indeg}(v_i) & i = j \\ -(\text{number of edges from } j \text{ to } i) & i \neq j \end{cases}$$
+
+And the **out-degree Laplacian** $L^{out}$:
+
+$$L^{out}_{ij} = \begin{cases} \text{outdeg}(v_i) & i = j \\ -(\text{number of edges from } i \text{ to } j) & i \neq j \end{cases}$$
+
+---
+
+## Directed Matrix-Tree Theorem
+
+**Theorem**: The number of **arborescences rooted at $r$** (directed spanning trees with all edges directed toward $r$) equals any cofactor of $L^{in}$ obtained by deleting row $r$ and column $r$:
+
+$$t_r(G) = \det(L^{in,(r)})$$
+
+Similarly, using $L^{out}$: number of **arborescences rooted at $r$** with all edges directed **away from $r$** (out-arborescences) equals $\det(L^{out,(r)})$.
+
+<Callout type="info">
+In an **in-arborescence** rooted at $r$: all paths lead to $r$ (edges go "toward" $r$). In an **out-arborescence**: all paths lead away from $r$ (a rooted spanning tree with edges directed away from root).
+</Callout>
+
+---
+
+## Arborescence Count Implementation
+
+```cpp
+const long long MOD = 1e9 + 7;
+
+// Count in-arborescences rooted at root (all edges pointing TO root)
+// Directed graph with edges (u -> v)
+long long count_in_arborescences(int n, vector<pair<int,int>>& edges, int root) {
+    root--;  // 0-indexed
+    
+    // Build in-degree Laplacian: L[i][j] = indeg[i] if i==j, else -#{j->i edges}
+    vector<vector<long long>> L(n, vector<long long>(n, 0));
+    for (auto [u, v] : edges) {
+        u--; v--;
+        L[v][v]++;          // in-degree of v
+        L[v][u] = (L[v][u] - 1 + MOD) % MOD;  // -count(u->v)
+    }
+    
+    // Delete row 'root' and col 'root', compute determinant
+    int m = n - 1;
+    vector<vector<long long>> A(m, vector<long long>(m));
+    for (int i = 0, ri = 0; i < n; i++) {
+        if (i == root) continue;
+        for (int j = 0, rj = 0; j < n; j++) {
+            if (j == root) continue;
+            A[ri][rj++] = L[i][j];
+        }
+        ri++;
+    }
+    
+    // Gaussian elimination for determinant
+    long long det = 1;
+    for (int col = 0; col < m; col++) {
+        int pivot = -1;
+        for (int row = col; row < m; row++)
+            if (A[row][col]) { pivot = row; break; }
+        if (pivot == -1) return 0;
+        if (pivot != col) { swap(A[col], A[pivot]); det = MOD - det; }
+        det = det * A[col][col] % MOD;
+        long long inv = power(A[col][col], MOD - 2, MOD);
+        for (int j = col; j < m; j++) A[col][j] = A[col][j] * inv % MOD;
+        for (int row = col + 1; row < m; row++) {
+            long long f = A[row][col];
+            for (int j = col; j < m; j++)
+                A[row][j] = (A[row][j] - f * A[col][j] % MOD + MOD) % MOD;
+        }
+    }
+    return det;
+}
+```
+
+---
+
+## BEST Theorem
+
+**Prerequisites for an Eulerian circuit** in directed graph $G$:
+- $G$ is connected (underlying undirected graph)
+- Every vertex has $\text{indeg}(v) = \text{outdeg}(v)$
+
+**BEST Theorem**: If $G$ has an Eulerian circuit, the number of distinct Eulerian circuits starting from vertex $v$ is:
+
+$$ec(G) = t_v(G) \cdot \prod_{w \in V} (\text{outdeg}(w) - 1)!$$
+
+where $t_v(G)$ is the number of **arborescences** rooted at $v$ with edges directed toward $v$ (in-arborescences).
+
+<Callout type="info">
+The formula is independent of the choice of $v$ — all vertices give the same count. This is a consequence of the BEST theorem's proof.
+</Callout>
+
+---
+
+## Proof Sketch of BEST Theorem
+
+**Step 1**: Every Eulerian circuit is in bijection with a pair:
+1. An in-arborescence rooted at $v$ (defines the "last time each vertex is visited" structure)
+2. An ordering of the outgoing edges at each vertex (determines the circuit)
+
+**Step 2**: For each in-arborescence, the number of corresponding Eulerian circuits equals $\prod_w (\text{outdeg}(w) - 1)!$. The $-1$ accounts for the last outgoing edge at each vertex (determined by the arborescence).
+
+**Step 3**: The bijection is one-to-one over all arborescences and orderings, giving the product formula. $\square$
+
+**Full bijection**: for each vertex $w \neq v$, fix the last edge leaving $w$ as the arborescence edge toward $v$. The remaining $(\text{outdeg}(w) - 1)!$ orderings of other outgoing edges are free. This uniquely determines an Eulerian circuit.
+
+---
+
+## Implementation: Count Eulerian Circuits
+
+```cpp
+// Count distinct Eulerian circuits starting at vertex v
+// Returns count mod MOD
+long long count_eulerian(int n, vector<pair<int,int>>& edges, int start) {
+    // Check Eulerian conditions
+    vector<int> indeg(n, 0), outdeg(n, 0);
+    for (auto [u, v] : edges) { outdeg[u-1]++; indeg[v-1]++; }
+    for (int i = 0; i < n; i++)
+        if (indeg[i] != outdeg[i]) return 0;
+    
+    // Count in-arborescences rooted at start
+    long long arb = count_in_arborescences(n, edges, start);
+    
+    // Multiply by product of (outdeg(w) - 1)! for all w
+    long long result = arb;
+    for (int i = 0; i < n; i++) {
+        for (int j = 1; j <= outdeg[i] - 1; j++)
+            result = result * j % MOD;
+    }
+    return result;
+}
+```
+
+---
+
+## de Bruijn Sequences
+
+A **de Bruijn sequence** for binary strings of length $k$ is a cyclic sequence containing every binary string of length $k$ exactly once.
+
+**Connection**: the number of distinct de Bruijn sequences of length $2^k$ = $2^{2^{k-1} - k}$.
+
+**Derivation via BEST**: construct the de Bruijn graph — $2^{k-1}$ vertices (all binary strings of length $k-1$), $2^k$ edges (one for each binary string of length $k$, from prefix to suffix). Eulerian circuits in this graph = de Bruijn sequences. Apply BEST theorem.
+
+```
+// de Bruijn sequence construction using BEST theorem
+// Each Eulerian circuit in the de Bruijn digraph gives a unique de Bruijn sequence
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Build directed Laplacian", time: "O(n + m)", space: "O(n²)" },
+  { operation: "Count arborescences (Gauss)", time: "O(n³)", space: "O(n²)" },
+  { operation: "Count Eulerian circuits (BEST)", time: "O(n³ + m)", space: "O(n²)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Eulerian Circuit Count",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/653/F",
+    difficulty: "2500",
+    concepts: ["BEST theorem", "arborescences"],
+    tier: "standard"
+  },
+  {
+    name: "Spanning Arborescences",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/directedmst",
+    difficulty: "2200",
+    concepts: ["directed spanning tree", "arborescence"],
+    tier: "standard"
+  },
+  {
+    name: "de Bruijn Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1202/E",
+    difficulty: "2700",
+    concepts: ["BEST theorem", "de Bruijn", "Eulerian"],
+    tier: "advanced"
+  },
+  {
+    name: "Graph Walks",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/653/G",
+    difficulty: "2800",
+    concepts: ["BEST theorem", "directed arborescences", "counting"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Matrix-Tree Theorem](/math/linear-algebra/matrix-tree) — undirected version; same Gaussian elimination approach
+- [Gaussian Elimination](/math/linear-algebra/gaussian-elimination) — computes the Laplacian cofactor
+
+---
+
+## References
+
+1. van Aardenne-Ehrenfest, T. & de Bruijn, N.G. — Circuits and trees in oriented linear graphs (1951)
+2. Smith & Tutte — contributions to the BEST theorem (1941, 1948)
+3. cp-algorithms — [BEST Theorem](https://cp-algorithms.com/graph/eulerian_path.html)
+4. Tutte, W.T. — Graph Theory, Ch. 6 — arborescences and directed matrix-tree

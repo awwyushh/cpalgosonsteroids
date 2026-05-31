@@ -1,0 +1,345 @@
+---
+title: Gaussian Elimination
+description: Row reduction, solving Ax=b, computing rank and determinant, modular Gaussian elimination
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Gaussian Elimination
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Matrix Basics", href: "/math/linear-algebra/matrix-basics" },
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" }
+]} />
+
+## Why This Topic Matters
+
+Gaussian elimination solves $Ax = b$, computes rank, and finds determinants — all in $O(n^3)$. In competitive programming it appears in: linear systems mod prime (e.g., modular inverse of matrices), XOR basis, systems over GF(2), maximum XOR subset, and spanning tree counts.
+
+**Contest relevance**: CF Div.1 C–E, any "solve a linear system" or "rank of matrix" problem.
+
+---
+
+## Row Reduction
+
+**Elementary row operations** (don't change solution space or rank):
+1. $R_i \leftrightarrow R_j$ — swap rows (negates determinant)
+2. $R_i \leftarrow \lambda R_i$ — scale row ($\lambda \neq 0$, scales determinant by $\lambda$)
+3. $R_i \leftarrow R_i + \lambda R_j$ — add multiple (determinant unchanged)
+
+**Row Echelon Form (REF)**: all zeros below pivots; pivot in each row is right of previous row's pivot.
+
+**Reduced Row Echelon Form (RREF)**: additionally, each pivot is 1, and all entries above pivots are 0.
+
+---
+
+## Algorithm: Gaussian Elimination
+
+```cpp
+// Gaussian elimination over real numbers (floating point)
+// Returns rank; modifies matrix in-place to REF
+// Set free = true to also track free variables
+
+int gaussian_elimination(vector<vector<double>>& A, int rows, int cols) {
+    int pivot_row = 0;
+    const double EPS = 1e-9;
+    
+    for (int col = 0; col < cols && pivot_row < rows; col++) {
+        // Find pivot: row with largest absolute value in this column
+        int best = pivot_row;
+        for (int row = pivot_row + 1; row < rows; row++)
+            if (abs(A[row][col]) > abs(A[best][col]))
+                best = row;
+        
+        if (abs(A[best][col]) < EPS) continue;  // no pivot in this column
+        
+        swap(A[pivot_row], A[best]);
+        
+        // Scale pivot row to have leading 1
+        double inv = 1.0 / A[pivot_row][col];
+        for (int j = col; j < cols; j++)
+            A[pivot_row][j] *= inv;
+        
+        // Eliminate column from all other rows
+        for (int row = 0; row < rows; row++) {
+            if (row == pivot_row || abs(A[row][col]) < EPS) continue;
+            double factor = A[row][col];
+            for (int j = col; j < cols; j++)
+                A[row][j] -= factor * A[pivot_row][j];
+        }
+        
+        pivot_row++;
+    }
+    return pivot_row;  // rank
+}
+```
+
+---
+
+## Solving Ax = b
+
+Augment $A$ with column $b$ to get $[A | b]$ (size $n \times (n+1)$), then run Gaussian elimination.
+
+After elimination:
+
+```cpp
+// Solve Ax = b; A is n×n, b is n×1
+// Returns: {solution x} or empty if no/infinite solutions
+
+enum SolveResult { UNIQUE, NO_SOLUTION, INFINITE };
+
+pair<SolveResult, vector<double>> solve_linear(
+    vector<vector<double>> A, vector<double> b, int n)
+{
+    // Augment
+    for (int i = 0; i < n; i++) A[i].push_back(b[i]);
+    
+    int rank = gaussian_elimination(A, n, n + 1);
+    
+    // Check consistency
+    for (int i = rank; i < n; i++) {
+        if (abs(A[i][n]) > 1e-9)
+            return {NO_SOLUTION, {}};  // 0 = nonzero: contradiction
+    }
+    
+    if (rank < n)
+        return {INFINITE, {}};  // free variables exist
+    
+    // Back-substitute (already in RREF)
+    vector<double> x(n);
+    for (int i = 0; i < n; i++)
+        x[i] = A[i][n];  // RREF: A[i][i] = 1, A[i][n] = x[i]
+    
+    return {UNIQUE, x};
+}
+```
+
+### Interpretation of Results
+
+| rank of $A$ | rank of $[A|b]$ | Solutions |
+|------------|----------------|-----------|
+| $= n$ | $= n$ | Unique |
+| $< n$ | $=$ rank of $A$ | Infinitely many ($n - r$ free variables) |
+| $< n$ | $>$ rank of $A$ | No solution |
+
+---
+
+## Gaussian Elimination mod p
+
+For systems over $\mathbb{Z}/p\mathbb{Z}$ (prime $p$):
+
+```cpp
+const long long MOD = 1e9 + 7;
+
+long long modinv(long long a, long long m) {
+    return power(a % m, m - 2, m);  // Fermat
+}
+
+// Returns rank; solves modular linear system
+int gauss_mod(vector<vector<long long>>& A, int rows, int cols) {
+    int pivot_row = 0;
+    
+    for (int col = 0; col < cols && pivot_row < rows; col++) {
+        // Find non-zero pivot
+        int best = -1;
+        for (int row = pivot_row; row < rows; row++) {
+            if (A[row][col] != 0) { best = row; break; }
+        }
+        if (best == -1) continue;
+        
+        swap(A[pivot_row], A[best]);
+        
+        long long inv = modinv(A[pivot_row][col], MOD);
+        for (int j = col; j < cols; j++)
+            A[pivot_row][j] = A[pivot_row][j] * inv % MOD;
+        
+        for (int row = 0; row < rows; row++) {
+            if (row == pivot_row || A[row][col] == 0) continue;
+            long long factor = A[row][col];
+            for (int j = col; j < cols; j++)
+                A[row][j] = (A[row][j] - factor * A[pivot_row][j] % MOD + MOD) % MOD;
+        }
+        
+        pivot_row++;
+    }
+    return pivot_row;
+}
+```
+
+---
+
+## Determinant via Elimination
+
+Track sign changes (row swaps) and scaling:
+
+```cpp
+long long determinant_mod(vector<vector<long long>> A, int n) {
+    long long det = 1;
+    
+    for (int col = 0; col < n; col++) {
+        int pivot = -1;
+        for (int row = col; row < n; row++)
+            if (A[row][col] != 0) { pivot = row; break; }
+        
+        if (pivot == -1) return 0;  // singular
+        
+        if (pivot != col) {
+            swap(A[col], A[pivot]);
+            det = (MOD - det) % MOD;  // swap negates determinant
+        }
+        
+        det = det * A[col][col] % MOD;  // accumulate pivot
+        
+        long long inv = modinv(A[col][col], MOD);
+        for (int j = col; j < n; j++)
+            A[col][j] = A[col][j] * inv % MOD;
+        
+        for (int row = col + 1; row < n; row++) {
+            long long factor = A[row][col];
+            for (int j = col; j < n; j++)
+                A[row][j] = (A[row][j] - factor * A[col][j] % MOD + MOD) % MOD;
+        }
+    }
+    return det;
+}
+```
+
+**Correctness**: Each row scaling accumulates the pivot into `det`. Swaps negate. Adding multiples doesn't change determinant. At the end, matrix is upper triangular with 1s on diagonal, so remaining determinant = 1.
+
+---
+
+## Gaussian Elimination over GF(2)
+
+For XOR systems (all arithmetic mod 2), use bitsets for $O(n^3 / 64)$:
+
+```cpp
+// Solve linear system over GF(2) using bitsets
+// Each row is a bitset<MAXN> representing coefficients + augmented bit
+const int MAXN = 1005;
+
+bitset<MAXN> A[MAXN];  // A[i] = row i (last bit = b_i)
+
+int gauss_gf2(int rows, int cols) {
+    int pivot_row = 0;
+    for (int col = 0; col < cols && pivot_row < rows; col++) {
+        int best = -1;
+        for (int row = pivot_row; row < rows; row++)
+            if (A[row][col]) { best = row; break; }
+        if (best == -1) continue;
+        swap(A[pivot_row], A[best]);
+        for (int row = 0; row < rows; row++) {
+            if (row != pivot_row && A[row][col])
+                A[row] ^= A[pivot_row];
+        }
+        pivot_row++;
+    }
+    return pivot_row;  // rank
+}
+```
+
+---
+
+## Applications
+
+### Counting Solutions to Ax = b over GF(2)
+
+After Gaussian elimination: rank $r$. If consistent, number of solutions = $2^{n-r}$ (one for each assignment of free variables).
+
+### Finding the Null Space
+
+After RREF, identify free variables (columns without pivots). Each free variable gives a null space basis vector.
+
+### Matrix Rank over Different Fields
+
+The rank can differ over $\mathbb{R}$, $\mathbb{Z}/p\mathbb{Z}$, and $\text{GF}(2)$ for the same integer matrix — modular reduction can create new dependencies.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Gaussian elimination (n×n)", time: "O(n³)", space: "O(n²)" },
+  { operation: "Determinant", time: "O(n³)", space: "O(n²)" },
+  { operation: "Rank computation", time: "O(n²m) for n×m", space: "O(nm)" },
+  { operation: "Gaussian over GF(2) with bitsets", time: "O(n³/64)", space: "O(n²/64)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Pivoting**: always find maximum-absolute-value pivot (partial pivoting) for numerical stability in floating point.
+2. **Modular inverse of 0**: check for zero pivot before inverting.
+3. **Consistency check**: after elimination, check rows of form $[0,\ldots,0 | b_i]$ with $b_i \neq 0$.
+4. **Column index for augmented system**: augmented column is index $n$, not $n-1$.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Linear System mod prime",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/system_of_linear_equations",
+    difficulty: "1600",
+    concepts: ["Gaussian elimination", "modular linear system"],
+    tier: "standard"
+  },
+  {
+    name: "Determinant",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/determinant",
+    difficulty: "1400",
+    concepts: ["determinant", "Gaussian elimination"],
+    tier: "standard"
+  },
+  {
+    name: "XOR equations",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1364/D",
+    difficulty: "2000",
+    concepts: ["Gaussian over GF(2)", "linear system mod 2"],
+    tier: "standard"
+  },
+  {
+    name: "Magic Matrix",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1080/E",
+    difficulty: "2300",
+    concepts: ["linear system", "Gaussian elimination"],
+    tier: "advanced"
+  },
+  {
+    name: "Points and Powers of Two",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1063/B",
+    difficulty: "2500",
+    concepts: ["Gaussian over GF(2)", "counting solutions"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Matrix Basics](/math/linear-algebra/matrix-basics) — rank, determinant definitions
+- [XOR Basis](/math/linear-algebra/xor-basis) — Gaussian elimination over GF(2) specialized for XOR
+- [GF(2) Linear Algebra](/math/linear-algebra/gf2) — full treatment of binary linear systems
+- [Matrix-Tree Theorem](/math/linear-algebra/matrix-tree) — Kirchhoff determinant via Gaussian elimination
+
+---
+
+## References
+
+1. Strang, G. — Introduction to Linear Algebra, Ch. 2 — row reduction
+2. cp-algorithms — [Gaussian Elimination](https://cp-algorithms.com/linear_algebra/linear-system-gauss.html)
+3. Trefethen & Bau — Numerical Linear Algebra — pivoting strategies

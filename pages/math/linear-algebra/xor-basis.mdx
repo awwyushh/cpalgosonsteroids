@@ -1,0 +1,268 @@
+---
+title: XOR Basis & Linear Basis
+description: Gaussian elimination over GF(2) — maximum XOR subset, k-th XOR, merging bases
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# XOR Basis & Linear Basis
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Matrix Basics", href: "/math/linear-algebra/matrix-basics" },
+  { title: "Gaussian Elimination", href: "/math/linear-algebra/gaussian-elimination" }
+]} />
+
+## Why This Topic Matters
+
+A set of integers is a vector space over GF(2) under XOR. The **linear basis** (XOR basis) is a minimal spanning set. Core operations: maximum XOR of any subset, check if $x$ is XOR-reachable, count distinct XOR values, find $k$-th XOR — all in $O(\log^2 V)$ per operation.
+
+**Contest relevance**: CF Div.1 C/D, problems involving XOR maximization, linear independence of bits, counting XOR-distinct subsets.
+
+---
+
+## Setup: GF(2) Vector Space
+
+Treat each integer as a vector in $\{0,1\}^L$ (its binary representation), with:
+- **Addition = XOR**: $(a \oplus b)_i = a_i + b_i \pmod 2$
+- **Scalar multiplication**: only scalars are $0, 1$ — so $0 \cdot v = 0$, $1 \cdot v = v$
+- **Span of set $S$**: all XOR combinations $= \{x_1 \oplus x_2 \oplus \cdots : x_i \in S\}$ (subsets XOR)
+
+A **basis** is a linearly independent spanning set.
+
+---
+
+## Building the Basis (Gaussian Elimination over GF(2))
+
+Maintain basis in **row echelon form**: at most one basis vector with leading bit $i$ for each $i$.
+
+```cpp
+struct LinearBasis {
+    static const int BITS = 60;  // or 30 for 32-bit integers
+    long long basis[BITS] = {};
+    int sz = 0;  // current rank (number of basis vectors)
+    
+    // Insert x into the basis. Returns true if x was linearly independent.
+    bool insert(long long x) {
+        for (int i = BITS - 1; i >= 0; i--) {
+            if (!(x >> i & 1)) continue;
+            if (!basis[i]) {
+                basis[i] = x;
+                sz++;
+                return true;
+            }
+            x ^= basis[i];  // reduce x using existing basis vector
+        }
+        return false;  // x is in the span (linearly dependent)
+    }
+    
+    // Maximum XOR of any subset of elements in the basis
+    long long max_xor() {
+        long long result = 0;
+        for (int i = BITS - 1; i >= 0; i--)
+            result = max(result, result ^ basis[i]);
+        return result;
+    }
+    
+    // Check if x is in the span
+    bool contains(long long x) {
+        for (int i = BITS - 1; i >= 0; i--) {
+            if (!(x >> i & 1)) continue;
+            if (!basis[i]) return false;
+            x ^= basis[i];
+        }
+        return true;  // x == 0 after reduction → was in span
+    }
+};
+```
+
+**Insertion correctness**: We use Gaussian elimination — maintain one leading bit per row. If $x$ can be fully reduced to 0, it's in the span. Otherwise, insert at the position of its highest remaining bit.
+
+---
+
+## Maximum XOR of Subset
+
+```cpp
+long long max_xor_of_set(vector<long long>& v) {
+    LinearBasis lb;
+    for (long long x : v) lb.insert(x);
+    return lb.max_xor();
+}
+```
+
+**Proof of greedy**: process basis vectors from highest to lowest bit. At each step, if XOR-ing with the current basis vector improves the result, do it. This is a greedy on bits — highest bit determines which is larger, so greedily maximize from the top.
+
+**Formally**: after insertion, each basis vector has a unique leading bit. The $i$-th basis vector can increase bit $i$ from 0 to 1 without affecting higher bits (those are already 0 or handled). The greedy is optimal. $\square$
+
+---
+
+## k-th Smallest XOR Value
+
+After building the basis, compute all distinct XOR values in $[0, 2^L)$.
+
+Number of distinct XOR values = $2^{\text{rank}}$ (one value per subset of basis, all XOR-distinct by linear independence).
+
+To find the $k$-th smallest (0-indexed):
+
+```cpp
+// First, convert basis to "reduced row echelon form" (each bit appears in exactly one basis vec)
+void reduce_basis(long long basis[], int BITS) {
+    for (int i = BITS - 1; i >= 0; i--) {
+        if (!basis[i]) continue;
+        for (int j = i + 1; j < BITS; j++) {
+            if (basis[j] >> i & 1)
+                basis[j] ^= basis[i];
+        }
+    }
+}
+
+long long kth_xor(long long basis[], int sz, long long k, int BITS) {
+    reduce_basis(basis, BITS);
+    
+    // Collect non-zero basis vectors
+    vector<long long> b;
+    for (int i = 0; i < BITS; i++)
+        if (basis[i]) b.push_back(basis[i]);
+    
+    // k is 0-indexed. If 0 is achievable (not all numbers force non-zero basis), handle separately.
+    // Here assume 0 is always achievable (empty subset).
+    long long result = 0;
+    for (int i = b.size() - 1; i >= 0; i--) {
+        if (k >> i & 1)
+            result ^= b[i];
+    }
+    return result;
+}
+```
+
+**Explanation**: in reduced form, the $i$-th basis vector controls only bit $i$ (among basis bits). The $k$ smallest values correspond to treating $k$ as a bitmask over the basis vectors.
+
+---
+
+## Merging Two Bases
+
+```cpp
+LinearBasis merge(LinearBasis a, const LinearBasis& b) {
+    for (int i = LinearBasis::BITS - 1; i >= 0; i--)
+        if (b.basis[i]) a.insert(b.basis[i]);
+    return a;
+}
+```
+
+**Time**: $O(L^2)$ per merge. For segment tree over basis: $O(n L^2)$ build, $O(L^2)$ query.
+
+---
+
+## Offline Basis on Intervals
+
+For queries "max XOR using elements from $[l, r]$":
+
+**Method**: build a basis for suffix $[i, n]$ for each $i$, using the property that basis insertion is offline-processable. Alternatively, use linear basis on segment tree nodes.
+
+```cpp
+// Segment tree of linear bases
+// Each node stores basis for its range
+// Query: merge all nodes covering [l, r] and find max XOR
+LinearBasis seg[4 * MAXN];
+
+void build(int v, int l, int r, vector<long long>& a) {
+    if (l == r) { seg[v].insert(a[l]); return; }
+    int mid = (l + r) / 2;
+    build(2*v, l, mid, a);
+    build(2*v+1, mid+1, r, a);
+    seg[v] = merge(seg[2*v], seg[2*v+1]);
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Insert element into basis", time: "O(L)", space: "O(L)" },
+  { operation: "Build basis from n elements", time: "O(nL)", space: "O(L)" },
+  { operation: "Max XOR query", time: "O(L)", space: "O(1)" },
+  { operation: "k-th XOR (after reduce)", time: "O(L)", space: "O(L)" },
+  { operation: "Merge two bases", time: "O(L²)", space: "O(L)" },
+  { operation: "Segment tree of bases (query)", time: "O(L² log n)", space: "O(nL)" },
+]} />
+
+where $L = $ number of bits (30 or 60).
+
+---
+
+## Common Mistakes
+
+1. **BITS size**: use 60 for long long, 30 for int. Off-by-one causes silent bugs.
+2. **k-th XOR with/without 0**: if 0 is always reachable (empty subset), $k$ ranges from 0; if elements are forced non-empty, shift $k$.
+3. **Reduce before k-th**: must reduce to RREF before using the bit-index trick for k-th.
+4. **Merge order**: merge is commutative (span is the same), but avoid double-inserting elements.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Maximum XOR Subarray",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1100/F",
+    difficulty: "2000",
+    concepts: ["XOR basis", "max XOR"],
+    tier: "standard"
+  },
+  {
+    name: "Linear Basis",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1299/F",
+    difficulty: "2200",
+    concepts: ["XOR basis", "counting", "linear independence"],
+    tier: "standard"
+  },
+  {
+    name: "Xor-sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1101/G",
+    difficulty: "2500",
+    concepts: ["XOR basis", "matrix exponentiation"],
+    tier: "advanced"
+  },
+  {
+    name: "k-th XOR",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/959/F",
+    difficulty: "2400",
+    concepts: ["XOR basis", "k-th smallest XOR"],
+    tier: "advanced"
+  },
+  {
+    name: "XOR on Segment",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1220/E",
+    difficulty: "2600",
+    concepts: ["XOR basis", "segment tree of bases"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Gaussian Elimination](/math/linear-algebra/gaussian-elimination) — XOR basis is Gaussian elimination over GF(2)
+- [GF(2) Linear Algebra](/math/linear-algebra/gf2) — full binary linear algebra beyond XOR basis
+- [Bitmask Mathematics](/math/bitmask/sos-dp) — SOS DP is a related transform over subsets
+
+---
+
+## References
+
+1. cp-algorithms — [Linear Basis](https://cp-algorithms.com/algebra/linear-basis.html)
+2. Strang, G. — Introduction to Linear Algebra, Ch. 2 — basis and dimension
+3. Lidl & Niederreiter — Finite Fields, Ch. 1 — GF(2) and binary vector spaces

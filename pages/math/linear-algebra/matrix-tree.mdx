@@ -1,0 +1,233 @@
+---
+title: Matrix-Tree Theorem (Kirchhoff)
+description: Count spanning trees via the Kirchhoff Laplacian determinant — proof and implementation
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Matrix-Tree Theorem (Kirchhoff)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Matrix Basics", href: "/math/linear-algebra/matrix-basics" },
+  { title: "Gaussian Elimination", href: "/math/linear-algebra/gaussian-elimination" }
+]} />
+
+## Why This Topic Matters
+
+The number of spanning trees of a graph is the determinant of any cofactor of its **Laplacian matrix** — a stunning connection between graph theory and linear algebra. This gives an $O(n^3)$ algorithm for counting spanning trees in any graph.
+
+**Contest relevance**: CF Div.1 D/E, problems asking for number of spanning trees, weighted spanning tree counting.
+
+---
+
+## The Laplacian Matrix
+
+For an undirected graph $G$ on $n$ vertices, the **Laplacian** $L = D - A$ where:
+- $D_{ii} = \deg(v_i)$ (degree matrix)
+- $A_{ij} = $ number of edges between $i$ and $j$ (adjacency matrix)
+
+Explicitly:
+
+$$L_{ij} = \begin{cases} \deg(v_i) & i = j \\ -(\text{number of edges between } i \text{ and } j) & i \neq j \end{cases}$$
+
+**Properties**:
+- $L$ is symmetric: $L = L^T$
+- Row sums are 0: $\sum_j L_{ij} = 0$ for all $i$
+- $\det(L) = 0$ (since rows sum to 0, the all-ones vector is in the kernel)
+- $L$ is positive semidefinite: $x^T L x = \sum_{(i,j) \in E} (x_i - x_j)^2 \geq 0$
+- Eigenvalues: $0 = \lambda_1 \leq \lambda_2 \leq \cdots \leq \lambda_n$; $\lambda_2 > 0$ iff $G$ is connected (algebraic connectivity)
+
+---
+
+## Kirchhoff's Matrix-Tree Theorem
+
+**Theorem (Kirchhoff 1847)**: The number of spanning trees of $G$ equals any cofactor of $L$:
+
+$$\tau(G) = \det(L^{(i)})$$
+
+where $L^{(i)}$ is the matrix obtained by deleting row $i$ and column $i$ from $L$ (the $i$-th cofactor).
+
+Equivalently:
+
+$$\tau(G) = \frac{1}{n} \lambda_2 \lambda_3 \cdots \lambda_n$$
+
+where $\lambda_1 = 0 \leq \lambda_2 \leq \cdots \leq \lambda_n$ are eigenvalues of $L$.
+
+---
+
+## Proof Sketch
+
+**Step 1: Edge-incidence matrix**. Orient each edge arbitrarily; let $B$ be the $n \times m$ incidence matrix: $B_{ie} = +1$ if $i$ is the tail of edge $e$, $-1$ if head, 0 otherwise.
+
+Then $L = BB^T$.
+
+**Step 2: Cauchy-Binet**. By the Cauchy-Binet formula for $BB^T$:
+
+$$\det(L^{(i)}) = \sum_{S \subseteq [m], |S|=n-1} \det(B^{(i)}_S)^2$$
+
+where $B^{(i)}_S$ is the submatrix of $B$ with row $i$ deleted and columns indexed by $S$.
+
+**Step 3**: $\det(B^{(i)}_S)^2 = \det(B^{(i)}_S)^2$ is either 0 or 1. It equals 1 iff the $n-1$ edges in $S$ form a spanning tree. (The determinant of an oriented incidence matrix of a spanning tree is $\pm 1$, and 0 otherwise.)
+
+**Step 4**: Therefore the sum counts spanning trees, each contributing exactly 1. $\square$
+
+---
+
+## Implementation
+
+```cpp
+const long long MOD = 1e9 + 7;
+
+// Count spanning trees of graph with n vertices, edges (u,v)
+// Returns count mod MOD
+
+long long spanning_tree_count(int n, vector<pair<int,int>>& edges) {
+    // Build Laplacian
+    vector<vector<long long>> L(n, vector<long long>(n, 0));
+    for (auto [u, v] : edges) {
+        u--; v--;  // 0-indexed
+        L[u][u]++; L[v][v]++;
+        L[u][v]--; L[v][u]--;
+    }
+    // Normalize to [0, MOD)
+    for (auto& row : L)
+        for (auto& x : row)
+            x = (x % MOD + MOD) % MOD;
+    
+    // Delete last row and column (cofactor = det of (n-1)x(n-1) submatrix)
+    int m = n - 1;
+    vector<vector<long long>> A(m, vector<long long>(m));
+    for (int i = 0; i < m; i++)
+        for (int j = 0; j < m; j++)
+            A[i][j] = L[i][j];
+    
+    // Gaussian elimination to compute determinant mod MOD
+    long long det = 1;
+    for (int col = 0; col < m; col++) {
+        int pivot = -1;
+        for (int row = col; row < m; row++)
+            if (A[row][col]) { pivot = row; break; }
+        if (pivot == -1) return 0;  // disconnected graph
+        if (pivot != col) {
+            swap(A[col], A[pivot]);
+            det = MOD - det;
+        }
+        det = det * A[col][col] % MOD;
+        long long inv = power(A[col][col], MOD - 2, MOD);
+        for (int j = col; j < m; j++)
+            A[col][j] = A[col][j] * inv % MOD;
+        for (int row = col + 1; row < m; row++) {
+            long long f = A[row][col];
+            for (int j = col; j < m; j++)
+                A[row][j] = (A[row][j] - f * A[col][j] % MOD + MOD) % MOD;
+        }
+    }
+    return det;
+}
+```
+
+---
+
+## Weighted Spanning Trees
+
+For a **weighted graph** (edge weights $w_e$), the **weighted** spanning tree theorem:
+
+$$\tau_w(G) = \det(L_w^{(i)})$$
+
+where $L_w$ is the weighted Laplacian:
+
+$$L_w[i][j] = \begin{cases} \sum_{e \ni i} w_e & i = j \\ -w_{ij} & i \neq j \end{cases}$$
+
+And $\tau_w(G) = \sum_T \prod_{e \in T} w_e$ (sum over all spanning trees of the product of edge weights).
+
+```cpp
+// Weighted spanning trees
+void add_weighted_edge(vector<vector<long long>>& L, int u, int v, long long w) {
+    L[u][u] = (L[u][u] + w) % MOD;
+    L[v][v] = (L[v][v] + w) % MOD;
+    L[u][v] = (L[u][v] - w + MOD) % MOD;
+    L[v][u] = (L[v][u] - w + MOD) % MOD;
+}
+```
+
+---
+
+## Variants
+
+### Spanning Trees through a Specific Edge
+
+Condition on edge $e = (u, v)$ being in the tree: contract edge $e$ (merge $u$ and $v$), count spanning trees of contracted graph.
+
+$\tau(G \text{ with } e) = \tau(G / e)$
+
+### Counting Spanning Trees with Constraints
+
+For "spanning trees using exactly these edges" type constraints: restrict to subgraph, recompute.
+
+### For Multigraphs
+
+Same formula works: $L[u][u] = $ total number of edges incident to $u$ (counting multiplicities), $L[u][v] = -$(number of edges between $u$ and $v$).
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Build Laplacian", time: "O(n + m)", space: "O(n²)" },
+  { operation: "Compute cofactor via Gauss", time: "O(n³)", space: "O(n²)" },
+  { operation: "Total for spanning tree count", time: "O(n³)", space: "O(n²)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Spanning Tree Count",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/counting_spanning_trees",
+    difficulty: "2000",
+    concepts: ["Matrix-Tree theorem", "Laplacian"],
+    tier: "standard"
+  },
+  {
+    name: "Roads in Berland",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1340/F",
+    difficulty: "2500",
+    concepts: ["Matrix-Tree theorem", "graph"],
+    tier: "advanced"
+  },
+  {
+    name: "Graph and Spanning Trees",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1033/G",
+    difficulty: "2700",
+    concepts: ["Matrix-Tree theorem", "weighted spanning trees"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [BEST Theorem & Arborescences](/math/linear-algebra/kirchhoff) — directed version: counts arborescences (directed spanning trees)
+- [Gaussian Elimination](/math/linear-algebra/gaussian-elimination) — the computational tool for the cofactor determinant
+- [Matrix Basics](/math/linear-algebra/matrix-basics) — eigenvalue interpretation of $\tau = \lambda_2 \cdots \lambda_n / n$
+
+---
+
+## References
+
+1. Kirchhoff, G. — Über die Auflösung der Gleichungen, auf welche man bei der Untersuchung der linearen Vertheilung galvanischer Ströme geführt wird (1847)
+2. cp-algorithms — [Matrix-Tree theorem](https://cp-algorithms.com/graph/kirchhoff_theorem.html)
+3. Biggs, N. — Algebraic Graph Theory (2nd ed.) — Laplacian eigenvalues and spanning trees

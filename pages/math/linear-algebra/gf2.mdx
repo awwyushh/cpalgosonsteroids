@@ -1,0 +1,286 @@
+---
+title: Linear Algebra over GF(2)
+description: Binary matrices, rank, systems of equations mod 2, and their competitive programming applications
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Linear Algebra over GF(2)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Gaussian Elimination", href: "/math/linear-algebra/gaussian-elimination" },
+  { title: "XOR Basis", href: "/math/linear-algebra/xor-basis" }
+]} />
+
+## Why This Topic Matters
+
+GF(2) is the field with two elements $\{0, 1\}$ under addition (XOR) and multiplication (AND). Many CP problems reduce to linear systems mod 2 — toggle puzzles, XOR equations, graph problems with parity constraints. GF(2) is where Gaussian elimination meets bitwise operations.
+
+**Contest relevance**: CF Div.1 D/E, problems involving "flip/toggle to reach target", "XOR equations over bits", parity arguments.
+
+---
+
+## GF(2) Arithmetic
+
+- **Addition**: $0+0=0$, $0+1=1$, $1+0=1$, $1+1=0$ — this is XOR
+- **Multiplication**: $0 \cdot 0=0$, $0 \cdot 1=0$, $1 \cdot 0=0$, $1 \cdot 1=1$ — this is AND
+- **Subtraction = Addition** (since $-1 = 1$ in GF(2))
+- **The only nonzero element is 1**: its inverse is 1
+
+All standard linear algebra — determinant, rank, inverse, Gaussian elimination — works over GF(2) with XOR replacing addition.
+
+---
+
+## Binary Matrix Operations
+
+```cpp
+// Binary matrix as vector<bitset<MAXN>>
+// Each bitset<MAXN> is a row, bit j is the j-th column
+
+const int MAXN = 1005;
+using BMatrix = vector<bitset<MAXN>>;
+
+// Multiply two binary matrices A (n×k) * B (k×m)
+// Result is n×m; B must be transposed for efficient row-dot-row operation
+BMatrix binary_multiply(const BMatrix& A, BMatrix B_transposed, int n, int k, int m) {
+    BMatrix C(n, bitset<MAXN>());
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++)
+            if ((A[i] & B_transposed[j]).count() % 2)
+                C[i][j] = 1;
+    return C;
+}
+```
+
+<Callout type="info">
+Bitset operations give $O(n^3 / 64)$ binary matrix multiplication — 64× speedup over naive approach.
+</Callout>
+
+---
+
+## Gaussian Elimination over GF(2)
+
+Identical to standard Gaussian, but all arithmetic is mod 2 (XOR):
+
+```cpp
+// Returns rank; A is modified in-place to RREF
+// Augmented system: A[i][cols-1] is the RHS b_i
+int gauss_gf2(vector<bitset<MAXN>>& A, int rows, int cols) {
+    int pivot_row = 0;
+    vector<int> pivot_col;
+    
+    for (int col = 0; col < cols - 1 && pivot_row < rows; col++) {
+        // Find pivot row
+        int pivot = -1;
+        for (int row = pivot_row; row < rows; row++) {
+            if (A[row][col]) { pivot = row; break; }
+        }
+        if (pivot == -1) continue;  // free variable
+        
+        swap(A[pivot_row], A[pivot]);
+        pivot_col.push_back(col);
+        
+        // Eliminate this column in all other rows
+        for (int row = 0; row < rows; row++) {
+            if (row != pivot_row && A[row][col])
+                A[row] ^= A[pivot_row];
+        }
+        pivot_row++;
+    }
+    return pivot_row;  // rank
+}
+```
+
+---
+
+## Solving $Ax = b$ over GF(2)
+
+```cpp
+// Solve binary linear system Ax = b
+// A: n×n matrix (as bitset rows), b: n-bit vector
+// Returns: {solution, rank, is_consistent}
+
+struct GF2Solution {
+    vector<int> x;         // particular solution
+    vector<vector<int>> kernel;  // basis of null space (free variable solutions)
+    int rank;
+    bool consistent;
+};
+
+GF2Solution solve_gf2(vector<bitset<MAXN>> A, bitset<MAXN> b, int n) {
+    // Augment A with b
+    for (int i = 0; i < n; i++) A[i][n] = b[i];
+    
+    int r = gauss_gf2(A, n, n + 1);
+    
+    // Check consistency
+    for (int i = r; i < n; i++) {
+        if (A[i][n]) return {.consistent = false};
+    }
+    
+    // Read particular solution
+    vector<int> x(n, 0);
+    vector<int> free_vars;
+    int pr = 0;
+    for (int col = 0; col < n && pr < r; col++) {
+        if (A[pr][col]) {
+            x[col] = A[pr][n];  // pivot variable = RHS
+            pr++;
+        } else {
+            free_vars.push_back(col);  // free variable
+        }
+    }
+    
+    // Kernel basis: for each free variable, set it to 1 and solve for pivots
+    vector<vector<int>> kernel;
+    for (int fv : free_vars) {
+        vector<int> kv(n, 0);
+        kv[fv] = 1;
+        int pr2 = 0;
+        for (int col = 0; col < n && pr2 < r; col++) {
+            if (A[pr2][col]) {
+                kv[col] = A[pr2][fv];  // pivot contribution from free var
+                pr2++;
+            }
+        }
+        kernel.push_back(kv);
+    }
+    
+    return {x, kernel, r, true};
+}
+```
+
+**Number of solutions**: if consistent and rank $r$, exactly $2^{n-r}$ solutions (one per assignment of $n-r$ free variables).
+
+---
+
+## Key Problems Reduced to GF(2) Systems
+
+### Toggle / Light-Switching Puzzle
+
+$n$ lights, each toggle affects a subset. Reach target configuration from initial.
+
+$A_{ij} = 1$ if toggling switch $j$ affects light $i$. Solve $Ax = b$ over GF(2) where $b$ = desired change.
+
+### XOR Spanning Tree / Basis
+
+Finding minimum XOR spanning tree reduces to XOR basis. Maximum spanning tree similarly.
+
+### Lights Out Puzzle
+
+Classic $5 \times 5$ grid where pressing a cell toggles it and its neighbors. 25-variable GF(2) system.
+
+```cpp
+// Lights Out: 5×5 grid
+// Row i corresponds to cell i; column j = "does pressing j affect cell i?"
+bitset<25> A[25];
+bitset<25> b;  // target state XOR initial state
+
+// Build A: pressing cell j affects j and its up/down/left/right neighbors
+for (int r = 0; r < 5; r++)
+    for (int c = 0; c < 5; c++) {
+        int j = r * 5 + c;
+        A[j][j] = 1;
+        if (r > 0) A[(r-1)*5+c][j] = 1;
+        if (r < 4) A[(r+1)*5+c][j] = 1;
+        if (c > 0) A[r*5+c-1][j] = 1;
+        if (c < 4) A[r*5+c+1][j] = 1;
+    }
+```
+
+---
+
+## Determinant over GF(2)
+
+$\det(A) \in \{0, 1\}$ over GF(2). $\det = 1$ iff $A$ is invertible iff $\text{rank}(A) = n$.
+
+With Gaussian elimination: count row swaps (they don't change determinant mod 2, since $-1 \equiv 1$). Determinant = product of pivots = 1 if no zero pivot, 0 otherwise.
+
+---
+
+## Rank and Nullity over GF(2)
+
+Rank-nullity theorem holds: $\text{rank}(A) + \text{nullity}(A) = n$.
+
+For an $m \times n$ matrix $A$ over GF(2): number of solutions to $Ax = 0$ is $2^{n - \text{rank}(A)}$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Gaussian elimination (n×n) over GF(2)", time: "O(n³/64) with bitsets", space: "O(n²/64)" },
+  { operation: "Binary matrix multiply (n×n)", time: "O(n³/64)", space: "O(n²/64)" },
+  { operation: "Solve n×n system", time: "O(n³/64)", space: "O(n²/64)" },
+  { operation: "Count solutions (2^nullity)", time: "O(n³/64)", space: "O(n²/64)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "XOR Equations",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1364/D",
+    difficulty: "2000",
+    concepts: ["GF(2) system", "Gaussian elimination"],
+    tier: "standard"
+  },
+  {
+    name: "Lights Out",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/242/C",
+    difficulty: "2200",
+    concepts: ["GF(2)", "toggle puzzle"],
+    tier: "standard"
+  },
+  {
+    name: "GF2 Rank",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/matrix_rank",
+    difficulty: "1400",
+    concepts: ["GF(2) rank", "binary matrix"],
+    tier: "standard"
+  },
+  {
+    name: "Xor-Matrix",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/959/F",
+    difficulty: "2400",
+    concepts: ["GF(2)", "matrix rank", "counting"],
+    tier: "advanced"
+  },
+  {
+    name: "Number of Solutions",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1055/E",
+    difficulty: "2600",
+    concepts: ["GF(2) system", "count solutions"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [XOR Basis](/math/linear-algebra/xor-basis) — XOR basis is subset of GF(2) linear algebra
+- [Gaussian Elimination](/math/linear-algebra/gaussian-elimination) — same algorithm, bitset-optimized for GF(2)
+- [Bitmask Mathematics](/math/bitmask/sos-dp) — SOS/Möbius transform is related GF(2) technique
+
+---
+
+## References
+
+1. Lidl, R. & Niederreiter, H. — Finite Fields (2nd ed.) — GF(2) and binary vector spaces
+2. cp-algorithms — [Gaussian Elimination over GF(2)](https://cp-algorithms.com/linear_algebra/linear-system-gauss.html)
+3. MacWilliams & Sloane — Theory of Error-Correcting Codes — extensive GF(2) linear algebra

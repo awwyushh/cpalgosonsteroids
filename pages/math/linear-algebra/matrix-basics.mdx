@@ -1,0 +1,276 @@
+---
+title: Matrix Basics
+description: Matrix operations, determinant, rank, inverse, trace — rigorous definitions and key proofs
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Matrix Basics
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+Matrices encode linear transformations, graph adjacency, transition relations, and more. The determinant tells you invertibility; the rank tells you the solution space dimension. These form the foundation for Gaussian elimination, matrix exponentiation, and the Matrix-Tree theorem.
+
+**Contest relevance**: any problem using matrix exponentiation, Gaussian elimination, XOR basis, or spanning tree counting.
+
+---
+
+## Basic Operations
+
+An $m \times n$ matrix $A$ has entries $A_{ij}$ (row $i$, column $j$).
+
+### Addition and Scalar Multiplication
+
+$(A + B)_{ij} = A_{ij} + B_{ij}$ — requires same dimensions.
+
+$(\lambda A)_{ij} = \lambda A_{ij}$.
+
+### Matrix Multiplication
+
+For $A$ ($m \times k$) and $B$ ($k \times n$):
+
+$$(AB)_{ij} = \sum_{l=1}^{k} A_{il} B_{lj}$$
+
+```cpp
+using ll = long long;
+using Matrix = vector<vector<ll>>;
+const ll MOD = 1e9 + 7;
+
+Matrix multiply(const Matrix& A, const Matrix& B) {
+    int n = A.size(), m = B[0].size(), k = B.size();
+    Matrix C(n, vector<ll>(m, 0));
+    for (int i = 0; i < n; i++)
+        for (int l = 0; l < k; l++) {
+            if (!A[i][l]) continue;
+            for (int j = 0; j < m; j++)
+                C[i][j] = (C[i][j] + A[i][l] * B[l][j]) % MOD;
+        }
+    return C;
+}
+```
+
+**Properties**:
+- **Associative**: $(AB)C = A(BC)$ — follows from double-sum rearrangement
+- **Distributive**: $A(B+C) = AB + AC$
+- **Not commutative**: $AB \neq BA$ in general
+
+**Proof of associativity**: $((AB)C)_{ij} = \sum_l (AB)_{il} C_{lj} = \sum_l \sum_m A_{im} B_{ml} C_{lj} = \sum_m A_{im} (BC)_{mj} = (A(BC))_{ij}$. $\square$
+
+### Transpose
+
+$(A^T)_{ij} = A_{ji}$.
+
+**Properties**:
+- $(AB)^T = B^T A^T$ — **order reverses**
+- $(A^T)^T = A$
+- $(\lambda A)^T = \lambda A^T$
+
+**Proof of $(AB)^T = B^T A^T$**: $((AB)^T)_{ij} = (AB)_{ji} = \sum_l A_{jl} B_{li} = \sum_l (B^T)_{il} (A^T)_{lj} = (B^T A^T)_{ij}$. $\square$
+
+---
+
+## Identity and Inverse
+
+The **identity matrix** $I_n$ has $I_{ij} = [i=j]$. Satisfies $AI = IA = A$ for compatible dimensions.
+
+For square $A$ ($n \times n$): $B$ is the **inverse** of $A$ if $AB = BA = I_n$. Written $B = A^{-1}$.
+
+**Fact**: If $AB = I$, then $BA = I$ too (for square matrices). So checking one side suffices.
+
+**Properties**:
+- $(AB)^{-1} = B^{-1} A^{-1}$ (order reverses)
+- $(A^T)^{-1} = (A^{-1})^T$
+- $(A^{-1})^{-1} = A$
+
+---
+
+## Determinant
+
+For $1 \times 1$: $\det[a] = a$.
+
+For $n \times n$, **Laplace expansion** along row $i$:
+
+$$\det(A) = \sum_{j=1}^{n} (-1)^{i+j} A_{ij} \det(M_{ij})$$
+
+where $M_{ij}$ is the $(n-1) \times (n-1)$ **minor** (delete row $i$, column $j$).
+
+**For $2 \times 2$**: $\det\begin{pmatrix}a&b\\c&d\end{pmatrix} = ad - bc$.
+
+**For $3 \times 3$** (Sarrus' rule):
+$$\det(A) = a_{11}(a_{22}a_{33} - a_{23}a_{32}) - a_{12}(a_{21}a_{33} - a_{23}a_{31}) + a_{13}(a_{21}a_{32} - a_{22}a_{31})$$
+
+### Key Properties of Determinant
+
+1. $\det(AB) = \det(A)\det(B)$ — **multiplicativity**
+2. $\det(A^T) = \det(A)$
+3. $\det(A^{-1}) = 1/\det(A)$ (follows from property 1: $1 = \det(I) = \det(AA^{-1}) = \det(A)\det(A^{-1})$)
+4. Swapping two rows negates the determinant
+5. Scaling a row by $\lambda$ scales the determinant by $\lambda$
+6. Adding a multiple of one row to another: determinant unchanged
+7. $A$ is invertible $\Leftrightarrow$ $\det(A) \neq 0$
+
+**Proof of $\det(AB) = \det(A)\det(B)$**: Use the fact that row operations correspond to left-multiplication by elementary matrices, and verify multiplicativity for each elementary type. Full proof by induction on the Leibniz formula. $\square$
+
+### Leibniz Formula
+
+$$\det(A) = \sum_{\sigma \in S_n} \text{sgn}(\sigma) \prod_{i=1}^{n} A_{i,\sigma(i)}$$
+
+where the sum is over all permutations $\sigma$ of $\{1,\ldots,n\}$ and $\text{sgn}(\sigma) = (-1)^{\text{inv}(\sigma)}$.
+
+---
+
+## Rank
+
+The **rank** of a matrix $A$ is:
+- The number of linearly independent rows (= linearly independent columns — they're equal)
+- The dimension of the column space = dimension of the row space
+- Computed by Gaussian elimination: count non-zero pivots
+
+**Properties**:
+- $\text{rank}(A) \leq \min(m, n)$ for $m \times n$ matrix
+- $\text{rank}(AB) \leq \min(\text{rank}(A), \text{rank}(B))$
+- $\text{rank}(A) + \text{rank}(B) - n \leq \text{rank}(AB)$ (Sylvester's inequality)
+- $A$ is invertible $\Leftrightarrow$ $\text{rank}(A) = n$
+
+**Rank-Nullity Theorem**: For $A : \mathbb{R}^n \to \mathbb{R}^m$:
+
+$$\text{rank}(A) + \text{nullity}(A) = n$$
+
+where $\text{nullity}(A) = \dim(\ker(A))$ = dimension of solution space to $Ax = 0$.
+
+**Proof**: The image of $A$ has dimension $r = \text{rank}(A)$. The kernel is the orthogonal complement in the domain's sense — a basis of $\mathbb{R}^n$ splits into $r$ vectors mapping to the basis of the image, and $n - r$ vectors in the kernel. Formal proof via choosing a basis for $\ker(A)$ and extending to $\mathbb{R}^n$. $\square$
+
+---
+
+## Trace
+
+$$\text{tr}(A) = \sum_{i=1}^{n} A_{ii}$$
+
+**Properties**:
+- $\text{tr}(AB) = \text{tr}(BA)$ — **cyclic property**
+- $\text{tr}(A + B) = \text{tr}(A) + \text{tr}(B)$
+- $\text{tr}(A) = \sum_{i} \lambda_i$ where $\lambda_i$ are eigenvalues (counting multiplicity)
+
+**Proof of $\text{tr}(AB) = \text{tr}(BA)$**: $\text{tr}(AB) = \sum_i (AB)_{ii} = \sum_i \sum_j A_{ij} B_{ji} = \sum_j \sum_i B_{ji} A_{ij} = \sum_j (BA)_{jj} = \text{tr}(BA)$. $\square$
+
+---
+
+## Eigenvalues and Eigenvectors
+
+$\lambda$ is an **eigenvalue** of $A$ with **eigenvector** $v \neq 0$ if $Av = \lambda v$.
+
+**Characteristic polynomial**: $p(\lambda) = \det(A - \lambda I)$.
+
+Eigenvalues are the roots of $p(\lambda)$.
+
+**Properties**:
+- $\text{tr}(A) = \sum \lambda_i$ (sum of eigenvalues)
+- $\det(A) = \prod \lambda_i$ (product of eigenvalues)
+- $A$ and $A^T$ have the same eigenvalues
+
+**Diagonalization**: If $A$ has $n$ linearly independent eigenvectors $v_1, \ldots, v_n$ with eigenvalues $\lambda_1, \ldots, \lambda_n$, then $A = P D P^{-1}$ where $P = [v_1 | \cdots | v_n]$ and $D = \text{diag}(\lambda_1, \ldots, \lambda_n)$.
+
+Then $A^k = P D^k P^{-1}$ — **fast power of diagonal matrix**.
+
+---
+
+## Symmetric Matrices
+
+$A$ is **symmetric** if $A = A^T$.
+
+**Spectral theorem**: Any real symmetric matrix is diagonalizable over $\mathbb{R}$. Its eigenvectors can be chosen orthonormal ($P^T P = I$, so $P^{-1} = P^T$): $A = P D P^T$.
+
+**Positive (semi)definiteness**:
+- $A$ is **positive definite (PD)** if $x^T A x > 0$ for all $x \neq 0$
+- Equivalently: all eigenvalues $> 0$; all leading principal minors $> 0$
+- $A$ is **positive semidefinite (PSD)** if $x^T A x \geq 0$ — eigenvalues $\geq 0$
+
+---
+
+## Computational Complexity
+
+<ComplexityTable rows={[
+  { operation: "Matrix multiply (n×n)", time: "O(n³)", space: "O(n²)" },
+  { operation: "Strassen multiply", time: "O(n^(log₂7)) ≈ O(n^2.807)", space: "O(n²)" },
+  { operation: "Determinant (Gaussian)", time: "O(n³)", space: "O(n²)" },
+  { operation: "Laplace expansion determinant", time: "O(n!)", space: "O(n)" },
+  { operation: "Matrix inverse (Gauss-Jordan)", time: "O(n³)", space: "O(n²)" },
+  { operation: "Rank via Gaussian elimination", time: "O(n²m) for n×m matrix", space: "O(nm)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Row vs column vector**: $Av$ requires $v$ to be a column vector; $v^T A$ requires row. Keep track.
+2. **$(AB)^T = B^T A^T$, not $A^T B^T$**: the order reverses on transpose.
+3. **$(AB)^{-1} = B^{-1} A^{-1}$**: order reverses on inverse too.
+4. **Determinant of product**: $\det(cA) = c^n \det(A)$ for $n \times n$, not $c \det(A)$.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Matrix Multiplication",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1731",
+    difficulty: "1000",
+    concepts: ["matrix multiply"],
+    tier: "warmup"
+  },
+  {
+    name: "Determinant",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/determinant",
+    difficulty: "1400",
+    concepts: ["determinant", "Gaussian elimination"],
+    tier: "standard"
+  },
+  {
+    name: "Rank of Matrix",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/matrix_rank",
+    difficulty: "1400",
+    concepts: ["rank", "Gaussian elimination"],
+    tier: "standard"
+  },
+  {
+    name: "Matrix Inverse",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/matrix_product",
+    difficulty: "1400",
+    concepts: ["matrix inverse", "Gauss-Jordan"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Gaussian Elimination](/math/linear-algebra/gaussian-elimination) — computing rank, determinant, and solving $Ax = b$
+- [Matrix Exponentiation](/math/linear-algebra/matrix-exponentiation) — fast matrix power for recurrences
+- [Linear Recurrences](/math/linear-algebra/linear-recurrences) — eigenvalue / characteristic polynomial connection
+- [XOR Basis](/math/linear-algebra/xor-basis) — same linear algebra but over GF(2)
+
+---
+
+## References
+
+1. Strang, G. — Introduction to Linear Algebra (5th ed.) — Chapters 1–5
+2. Horn & Johnson — Matrix Analysis — determinant properties
+3. cp-algorithms — [Matrix](https://cp-algorithms.com/algebra/matrix.html)

@@ -1,0 +1,226 @@
+---
+title: Kitamasa Algorithm
+description: Compute the n-th term of a linear recurrence in O(k² log n) via polynomial exponentiation mod characteristic polynomial
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Kitamasa Algorithm
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Linear Recurrences", href: "/math/linear-algebra/linear-recurrences" },
+  { title: "Matrix Exponentiation", href: "/math/linear-algebra/matrix-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+For a $k$-th order linear recurrence, matrix exponentiation takes $O(k^3 \log n)$. Kitamasa reduces this to $O(k^2 \log n)$ by working with polynomials of degree $< k$ instead of $k \times k$ matrices. For $k = 100$: matrix expo = $10^6 \log n$ operations; Kitamasa = $10^4 \log n$ — 100× faster.
+
+**Contest relevance**: CF Div.1 D/E, linear recurrences with $k \geq 10$ and $n \leq 10^{18}$.
+
+---
+
+## Core Idea: Cayley-Hamilton
+
+The transition matrix $M$ satisfies its characteristic polynomial $p(M) = 0$. This means every power $M^n$ can be written as:
+
+$$M^n = \sum_{i=0}^{k-1} \alpha_i M^i$$
+
+for some scalars $\alpha_i$. Equivalently, compute $x^n \bmod p(x)$ where $p$ is the characteristic polynomial — the result $\sum \alpha_i x^i$ gives the coefficients.
+
+Then:
+
+$$f(n) = \sum_{i=0}^{k-1} \alpha_i \cdot f(i)$$
+
+---
+
+## Polynomial Exponentiation mod p(x)
+
+```cpp
+using ll = long long;
+using Poly = vector<ll>;
+const ll MOD = 1e9 + 7;
+
+// Multiply two polynomials mod char_poly (degree k), all coefficients mod MOD
+// char_poly[i] = coefficient of x^i in characteristic polynomial
+// char_poly[k] = 1 (monic), char_poly[i] = -c_{k-i} (from recurrence)
+
+Poly poly_mul_mod(const Poly& a, const Poly& b, const Poly& cp, int k) {
+    Poly res(2 * k - 1, 0);
+    for (int i = 0; i < k; i++)
+        if (a[i])
+            for (int j = 0; j < k; j++)
+                res[i + j] = (res[i + j] + a[i] * b[j]) % MOD;
+    
+    // Reduce: degree >= k → use recurrence to reduce
+    // char_poly: x^k = c[1]x^{k-1} + ... + c[k]  (or equivalently: x^k ≡ -char_poly[0..k-1])
+    // cp[i] for i < k: coefficient of x^i in -char_poly, i.e., x^k = sum cp[i] * x^i
+    for (int i = 2 * k - 2; i >= k; i--) {
+        ll coef = res[i];
+        res[i] = 0;
+        for (int j = 0; j < k; j++)
+            res[i - k + j] = (res[i - k + j] + coef * cp[j]) % MOD;
+    }
+    res.resize(k);
+    return res;
+}
+
+// Compute x^n mod char_poly
+Poly poly_pow_mod(ll n, const Poly& cp, int k) {
+    Poly base(k, 0);
+    if (k >= 2) base[1] = 1; else base[0] = 1;  // base = x (or 1 if k=1)
+    
+    Poly result(k, 0);
+    result[0] = 1;  // result = 1 (degree 0)
+    
+    for (; n > 0; n >>= 1) {
+        if (n & 1) result = poly_mul_mod(result, base, cp, k);
+        base = poly_mul_mod(base, base, cp, k);
+    }
+    return result;
+}
+
+// n-th term of recurrence:
+// rec[i] = coefficient c_{i+1} so f(n) = c_1 f(n-1) + ... + c_k f(n-k)
+// init[0..k-1] = initial values f(0)..f(k-1)
+ll kitamasa(ll n, vector<ll> rec, vector<ll> init) {
+    int k = rec.size();
+    if (n < k) return init[n];
+    
+    // Build cp: x^k = c_1 x^{k-1} + ... + c_k
+    // So cp[j] = c_{k-j} = rec[k-1-j]
+    Poly cp(k);
+    for (int j = 0; j < k; j++)
+        cp[j] = rec[k - 1 - j];
+    
+    // Compute r(x) = x^n mod char_poly
+    Poly r = poly_pow_mod(n, cp, k);
+    
+    // f(n) = sum_{i=0}^{k-1} r[i] * f(i)
+    ll ans = 0;
+    for (int i = 0; i < k; i++)
+        ans = (ans + r[i] * init[i]) % MOD;
+    return ans;
+}
+```
+
+---
+
+## Proof of Correctness
+
+**Claim**: $f(n) = \sum_{i=0}^{k-1} \alpha_i f(i)$ where $x^n \equiv \sum \alpha_i x^i \pmod{p(x)}$.
+
+**Proof**: Define $v(n) = (f(n), f(n+1), \ldots, f(n+k-1))^T$. The transition is $v(n) = M^n v(0)$.
+
+By Cayley-Hamilton, $p(M) = 0$, so $M^n = \sum_{i=0}^{k-1} \alpha_i M^i$ where $x^n \equiv \sum \alpha_i x^i \pmod{p(x)}$.
+
+Therefore $f(n) = e_0^T M^n v(0) = \sum \alpha_i e_0^T M^i v(0) = \sum \alpha_i f(i)$. $\square$
+
+**Why polynomial mod works**: the map $\phi: \mathbb{F}[x] \to \mathbb{F}[M]$, $\phi(q) = q(M)$, is a ring homomorphism with kernel containing $p(x)$. So $x^n \bmod p(x) \mapsto M^n \bmod p(M) = M^n$. $\square$
+
+---
+
+## Optimization with NTT
+
+For large $k$, polynomial multiplication is $O(k^2)$. With NTT (FFT), polynomial multiplication is $O(k \log k)$, giving:
+
+**Kitamasa with NTT**: $O(k \log k \cdot \log n)$.
+
+The reduction step (degree $2k-2$ down to $k-1$) uses polynomial division, which is $O(k \log k)$ with NTT.
+
+---
+
+## Example: Fibonacci (k=2)
+
+Recurrence: $f(n) = f(n-1) + f(n-2)$, characteristic polynomial $p(x) = x^2 - x - 1$.
+
+Compute $x^n \bmod (x^2 - x - 1)$:
+
+$x^2 \equiv x + 1$, $x^3 \equiv x^2 + x \equiv 2x + 1$, $x^4 \equiv 3x + 2$, ...
+
+For $n = 6$: $x^6 = 8x + 5$. So $f(6) = 8 \cdot f(1) + 5 \cdot f(0) = 8 \cdot 1 + 5 \cdot 0 = 8 = F_6$. ✓
+
+---
+
+## Comparison with Matrix Exponentiation
+
+| Method | Time | Space | Notes |
+|--------|------|-------|-------|
+| Matrix expo | $O(k^3 \log n)$ | $O(k^2)$ | Simple to implement |
+| Kitamasa (naive poly) | $O(k^2 \log n)$ | $O(k)$ | 100× faster for k=100 |
+| Kitamasa (NTT) | $O(k \log k \log n)$ | $O(k)$ | Fastest for large k |
+
+For $k \leq 5$: matrix expo is simpler. For $k \geq 20$: Kitamasa is better.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Poly multiply mod (degree k, naive)", time: "O(k²)", space: "O(k)" },
+  { operation: "Kitamasa (k-th order, naive)", time: "O(k² log n)", space: "O(k)" },
+  { operation: "Kitamasa (with NTT)", time: "O(k log k log n)", space: "O(k)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "k-th Term of Linear Recurrence",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/kth_term_of_linearly_recurrent_sequence",
+    difficulty: "1800",
+    concepts: ["Kitamasa", "polynomial mod", "linear recurrence"],
+    tier: "standard"
+  },
+  {
+    name: "Fibonacci Large",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1722",
+    difficulty: "1200",
+    concepts: ["linear recurrence", "fast computation"],
+    tier: "warmup"
+  },
+  {
+    name: "Dance",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/528/C",
+    difficulty: "2400",
+    concepts: ["Kitamasa", "high-order recurrence"],
+    tier: "advanced"
+  },
+  {
+    name: "Sequence of Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1214/G",
+    difficulty: "2700",
+    concepts: ["Berlekamp-Massey", "Kitamasa"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Linear Recurrences](/math/linear-algebra/linear-recurrences) — theory: characteristic polynomial, Cayley-Hamilton
+- [Matrix Exponentiation](/math/linear-algebra/matrix-exponentiation) — $O(k^3 \log n)$ alternative
+- [Berlekamp-Massey](/math/linear-algebra/berlekamp-massey) — finds the recurrence; Kitamasa computes the term
+- [Generating Functions](/math/combinatorics/generating-functions) — rational OGF is dual to linear recurrence
+
+---
+
+## References
+
+1. Kitamasa, S. — A linear recurrence formula (Japanese, 1985) — original algorithm
+2. cp-algorithms — [Linear Recurrence](https://cp-algorithms.com/algebra/linear_recurrence.html)
+3. Fiduccia, C.M. — An efficient formula for linear recurrences (1985) — related approach

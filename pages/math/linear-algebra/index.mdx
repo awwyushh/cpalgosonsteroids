@@ -1,0 +1,91 @@
+---
+title: Linear Algebra
+description: Matrix operations, Gaussian elimination, linear recurrences, XOR basis, and graph matrix theorems
+---
+
+import { TopicCard, TopicGrid } from '../../../components/TopicCard'
+
+# Linear Algebra
+
+<TopicGrid>
+  <TopicCard
+    title="Matrix Basics"
+    href="/math/linear-algebra/matrix-basics"
+    description="Matrix operations, determinant, rank, inverse, trace, and key algebraic identities with proofs."
+    difficulty="medium"
+    time="3h"
+    tags={["matrix", "determinant", "rank", "inverse", "trace"]}
+  />
+  <TopicCard
+    title="Matrix Exponentiation"
+    href="/math/linear-algebra/matrix-exponentiation"
+    description="Compute linear recurrences in O(k³ log n) — essential contest tool."
+    difficulty="medium"
+    time="2h"
+    tags={["matrix power", "recurrence", "Fibonacci", "graph walks"]}
+  />
+  <TopicCard
+    title="Linear Recurrences"
+    href="/math/linear-algebra/linear-recurrences"
+    description="Characteristic polynomial, closed forms, Cayley-Hamilton, and recurrence solving with proofs."
+    difficulty="hard"
+    time="3h"
+    tags={["characteristic polynomial", "Cayley-Hamilton", "closed form", "recurrence"]}
+  />
+  <TopicCard
+    title="Gaussian Elimination"
+    href="/math/linear-algebra/gaussian-elimination"
+    description="Row reduction, solving Ax=b, determinant, rank, modular elimination over prime fields."
+    difficulty="medium"
+    time="3h"
+    tags={["Gaussian elimination", "RREF", "rank", "modular", "linear system"]}
+  />
+  <TopicCard
+    title="XOR Basis & Linear Basis"
+    href="/math/linear-algebra/xor-basis"
+    description="Gaussian elimination over GF(2) — max XOR subset, k-th XOR, linear independence of bits."
+    difficulty="medium"
+    time="2h"
+    tags={["XOR basis", "linear basis", "GF(2)", "max XOR"]}
+  />
+  <TopicCard
+    title="Linear Algebra over GF(2)"
+    href="/math/linear-algebra/gf2"
+    description="Systems of linear equations mod 2, rank, determinant, and applications to competitive programming."
+    difficulty="hard"
+    time="3h"
+    tags={["GF(2)", "binary matrix", "rank mod 2", "linear system mod 2"]}
+  />
+  <TopicCard
+    title="Berlekamp-Massey"
+    href="/math/linear-algebra/berlekamp-massey"
+    description="Find the minimal linear recurrence for a sequence in O(n²) — LFSR connection and proof."
+    difficulty="expert"
+    time="4h"
+    tags={["Berlekamp-Massey", "LFSR", "minimal recurrence", "sequence"]}
+  />
+  <TopicCard
+    title="Kitamasa Algorithm"
+    href="/math/linear-algebra/kitamasa"
+    description="Compute n-th term of a k-th order recurrence in O(k² log n) — faster than k×k matrix expo."
+    difficulty="expert"
+    time="4h"
+    tags={["Kitamasa", "linear recurrence", "O(k² log n)", "polynomial mod"]}
+  />
+  <TopicCard
+    title="Matrix-Tree Theorem"
+    href="/math/linear-algebra/matrix-tree"
+    description="Count spanning trees with the Kirchhoff Laplacian determinant — proof and implementation."
+    difficulty="expert"
+    time="4h"
+    tags={["Matrix-Tree", "Kirchhoff", "Laplacian", "spanning trees"]}
+  />
+  <TopicCard
+    title="BEST Theorem & Arborescences"
+    href="/math/linear-algebra/kirchhoff"
+    description="Count Eulerian circuits and directed spanning trees (arborescences) via BEST theorem."
+    difficulty="expert"
+    time="4h"
+    tags={["BEST theorem", "Eulerian circuits", "arborescences", "directed Laplacian"]}
+  />
+</TopicGrid>

@@ -1,0 +1,277 @@
+---
+title: Linear Recurrences
+description: Characteristic polynomial, closed forms, Cayley-Hamilton theorem, and solving recurrences analytically
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Linear Recurrences
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Matrix Basics", href: "/math/linear-algebra/matrix-basics" },
+  { title: "Matrix Exponentiation", href: "/math/linear-algebra/matrix-exponentiation" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+Linear recurrences underlie Fibonacci-type sequences, tiling counts, path counts, and DP transitions. Understanding them via characteristic polynomials gives: closed forms (no computation), fast computation via matrix exponentiation or Kitamasa, and Berlekamp-Massey for unknown recurrences.
+
+**Contest relevance**: CF Div.1 C–E, any problem with a linear recurrence + large $n$.
+
+---
+
+## Definition
+
+A **homogeneous linear recurrence of order $k$**:
+
+$$f(n) = c_1 f(n-1) + c_2 f(n-2) + \cdots + c_k f(n-k), \quad n \geq k$$
+
+with initial values $f(0), f(1), \ldots, f(k-1)$.
+
+**Non-homogeneous**: with an extra term $g(n)$ on the right.
+
+---
+
+## Characteristic Polynomial
+
+The **characteristic polynomial** of the recurrence is:
+
+$$p(\lambda) = \lambda^k - c_1 \lambda^{k-1} - c_2 \lambda^{k-2} - \cdots - c_k$$
+
+**Why**: substituting $f(n) = \lambda^n$ into the recurrence gives $\lambda^n = c_1 \lambda^{n-1} + \cdots + c_k \lambda^{n-k}$, which simplifies to $p(\lambda) = 0$.
+
+---
+
+## Closed Form Solution
+
+**Case 1: Distinct roots** $\lambda_1, \lambda_2, \ldots, \lambda_k$ (all different):
+
+$$f(n) = A_1 \lambda_1^n + A_2 \lambda_2^n + \cdots + A_k \lambda_k^n$$
+
+The constants $A_1, \ldots, A_k$ are determined by the $k$ initial conditions (linear system in $A_i$).
+
+**Proof**: Each $\lambda_i^n$ satisfies the recurrence (by definition of characteristic polynomial). The set $\{\lambda_1^n, \ldots, \lambda_k^n\}$ is linearly independent when roots are distinct (Vandermonde determinant). So the general solution is a linear combination, and any initial conditions can be matched. $\square$
+
+**Case 2: Repeated root $\lambda$ with multiplicity $m$**:
+
+$$\lambda^n, n\lambda^n, n^2 \lambda^n, \ldots, n^{m-1}\lambda^n$$
+
+are all solutions. The general solution uses these $m$ terms for the root $\lambda$:
+
+$$f(n) = (A_0 + A_1 n + A_2 n^2 + \cdots + A_{m-1} n^{m-1}) \lambda^n + \cdots$$
+
+**Proof**: If $p(\lambda) = (\lambda - r)^m \cdot q(\lambda)$, substitute $f(n) = n^j r^n$ into the recurrence and verify. More elegantly: the space of solutions has dimension $k$ (by induction), and all $k$ listed functions are linearly independent solutions. $\square$
+
+---
+
+## Example: Fibonacci
+
+$f(n) = f(n-1) + f(n-2)$, characteristic polynomial $\lambda^2 - \lambda - 1 = 0$.
+
+Roots: $\phi = \frac{1+\sqrt{5}}{2}$, $\psi = \frac{1-\sqrt{5}}{2}$.
+
+General solution: $f(n) = A \phi^n + B \psi^n$.
+
+Initial conditions $f(0) = 0$, $f(1) = 1$:
+- $A + B = 0 \Rightarrow B = -A$
+- $A\phi - A\psi = 1 \Rightarrow A(\phi - \psi) = 1 \Rightarrow A = \frac{1}{\sqrt{5}}$
+
+**Binet's formula**:
+
+$$F(n) = \frac{1}{\sqrt{5}}\left(\phi^n - \psi^n\right) = \frac{1}{\sqrt{5}}\left(\left(\frac{1+\sqrt{5}}{2}\right)^n - \left(\frac{1-\sqrt{5}}{2}\right)^n\right)$$
+
+---
+
+## Non-Homogeneous Recurrences
+
+For $f(n) = c_1 f(n-1) + \cdots + c_k f(n-k) + g(n)$:
+
+**General solution** = **particular solution** + **homogeneous solution**.
+
+**Finding particular solutions**:
+- $g(n) = d$ (constant): try $f(n) = A$; get $A(1 - \sum c_i) = d$
+- $g(n) = d \cdot r^n$: try $f(n) = A r^n$ if $r$ is not a root; else try $n^m r^n$
+- $g(n) = $ polynomial: try polynomial of same degree
+
+**Matrix method** (more general): augment state vector with $g(n)$, $g(n-1)$, etc.
+
+---
+
+## Cayley-Hamilton Theorem
+
+**Statement**: Every matrix $A$ satisfies its own characteristic polynomial. If $p(\lambda) = \det(\lambda I - A)$, then $p(A) = 0$ (zero matrix).
+
+**Example**: For $A = \begin{pmatrix}1&1\\1&0\end{pmatrix}$ (Fibonacci), $p(\lambda) = \lambda^2 - \lambda - 1$, so $A^2 = A + I$.
+
+**Consequence for recurrences**: The transition matrix $M$ satisfies $p(M) = 0$. So $M^k = c_1 M^{k-1} + \cdots + c_k I$. This means $M^n$ for large $n$ can always be expressed as a linear combination of $I, M, M^2, \ldots, M^{k-1}$.
+
+**Proof sketch**: Use the adjugate: $\det(\lambda I - A) \cdot (\lambda I - A)^{-1} = \text{adj}(\lambda I - A)$. Both sides are polynomials in $\lambda$; equating at $\lambda = A$ (as formal matrices) gives the result. Full proof uses careful treatment of polynomial matrix evaluation. $\square$
+
+**CP application (Kitamasa)**: Instead of computing $k \times k$ matrix power in $O(k^3 \log n)$, represent $M^n$ as $\sum_{i=0}^{k-1} \alpha_i M^i$ by working modulo $p(\lambda)$ — gives Kitamasa in $O(k^2 \log n)$.
+
+---
+
+## Computing the n-th Term
+
+**Method 1: Matrix exponentiation** — $O(k^3 \log n)$. See matrix-exponentiation page.
+
+**Method 2: Kitamasa / Polynomial exponentiation** — $O(k^2 \log n)$. Compute $x^n \bmod p(x)$ where $p$ is the characteristic polynomial, then the result gives the linear combination of $f(0), \ldots, f(k-1)$ needed for $f(n)$.
+
+```cpp
+// Compute x^n mod poly p(x) in O(k^2 log n)
+// Result r(x) = sum_{i=0}^{k-1} r[i] x^i means f(n) = sum r[i] * f(i+1)
+
+using Poly = vector<long long>;
+const long long MOD = 1e9 + 7;
+
+// Multiply two polynomials mod char_poly, all coefficients mod MOD
+Poly poly_mul_mod(const Poly& a, const Poly& b, const Poly& mod_poly) {
+    int k = mod_poly.size() - 1;
+    Poly res(2 * k - 1, 0);
+    for (int i = 0; i < k; i++)
+        for (int j = 0; j < k; j++)
+            res[i+j] = (res[i+j] + a[i] * b[j]) % MOD;
+    
+    // Reduce mod mod_poly: for each degree >= k, substitute using recurrence
+    // mod_poly = x^k - c1 x^{k-1} - ... - ck
+    for (int i = 2 * k - 2; i >= k; i--) {
+        long long coef = res[i];
+        res[i] = 0;
+        // x^i = c1 x^{i-1} + ... + ck x^{i-k} mod mod_poly
+        for (int j = 1; j <= k; j++)
+            res[i - j] = (res[i - j] + coef * mod_poly[k - j]) % MOD;
+    }
+    res.resize(k);
+    return res;
+}
+
+// Compute x^n mod mod_poly
+Poly poly_pow_mod(long long n, const Poly& mod_poly) {
+    int k = mod_poly.size() - 1;
+    Poly base(k, 0), result(k, 0);
+    if (k > 1) base[1] = 1; else base[0] = 1;  // base = x
+    result[0] = 1;  // result = 1
+    
+    for (; n > 0; n >>= 1) {
+        if (n & 1) result = poly_mul_mod(result, base, mod_poly);
+        base = poly_mul_mod(base, base, mod_poly);
+    }
+    return result;
+}
+
+// f(n) for recurrence with coefficients c[0..k-1] and initial values init[0..k-1]
+long long nth_term(long long n, vector<long long> c, vector<long long> init) {
+    int k = c.size();
+    if (n < k) return init[n];
+    
+    // Characteristic poly: x^k - c[0]x^{k-1} - ... - c[k-1]
+    Poly char_poly(k + 1, 0);
+    char_poly[k] = 1;
+    for (int i = 0; i < k; i++)
+        char_poly[i] = (MOD - c[k - 1 - i]) % MOD;
+    
+    // Compute x^n mod char_poly
+    Poly r = poly_pow_mod(n, char_poly);
+    
+    // f(n) = sum_{i=0}^{k-1} r[i] * f(i)
+    long long ans = 0;
+    for (int i = 0; i < k; i++)
+        ans = (ans + r[i] * init[i]) % MOD;
+    return ans;
+}
+```
+
+---
+
+## Special Sequences
+
+| Sequence | Recurrence | Char. poly | Closed form |
+|---------|-----------|-----------|------------|
+| Fibonacci $F_n$ | $F_n = F_{n-1} + F_{n-2}$ | $x^2 - x - 1$ | $\frac{\phi^n - \psi^n}{\sqrt{5}}$ |
+| Lucas $L_n$ | $L_n = L_{n-1} + L_{n-2}$ | $x^2 - x - 1$ | $\phi^n + \psi^n$ |
+| Tribonacci $T_n$ | $T_n = T_{n-1} + T_{n-2} + T_{n-3}$ | $x^3 - x^2 - x - 1$ | 3 roots |
+| Powers $a^n$ | $f_n = a \cdot f_{n-1}$ | $x - a$ | $f_0 \cdot a^n$ |
+| $\sum_{i=0}^{n} i^k$ | order $k+2$ recurrence | — | polynomial in $n$ |
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Matrix exponentiation (order k)", time: "O(k³ log n)", space: "O(k²)" },
+  { operation: "Kitamasa / poly-mod exponentiation", time: "O(k² log n)", space: "O(k)" },
+  { operation: "Kitamasa with NTT", time: "O(k log k log n)", space: "O(k)" },
+  { operation: "Closed-form evaluation (distinct roots)", time: "O(k)", space: "O(k)", note: "after precomputation" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Fibonacci Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1722",
+    difficulty: "1200",
+    concepts: ["linear recurrence", "matrix exponentiation"],
+    tier: "warmup"
+  },
+  {
+    name: "Tribonacci",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1239/D",
+    difficulty: "2000",
+    concepts: ["linear recurrence", "characteristic polynomial"],
+    tier: "standard"
+  },
+  {
+    name: "Linear Recurrence",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/find_linear_recurrence",
+    difficulty: "1800",
+    concepts: ["Berlekamp-Massey", "minimal recurrence"],
+    tier: "standard"
+  },
+  {
+    name: "Kitamasa nth term",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/kth_term_of_linearly_recurrent_sequence",
+    difficulty: "1800",
+    concepts: ["Kitamasa", "polynomial mod", "linear recurrence"],
+    tier: "standard"
+  },
+  {
+    name: "Recurrence Count",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1442/E",
+    difficulty: "2600",
+    concepts: ["linear recurrence", "Cayley-Hamilton"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Matrix Exponentiation](/math/linear-algebra/matrix-exponentiation) — $O(k^3 \log n)$ method for linear recurrences
+- [Kitamasa Algorithm](/math/linear-algebra/kitamasa) — $O(k^2 \log n)$ polynomial-mod method
+- [Berlekamp-Massey](/math/linear-algebra/berlekamp-massey) — finds minimal recurrence from observed terms
+- [Generating Functions](/math/combinatorics/generating-functions) — OGF of linear recurrence is rational: $A(x) = P(x)/Q(x)$
+
+---
+
+## References
+
+1. Strang, G. — Introduction to Linear Algebra, Ch. 6 — eigenvalues and recurrences
+2. Sedgewick & Flajolet — Analysis of Algorithms, Ch. 3 — recurrences
+3. cp-algorithms — [Linear Recurrence](https://cp-algorithms.com/algebra/linear_recurrence.html)
