@@ -1,0 +1,273 @@
+---
+title: Floor & Ceiling Identities
+description: Integer division, floor/ceiling formulas, and floor sum for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Floor & Ceiling Identities
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Integer division (floor/ceiling) appears in range counting, geometric problems, floor sums, and divisor-based sieve arguments. Subtle off-by-one errors from incorrect floor/ceiling handling are a common source of WA.
+
+**Contest relevance**: CF Div.2 B–D, any problem with "how many multiples of k in [L, R]", segment counting, geometric lattice problems.
+
+---
+
+## Learning Objectives
+
+- Compute $\lfloor a/b \rfloor$ and $\lceil a/b \rceil$ for negative values correctly in C++
+- Apply floor/ceiling in counting problems
+- Compute $\sum_{i=1}^{n} \lfloor n/i \rfloor$ efficiently
+- Use the floor sum formula for competitive programming
+
+---
+
+## Definitions
+
+$$\lfloor x \rfloor = \text{largest integer} \leq x$$
+$$\lceil x \rceil = \text{smallest integer} \geq x$$
+
+Key relation: $\lceil a/b \rceil = \lfloor (a + b - 1) / b \rfloor$ for positive $a, b$.
+
+Also: $\lceil a/b \rceil = \lfloor a/b \rfloor + (a \bmod b \neq 0 ? 1 : 0)$.
+
+---
+
+## C++ Integer Division
+
+C++ truncates toward zero (not floor for negatives):
+
+```cpp
+// Positive: same as floor
+7 / 3 == 2;    // floor(7/3) = 2 ✓
+-7 / 3 == -2;  // floor(-7/3) = -3 ✗ (C++ gives -2)
+```
+
+**Correct floor division** for any sign:
+
+```cpp
+long long floor_div(long long a, long long b) {
+    return a / b - (a % b != 0 && (a ^ b) < 0);
+}
+
+long long ceil_div(long long a, long long b) {
+    return a / b + (a % b != 0 && (a ^ b) > 0);
+}
+```
+
+For positive $a, b$ only (common in CP):
+```cpp
+long long ceil_div_pos(long long a, long long b) {
+    return (a + b - 1) / b;
+}
+```
+
+<Callout type="warning">
+In C++, `-7 / 3 == -2` (rounds toward zero), but mathematical floor is $-3$. Always use `floor_div` when dealing with negative values.
+</Callout>
+
+---
+
+## Count Multiples in Range
+
+How many multiples of $d$ in $[L, R]$?
+
+$$\lfloor R/d \rfloor - \lfloor (L-1)/d \rfloor$$
+
+```cpp
+long long count_multiples(long long L, long long R, long long d) {
+    return R / d - (L - 1) / d;
+}
+```
+
+---
+
+## Harmonic Sum (Divisor Trick)
+
+$$\sum_{i=1}^{n} \left\lfloor \frac{n}{i} \right\rfloor = O(n \log n)$$
+
+Naively $O(n)$, but can group equal values in $O(\sqrt{n})$:
+
+```cpp
+long long harmonic_sum(long long n) {
+    long long result = 0;
+    for (long long l = 1, r; l <= n; l = r + 1) {
+        long long q = n / l;
+        r = n / q;  // rightmost index with same floor value
+        result += q * (r - l + 1);
+    }
+    return result;
+}
+```
+
+This is the **divisor sum trick**: $\lfloor n/i \rfloor$ takes only $O(\sqrt{n})$ distinct values.
+
+---
+
+## Floor Sum Formula
+
+$$\sum_{i=0}^{n-1} \left\lfloor \frac{ai + b}{m} \right\rfloor$$
+
+Computable in $O(\log m)$ via the algorithm from AtCoder Library:
+
+```cpp
+// Sum of floor((a*i + b) / m) for i = 0..n-1
+long long floor_sum(long long n, long long m, long long a, long long b) {
+    long long ans = 0;
+    if (a >= m) { ans += (a / m) * (n * (n - 1) / 2); a %= m; }
+    if (b >= m) { ans += (b / m) * n; b %= m; }
+    long long y_max = (a * n + b) / m;
+    long long x_max = y_max * m - b;
+    if (y_max == 0) return ans;
+    ans += (n - (x_max + a - 1) / a) * y_max;
+    ans += floor_sum(y_max, a, m, (a - x_max % a) % a);
+    return ans;
+}
+```
+
+---
+
+## Floor Grouping (General Pattern)
+
+The $O(\sqrt{n})$ block trick generalizes beyond harmonic sums. Any function of the form $\sum_{i=1}^{n} f(\lfloor n/i \rfloor)$ or $\sum_{d=1}^{n} g(d) \cdot \lfloor n/d \rfloor$ can use it.
+
+**Template**:
+```cpp
+// Enumerate all distinct values of floor(n/i) for i in [1, n]
+for (long long l = 1, r; l <= n; l = r + 1) {
+    long long q = n / l;       // floor(n/l) = floor(n/r)
+    r = n / q;                 // last index with this floor value
+    // All i in [l, r] have floor(n/i) == q
+    // Use this block: contribute f(q) * (r - l + 1) or similar
+}
+```
+
+**Applications**:
+- Sum of divisors $\sum_{i=1}^{n} \lfloor n/i \rfloor$: each $q$ contributes $q \cdot (\text{block size})$
+- Count pairs $(a, b)$ with $a \cdot b \leq n$: outer loop over $a$, floor-group $b$
+- Dirichlet series convolution (multiplicative functions over divisors)
+- Any problem: "for each divisor $d$ of numbers up to $n$..."
+
+**Observation**: there are at most $2\sqrt{n}$ distinct values of $\lfloor n/i \rfloor$, giving $O(\sqrt{n})$ iterations.
+
+---
+
+## Useful Identities
+
+- $\lfloor n/k \rfloor + \lceil n/k \rceil = 2n/k$ when $k \mid n$, else $\lfloor 2n/k \rfloor$ or $\lceil 2n/k \rceil$
+- $\lfloor (n-1)/k \rfloor = \lceil n/k \rceil - 1$ for $k \nmid n$
+- $\lfloor n/k \rfloor \cdot k \leq n < (\lfloor n/k \rfloor + 1) \cdot k$
+- $\sum_{d|n} \phi(d) = n$ (related to floor sums via Möbius)
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Single floor/ceil", time: "O(1)", space: "O(1)" },
+  { operation: "Count multiples in range", time: "O(1)", space: "O(1)" },
+  { operation: "Harmonic sum Σ⌊n/i⌋", time: "O(√n)", space: "O(1)" },
+  { operation: "Floor sum formula", time: "O(log m)", space: "O(log m)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Negative division in C++**: use `floor_div` not `/`.
+2. **Off-by-one in range counting**: it's `floor(R/d) - floor((L-1)/d)`, not `floor(R/d) - floor(L/d)`.
+3. **Overflow in `(a + b - 1) / b`**: if `a` is near `LLONG_MAX`, `a + b - 1` overflows.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Divisor Count",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1075",
+    difficulty: "800",
+    concepts: ["floor division", "counting multiples"],
+    tier: "warmup"
+  },
+  {
+    name: "Fence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1485/C",
+    difficulty: "1500",
+    concepts: ["ceiling division", "range counting"],
+    tier: "standard"
+  },
+  {
+    name: "k-divisible",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1201/C",
+    difficulty: "1600",
+    concepts: ["floor/ceiling", "counting"],
+    tier: "standard"
+  },
+  {
+    name: "Sum of Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1082",
+    difficulty: "1500",
+    concepts: ["harmonic sum", "floor grouping"],
+    tier: "standard"
+  },
+  {
+    name: "Floor Sum",
+    platform: "AtCoder",
+    link: "https://atcoder.jp/contests/practice2/tasks/practice2_c",
+    difficulty: "1400",
+    concepts: ["floor sum formula"],
+    tier: "advanced"
+  },
+  {
+    name: "Divisible Pairs",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1426/F",
+    difficulty: "2000",
+    concepts: ["floor grouping", "multiplicative functions"],
+    tier: "advanced"
+  },
+  {
+    name: "Number of Pairs",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1325/D",
+    difficulty: "1700",
+    concepts: ["floor division", "counting"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Modular Arithmetic](/math/foundations/modular-arithmetic) — floor and mod are dual: $a = \lfloor a/b \rfloor \cdot b + (a \bmod b)$
+- [GCD & LCM](/math/foundations/gcd-lcm) — count multiples uses floor division
+- [Divisors & Factorization](/math/number-theory/divisors) — floor grouping drives $O(\sqrt{n})$ divisor enumeration
+- [Euler's Totient](/math/number-theory/euler-phi) — Möbius inversion connects floor sums to totient sums
+- [Möbius Function](/math/number-theory/mobius) — floor grouping appears in Dirichlet series
+
+---
+
+## References
+
+1. cp-algorithms — [Floor & Ceiling](https://cp-algorithms.com/algebra/floor-ceil.html)
+2. AtCoder Library — [floor_sum implementation](https://atcoder.github.io/ac-library/document_en/math.html)
+3. Concrete Mathematics (Graham, Knuth, Patashnik) — Chapter 3: Integer Functions
