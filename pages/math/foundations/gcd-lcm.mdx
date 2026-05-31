@@ -1,0 +1,279 @@
+---
+title: GCD & LCM
+description: Euclidean algorithm, extended GCD, and LCM for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# GCD & LCM
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Essential</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+GCD and LCM appear in hundreds of CP problems. Extended GCD underlies modular inverse computation. Fraction reduction, Bezout's identity, Diophantine equations — all use GCD at their core.
+
+**Contest relevance**: CF Div.2 B–D, CSES Number Theory, USACO Silver.
+
+---
+
+## Learning Objectives
+
+- Compute $\gcd(a, b)$ in $O(\log \min(a,b))$ via Euclidean algorithm
+- Understand why the algorithm is correct
+- Compute extended GCD — find $(x, y)$ with $ax + by = \gcd(a, b)$
+- Derive LCM from GCD
+- Apply GCD to reduce fractions, solve linear equations
+
+---
+
+## Euclidean Algorithm
+
+$$\gcd(a, b) = \gcd(b, a \bmod b)$$
+
+Base case: $\gcd(a, 0) = a$.
+
+```cpp
+long long gcd(long long a, long long b) {
+    while (b) { a %= b; swap(a, b); }
+    return a;
+}
+
+// Or recursive:
+long long gcd(long long a, long long b) {
+    return b == 0 ? a : gcd(b, a % b);
+}
+```
+
+In C++17: `__gcd(a, b)` or `std::gcd(a, b)` (from `<numeric>`).
+
+**Why correct**: key property $\gcd(a, b) = \gcd(b, r)$ where $a = qb + r$. Any common divisor of $a, b$ also divides $r = a - qb$.
+
+**Complexity**: $O(\log \min(a, b))$. Number of steps ≤ $2 \log_\phi \min(a,b)$ (Fibonacci worst case).
+
+---
+
+## LCM
+
+$$\text{lcm}(a, b) = \frac{a \cdot b}{\gcd(a, b)}$$
+
+```cpp
+long long lcm(long long a, long long b) {
+    return a / gcd(a, b) * b;  // divide first to avoid overflow
+}
+```
+
+<Callout type="warning">
+Always divide before multiplying: `a / gcd(a,b) * b`, not `a * b / gcd(a,b)`. The latter overflows.
+</Callout>
+
+**LCM of multiple numbers**: fold with pairwise LCM. Note: LCM grows fast and overflows `long long` for many numbers.
+
+---
+
+## Extended Euclidean Algorithm
+
+Find integers $x, y$ such that $ax + by = \gcd(a, b)$ (Bezout's identity).
+
+```cpp
+long long ext_gcd(long long a, long long b, long long &x, long long &y) {
+    if (b == 0) { x = 1; y = 0; return a; }
+    long long x1, y1;
+    long long g = ext_gcd(b, a % b, x1, y1);
+    x = y1;
+    y = x1 - (a / b) * y1;
+    return g;
+}
+```
+
+Returns $g = \gcd(a, b)$ and sets $x, y$ such that $ax + by = g$.
+
+**Applications**:
+- Modular inverse: solve $ax \equiv 1 \pmod{m}$ → $ax + my = 1$
+- Linear Diophantine equations $ax + by = c$
+- CRT combination step
+
+---
+
+## Binary GCD (Stein's Algorithm)
+
+Avoids division — useful on hardware without fast division:
+
+```cpp
+long long binary_gcd(long long a, long long b) {
+    if (!a) return b;
+    if (!b) return a;
+    int shift = __builtin_ctzll(a | b);
+    a >>= __builtin_ctzll(a);
+    do {
+        b >>= __builtin_ctzll(b);
+        if (a > b) swap(a, b);
+        b -= a;
+    } while (b);
+    return a << shift;
+}
+```
+
+Complexity same as Euclidean but avoids modulo.
+
+---
+
+## GCD Properties
+
+$$\gcd(a, b) = \gcd(b, a) = \gcd(a, -b) = \gcd(|a|, |b|)$$
+$$\gcd(a, b, c) = \gcd(\gcd(a, b), c) \quad \text{(associative, use fold)}$$
+$$\gcd(ka, kb) = k \cdot \gcd(a, b)$$
+$$\gcd(a, 0) = a, \quad \gcd(a, a) = a$$
+$$\gcd(a + kb, b) = \gcd(a, b) \quad \forall k \in \mathbb{Z}$$
+
+**GCD of an array** (fold):
+```cpp
+int g = 0;
+for (int x : a) g = __gcd(g, x);
+// g = gcd(a[0], a[1], ..., a[n-1])
+// gcd(0, x) = x, so starting with 0 works correctly
+```
+
+**LCM of multiple numbers** (watch overflow — LCM grows fast):
+```cpp
+long long l = 1;
+for (int x : a) {
+    l = l / __gcd(l, (long long)x) * x;
+    if (l > 1e18) { /* overflow guard */ break; }
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "GCD (Euclidean)", time: "O(log min(a,b))", space: "O(1)" },
+  { operation: "Extended GCD", time: "O(log min(a,b))", space: "O(log n) recursive" },
+  { operation: "LCM", time: "O(log min(a,b))", space: "O(1)" },
+]} />
+
+---
+
+## Common Patterns
+
+1. **Reduce fraction**: `a /= gcd(a, b); b /= gcd_val;`
+2. **Check if ax+by=c has solution**: iff `gcd(a,b)` divides `c`
+3. **GCD of array**: `fold with gcd`. Result = GCD of all elements
+4. **Operations to make all equal**: use GCD to find maximum value all can share
+5. **Count multiples in range**: `floor(R/lcm) - floor((L-1)/lcm)`
+
+---
+
+## Common Mistakes
+
+1. **Negative inputs**: `__gcd(-6, 4)` may return negative. Use `abs(gcd(a,b))`.
+2. **Overflow in LCM**: `a/gcd*b` vs `a*b/gcd` — always divide first.
+3. **gcd(0,0)**: mathematically undefined or 0 by convention. Check constraints.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Least Common Multiple",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1081",
+    difficulty: "800",
+    concepts: ["GCD", "LCM"],
+    tier: "warmup"
+  },
+  {
+    name: "Common Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1666",
+    difficulty: "1000",
+    concepts: ["GCD", "maximum common divisor"],
+    tier: "warmup"
+  },
+  {
+    name: "Euclid's Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/106/C",
+    difficulty: "1700",
+    concepts: ["GCD", "game theory"],
+    tier: "standard"
+  },
+  {
+    name: "GCD and LCM",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/75/C",
+    difficulty: "1600",
+    concepts: ["GCD", "LCM", "construction"],
+    tier: "standard"
+  },
+  {
+    name: "Fence Repair",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1459/C",
+    difficulty: "1600",
+    concepts: ["GCD", "construction"],
+    tier: "standard"
+  },
+  {
+    name: "The Necklace",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1299/C",
+    difficulty: "1700",
+    concepts: ["GCD", "construction"],
+    tier: "standard"
+  },
+  {
+    name: "GCD of Sequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1476/C",
+    difficulty: "1900",
+    concepts: ["GCD", "array manipulation"],
+    tier: "advanced"
+  },
+  {
+    name: "GCD on Whiteboard",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1458/C",
+    difficulty: "1700",
+    concepts: ["GCD", "prefix/suffix GCD"],
+    tier: "standard"
+  },
+  {
+    name: "Array Division",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1102/C",
+    difficulty: "1900",
+    concepts: ["GCD", "prefix GCD", "binary search"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Modular Arithmetic](/math/foundations/modular-arithmetic) — GCD underpins modular inverse existence
+- [Modular Inverse](/math/foundations/modular-inverse) — extended GCD is one of two inverse methods
+- [Diophantine Equations](/math/foundations/diophantine) — linear Diophantine $ax+by=c$ solvable iff $\gcd(a,b) \mid c$
+- [Chinese Remainder Theorem](/math/number-theory/crt) — uses extended GCD in combination step
+- [Euler's Totient](/math/number-theory/euler-phi) — $\phi(n)$ uses GCD coprimality
+
+---
+
+## References
+
+1. cp-algorithms — [Euclidean Algorithm](https://cp-algorithms.com/algebra/euclid-algorithm.html)
+2. cp-algorithms — [Extended Euclidean Algorithm](https://cp-algorithms.com/algebra/extended-euclid-algorithm.html)
+3. Knuth, TAOCP Vol. 2 §4.5.2 — Euclid's algorithm and extensions
