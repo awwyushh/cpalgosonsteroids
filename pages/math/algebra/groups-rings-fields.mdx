@@ -1,0 +1,230 @@
+---
+title: Groups, Rings & Fields
+description: Definitions, examples, Lagrange's theorem, homomorphisms, quotient structures — algebraic foundations for CP
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Groups, Rings & Fields
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" },
+  { title: "Euler Phi Function", href: "/math/number-theory/euler-phi" }
+]} />
+
+## Why This Topic Matters
+
+Algebraic structures unify seemingly different CP tools. Modular arithmetic = integers mod $p$ form a field. XOR = $\mathbb{Z}/2\mathbb{Z}$ vector space. NTT = Fourier transform over a cyclic group. Burnside's lemma = group actions. Understanding the structure tells you what operations are valid and why algorithms work.
+
+**Contest relevance**: CF Div.1 D/E, problems involving symmetry (Burnside/Pólya), polynomial operations (field structure), combinatorics under group action.
+
+---
+
+## Groups
+
+A **group** $(G, \cdot)$ is a set with a binary operation satisfying:
+1. **Closure**: $a, b \in G \Rightarrow a \cdot b \in G$
+2. **Associativity**: $(a \cdot b) \cdot c = a \cdot (b \cdot c)$
+3. **Identity**: $\exists e \in G$ s.t. $e \cdot a = a \cdot e = a$
+4. **Inverse**: $\forall a \in G$, $\exists a^{-1}$ s.t. $a \cdot a^{-1} = e$
+
+A group is **abelian (commutative)** if additionally $a \cdot b = b \cdot a$.
+
+### Key Examples
+
+| Group | Operation | Identity | Abelian? |
+|-------|-----------|----------|---------|
+| $\mathbb{Z}$ | $+$ | $0$ | Yes |
+| $\mathbb{Z}/n\mathbb{Z}$ | $+$ mod $n$ | $0$ | Yes |
+| $(\mathbb{Z}/p\mathbb{Z})^*$ | $\times$ mod $p$ | $1$ | Yes |
+| $\text{GL}(n, F)$ | matrix multiply | $I_n$ | No ($n \geq 2$) |
+| $S_n$ (permutations) | composition | identity perm | No ($n \geq 3$) |
+| $C_n$ (cyclic group) | $+$ mod $n$ | $0$ | Yes |
+| $D_n$ (dihedral) | rotation+reflection | identity | No |
+
+---
+
+## Subgroups and Lagrange's Theorem
+
+$H \subseteq G$ is a **subgroup** if $H$ is a group under the same operation.
+
+**Lagrange's Theorem**: If $G$ is finite and $H \leq G$, then $|H|$ divides $|G|$.
+
+**Proof**: Define cosets $aH = \{ah : h \in H\}$ for $a \in G$. Two cosets are either equal or disjoint (proof: if $aH \cap bH \neq \emptyset$, then $a^{-1}b \in H$, so $bH = aH$). Each coset has size $|H|$. The cosets partition $G$, so $|G| = [G:H] \cdot |H|$ where $[G:H]$ is the number of cosets. $\square$
+
+**Corollary**: Order of any element $g$ divides $|G|$. So $g^{|G|} = e$ — this is exactly Euler's theorem ($a^{\phi(n)} \equiv 1$) and Fermat's little theorem ($a^{p-1} \equiv 1$) in disguise.
+
+**Order of an element**: $\text{ord}(g) = $ smallest $k > 0$ with $g^k = e$.
+
+---
+
+## Cyclic Groups
+
+$G$ is **cyclic** if $G = \langle g \rangle = \{g^0, g^1, g^2, \ldots\}$ for some generator $g$.
+
+**Theorem**: Every subgroup of a cyclic group is cyclic.
+
+**Theorem**: $\mathbb{Z}/n\mathbb{Z}$ has exactly one subgroup of order $d$ for each $d | n$.
+
+**Theorem**: $(\mathbb{Z}/p\mathbb{Z})^*$ is cyclic of order $p-1$. A generator is a **primitive root** mod $p$.
+
+---
+
+## Group Homomorphisms
+
+A **homomorphism** $\phi: G \to H$ satisfies $\phi(ab) = \phi(a)\phi(b)$.
+
+- **Kernel**: $\ker(\phi) = \{g \in G : \phi(g) = e_H\}$ — always a normal subgroup
+- **Image**: $\text{im}(\phi) \subseteq H$ — a subgroup of $H$
+- **Isomorphism**: $\phi$ is bijective; then $G \cong H$ (structurally identical)
+
+**First Isomorphism Theorem**: $G / \ker(\phi) \cong \text{im}(\phi)$.
+
+**CP relevance**: the map $a \mapsto a \bmod n$ is a ring homomorphism $\mathbb{Z} \to \mathbb{Z}/n\mathbb{Z}$. The map $k \mapsto g^k$ is an isomorphism $\mathbb{Z}/(p-1)\mathbb{Z} \to (\mathbb{Z}/p\mathbb{Z})^*$ (when $g$ is a primitive root).
+
+---
+
+## Normal Subgroups and Quotient Groups
+
+$N \leq G$ is **normal** ($N \trianglelefteq G$) if $gNg^{-1} = N$ for all $g \in G$.
+
+Equivalently: left cosets = right cosets.
+
+The **quotient group** $G/N = \{gN : g \in G\}$ with operation $(aN)(bN) = (ab)N$.
+
+**Example**: $\mathbb{Z}/n\mathbb{Z} = \mathbb{Z} / n\mathbb{Z}$ — integers modulo $n$ as quotient of integers by the subgroup $n\mathbb{Z}$.
+
+---
+
+## Rings
+
+A **ring** $(R, +, \cdot)$ satisfies:
+- $(R, +)$ is an abelian group
+- $(R, \cdot)$ is associative with identity $1$
+- Distributive: $a(b+c) = ab + ac$ and $(b+c)a = ba + ca$
+
+A ring is **commutative** if $ab = ba$.
+
+### Examples
+
+| Ring | Notes |
+|------|-------|
+| $\mathbb{Z}$ | No inverses for multiplication |
+| $\mathbb{Z}/n\mathbb{Z}$ | Integers mod $n$ |
+| $\mathbb{Z}[x]$ | Polynomials with integer coefficients |
+| $\mathbb{F}_p[x]$ | Polynomials mod prime $p$ |
+| $M_n(F)$ | $n \times n$ matrices over field $F$ |
+
+**Ideal**: $I \subseteq R$ with $RI \subseteq I$ and $IR \subseteq I$ — the "kernel" analogue for rings. Quotient ring $R/I$ is defined similarly.
+
+**Zero divisors**: $a \neq 0$ and $b \neq 0$ with $ab = 0$ — these prevent inverses. $\mathbb{Z}/6\mathbb{Z}$: $2 \cdot 3 = 0$.
+
+An **integral domain** is a commutative ring with no zero divisors.
+
+---
+
+## Fields
+
+A **field** $(F, +, \cdot)$ is a commutative ring where every nonzero element has a multiplicative inverse.
+
+Equivalently: $(F, +)$ is abelian group, $(F^*, \cdot)$ is abelian group, and distributivity holds.
+
+### Examples
+
+| Field | Notes |
+|-------|-------|
+| $\mathbb{Q}, \mathbb{R}, \mathbb{C}$ | Infinite fields |
+| $\mathbb{F}_p = \mathbb{Z}/p\mathbb{Z}$ | $p$ prime; finite field of order $p$ |
+| $\mathbb{F}_{p^k}$ | Finite field of order $p^k$ |
+| $\mathbb{Q}(\sqrt{2})$ | Extension of rationals |
+
+**Characteristic**: smallest $n > 0$ with $n \cdot 1 = 0$ (or $\infty$). For $\mathbb{F}_p$: characteristic $p$. For $\mathbb{R}$: characteristic 0.
+
+**Theorem**: Every finite field has order $p^k$ for some prime $p$ and $k \geq 1$. For each $p^k$, there is exactly one finite field $\mathbb{F}_{p^k}$ (up to isomorphism).
+
+---
+
+## Key Theorems Summary
+
+| Theorem | Statement | CP Use |
+|---------|-----------|--------|
+| Lagrange | $|H|$ divides $|G|$ | order of element divides $\phi(n)$ |
+| Cayley | Every group embeds in $S_n$ | any group action is a permutation |
+| Isomorphism (1st) | $G/\ker \cong \text{im}$ | mod arithmetic, primitive roots |
+| Classification of cyclic | $\mathbb{Z}/n\mathbb{Z}$ | cyclic group structure |
+| Finite fields | $|\mathbb{F}| = p^k$, unique | NTT, GF(2) |
+| Orbit-Stabilizer | $|G| = |Orb| \cdot |Stab|$ | Burnside's lemma |
+
+---
+
+## Group Actions
+
+$G$ **acts on** set $X$ if there is a map $G \times X \to X$, $(g, x) \mapsto g \cdot x$, with:
+- $e \cdot x = x$
+- $(gh) \cdot x = g \cdot (h \cdot x)$
+
+**Orbit** of $x$: $Orb(x) = \{g \cdot x : g \in G\}$.
+
+**Stabilizer** of $x$: $Stab(x) = \{g \in G : g \cdot x = x\}$ — a subgroup of $G$.
+
+**Orbit-Stabilizer Theorem**: $|G| = |Orb(x)| \cdot |Stab(x)|$.
+
+**Burnside's Lemma**: number of orbits $= \frac{1}{|G|} \sum_{g \in G} |X^g|$ where $X^g = \{x : g \cdot x = x\}$ (fixed points).
+
+**Proof of Orbit-Stabilizer**: The map $G/Stab(x) \to Orb(x)$, $gStab(x) \mapsto g \cdot x$, is a bijection (well-defined, injective, surjective). So $|Orb(x)| = [G : Stab(x)] = |G|/|Stab(x)|$. $\square$
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Necklaces (Burnside)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2209",
+    difficulty: "1600",
+    concepts: ["group action", "Burnside", "cyclic group"],
+    tier: "standard"
+  },
+  {
+    name: "Color the Fence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/149/D",
+    difficulty: "2000",
+    concepts: ["Burnside", "dihedral group"],
+    tier: "standard"
+  },
+  {
+    name: "Group Isomorphism",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1617/F",
+    difficulty: "2600",
+    concepts: ["group structure", "abelian groups"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Permutation Groups](/math/algebra/permutation-groups) — $S_n$ is the canonical group for Cayley's theorem
+- [Finite Fields](/math/algebra/finite-fields) — $\mathbb{F}_{p^k}$ construction from ring theory
+- [Burnside's Lemma](/math/combinatorics/burnside) — applied group actions for counting
+- [Euler Phi Function](/math/number-theory/euler-phi) — order of $(\mathbb{Z}/n\mathbb{Z})^*$ is $\phi(n)$
+- [Primitive Roots](/math/number-theory/primitive-roots) — $(\mathbb{Z}/p\mathbb{Z})^*$ is cyclic; primitive root = generator
+
+---
+
+## References
+
+1. Dummit & Foote — Abstract Algebra (3rd ed.) — Chapters 1–4, 7–9
+2. Artin, M. — Algebra (2nd ed.) — groups, rings, fields
+3. Herstein, I.N. — Topics in Algebra — classic concise treatment

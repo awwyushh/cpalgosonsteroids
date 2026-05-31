@@ -1,0 +1,259 @@
+---
+title: Boolean Algebra & Bitwise
+description: Boolean lattice, De Morgan laws, duality, bitwise identities, and their algebraic structure
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Boolean Algebra & Bitwise
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Groups, Rings & Fields", href: "/math/algebra/groups-rings-fields" }
+]} />
+
+## Why This Topic Matters
+
+Boolean algebra is the algebraic structure of logic gates, bitwise operations, and set operations. The laws (De Morgan, distributivity, absorption) enable bitwise expression simplification. The lattice structure underlies SOS DP (subset sum over the divisor lattice). GF(2) is the field version; the boolean semiring is the (OR, AND) case.
+
+**Contest relevance**: CF Div.1 B–D, bitwise trick problems, SOS DP, XOR/AND/OR optimization.
+
+---
+
+## Boolean Algebra Definition
+
+A **Boolean algebra** $(B, \vee, \wedge, \neg, 0, 1)$ satisfies:
+- **Commutativity**: $a \vee b = b \vee a$, $a \wedge b = b \wedge a$
+- **Associativity**: $(a \vee b) \vee c = a \vee (b \vee c)$
+- **Distributivity**: $a \vee (b \wedge c) = (a \vee b) \wedge (a \vee c)$ and $a \wedge (b \vee c) = (a \wedge b) \vee (a \wedge c)$
+- **Identity**: $a \vee 0 = a$, $a \wedge 1 = a$
+- **Complement**: $a \vee \neg a = 1$, $a \wedge \neg a = 0$
+
+**Canonical example**: $B = \{0, 1\}^n$ (bit vectors) with bitwise OR, AND, NOT.
+
+---
+
+## Key Laws
+
+### De Morgan's Laws
+$$\neg(a \vee b) = \neg a \wedge \neg b$$
+$$\neg(a \wedge b) = \neg a \vee \neg b$$
+
+**Proof**: Both sides equal $1$ iff $a = 0$ and $b = 0$:
+- $\neg(a \vee b) = 1 \Leftrightarrow a \vee b = 0 \Leftrightarrow a = 0, b = 0$
+- $\neg a \wedge \neg b = 1 \Leftrightarrow \neg a = 1$ and $\neg b = 1 \Leftrightarrow a = 0, b = 0$ $\square$
+
+In C++: `~(a | b) == (~a & ~b)`, `~(a & b) == (~a | ~b)`.
+
+### Absorption Laws
+$$a \vee (a \wedge b) = a$$
+$$a \wedge (a \vee b) = a$$
+
+**Proof** of $a \vee (a \wedge b) = a$: by distributivity, $= (a \vee a) \wedge (a \vee b) = a \wedge (a \vee b)$... or directly: if $a=1$, LHS$=1=a$. If $a=0$, LHS$=0\wedge b = 0 = a$. $\square$
+
+### Idempotency
+$$a \vee a = a, \quad a \wedge a = a$$
+
+### Duality Principle
+
+For every boolean identity, swapping $\vee \leftrightarrow \wedge$ and $0 \leftrightarrow 1$ gives another valid identity. Example: $a \vee 0 = a$ ↔ $a \wedge 1 = a$.
+
+---
+
+## XOR: The Ring Structure
+
+XOR ($\oplus$) is addition in $\text{GF}(2)$: $(\{0,1\}, \oplus, \wedge)$ forms a field (GF(2)).
+
+**Properties**:
+- $a \oplus a = 0$ (self-inverse)
+- $a \oplus 0 = a$ (identity)
+- $a \oplus b = b \oplus a$ (commutative)
+- $(a \oplus b) \oplus c = a \oplus (b \oplus c)$ (associative)
+- $a \wedge (b \oplus c) = (a \wedge b) \oplus (a \wedge c)$ (AND distributes over XOR)
+
+**CP patterns**:
+- XOR cancellation: $a \oplus a \oplus b = b$
+- XOR swap: `a ^= b; b ^= a; a ^= b;`
+- Parity: $a_1 \oplus a_2 \oplus \cdots \oplus a_n = $ parity of count of 1-bits
+
+---
+
+## Bitwise Identities for CP
+
+### Basic Masks
+
+```cpp
+// Power of 2 check
+bool is_pow2(int n) { return n > 0 && !(n & (n-1)); }
+
+// Lowest set bit (LSB)
+int lsb(int n) { return n & (-n); }
+
+// Clear lowest set bit
+int clear_lsb(int n) { return n & (n-1); }
+
+// Set all bits below position k
+int lower_k_bits(int k) { return (1 << k) - 1; }
+
+// Count set bits
+int popcount(int n) { return __builtin_popcount(n); }  // hardware instruction
+```
+
+### Bit Manipulation Tricks
+
+```cpp
+// Round up to next power of 2
+int next_pow2(int n) {
+    n--;
+    n |= n >> 1; n |= n >> 2; n |= n >> 4;
+    n |= n >> 8; n |= n >> 16;
+    return n + 1;
+}
+
+// Enumerate all non-empty subsets of mask
+for (int sub = mask; sub > 0; sub = (sub-1) & mask) {
+    // process sub
+}
+
+// Enumerate all supersets of mask within universe U
+for (int sup = mask; sup <= U; sup = (sup+1) | mask) {
+    // process sup
+    if (sup == U) break;
+}
+
+// Swap bits i and j in n
+int swap_bits(int n, int i, int j) {
+    int x = ((n >> i) ^ (n >> j)) & 1;
+    return n ^ ((x << i) | (x << j));
+}
+```
+
+### Two's Complement Properties
+
+```cpp
+// Negation: -n = ~n + 1
+// So: n & (-n) = lowest set bit of n
+// And: n & (n-1) = n with lowest bit cleared
+// And: ~n & (n+1) = lowest zero bit of n as a mask
+
+int lowest_zero_bit(int n) { return ~n & (n+1); }
+```
+
+---
+
+## Boolean Lattice Structure
+
+The power set $2^{[n]}$ ordered by $\subseteq$ forms a **Boolean lattice**:
+- $A \vee B = A \cup B$
+- $A \wedge B = A \cap B$
+- $\neg A = [n] \setminus A$ (complement)
+
+**Lattice height**: $n+1$ (from $\emptyset$ to $[n]$).
+
+**Zeta transform** (SOS — Sum over Supersets/Subsets) is the lattice analog of prefix sum:
+
+```cpp
+// SOS: for each mask, sum f[sub] for all submasks sub of mask
+// Equivalent to AND-convolution (subset sum transform)
+
+void sos_subset(vector<long long>& f, int n) {
+    // After: f[mask] = sum_{sub ⊆ mask} original_f[sub]
+    for (int i = 0; i < n; i++)
+        for (int mask = 0; mask < (1 << n); mask++)
+            if (mask >> i & 1)
+                f[mask] += f[mask ^ (1 << i)];
+}
+
+// OR-convolution: h[mask] = sum_{a | b = mask} f[a] * g[b]
+// 1. Apply SOS to f and g
+// 2. Pointwise multiply
+// 3. Inverse SOS (Möbius transform over subsets)
+
+void sos_inverse(vector<long long>& f, int n) {
+    for (int i = 0; i < n; i++)
+        for (int mask = 0; mask < (1 << n); mask++)
+            if (mask >> i & 1)
+                f[mask] -= f[mask ^ (1 << i)];
+}
+```
+
+---
+
+## Completeness: Every Boolean Function
+
+Any boolean function $f: \{0,1\}^n \to \{0,1\}$ can be expressed using only AND, OR, NOT (**functional completeness**).
+
+Even stronger: NAND alone is functionally complete (since $\neg a = a \text{ NAND } a$ and $a \vee b = \neg a \text{ NAND } \neg b$).
+
+**Canonical DNF**: $f = \bigvee_{\{x : f(x)=1\}} \left(\bigwedge_{i: x_i=1} a_i \wedge \bigwedge_{i: x_i=0} \neg a_i\right)$.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Sum of XOR Subsets",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1208/F",
+    difficulty: "2000",
+    concepts: ["XOR", "boolean algebra", "SOS"],
+    tier: "standard"
+  },
+  {
+    name: "AND-Convolution",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/bitwise_and_convolution",
+    difficulty: "1600",
+    concepts: ["boolean algebra", "SOS", "AND convolution"],
+    tier: "standard"
+  },
+  {
+    name: "OR Convolution",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/bitwise_or_convolution",
+    difficulty: "1600",
+    concepts: ["SOS", "OR convolution", "subset sum transform"],
+    tier: "standard"
+  },
+  {
+    name: "XOR Convolution",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/bitwise_xor_convolution",
+    difficulty: "1600",
+    concepts: ["XOR convolution", "Walsh-Hadamard transform"],
+    tier: "standard"
+  },
+  {
+    name: "Maximal AND",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1304/F",
+    difficulty: "2500",
+    concepts: ["boolean algebra", "AND optimization"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [GF(2) Linear Algebra](/math/linear-algebra/gf2) — XOR = addition in GF(2); boolean lattice ≠ GF(2)
+- [Bitmask Mathematics](/math/bitmask/sos-dp) — SOS DP, subset convolutions, detailed algorithms
+- [Semirings](/math/algebra/semirings) — boolean semiring = (OR, AND)
+- [XOR Basis](/math/linear-algebra/xor-basis) — linear independence over GF(2)
+
+---
+
+## References
+
+1. Huntington, E.V. — Sets of independent postulates for the algebra of logic (1904) — original axioms
+2. Stone, M.H. — The theory of representations for Boolean algebras (1936)
+3. Knuth, D. — TAOCP Vol. 4A, §7.1 — boolean functions and bitwise tricks
+4. Hacker's Delight — Warren, H.S. (2nd ed.) — comprehensive bitwise programming tricks

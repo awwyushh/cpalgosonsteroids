@@ -1,0 +1,241 @@
+---
+title: Matrix Exponentiation over Semirings
+description: Generalize matrix exponentiation to any semiring — APSP, constrained path counting, DP optimization
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Matrix Exponentiation over Semirings
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Matrix Exponentiation", href: "/math/linear-algebra/matrix-exponentiation" },
+  { title: "Semirings", href: "/math/algebra/semirings" }
+]} />
+
+## Why This Topic Matters
+
+The matrix exponentiation trick (fast power for linear recurrences) generalizes to **any semiring**. The same $O(n^3 \log k)$ algorithm works: just replace the standard $(+, \times)$ operations with the semiring's $(\oplus, \otimes)$. This handles shortest paths in exactly $k$ steps, counting paths with constraints, and tropical DP.
+
+**Contest relevance**: CF Div.1 D/E — "find the shortest/longest path using exactly $k$ edges", "count walks of length $k$".
+
+---
+
+## Generic Matrix Power Template
+
+```cpp
+// Generic semiring matrix exponentiation
+// T: element type
+// zero: additive identity (0 for standard, INF for min-plus, -INF for max-plus)
+// one: multiplicative identity
+// add: ⊕ operation
+// mul: ⊗ operation
+
+template<typename T>
+struct SemiringMatrix {
+    vector<vector<T>> a;
+    int n;
+    T zero, one;
+    function<T(T,T)> add, mul;
+    
+    SemiringMatrix(int n, T zero, T one, function<T(T,T)> add, function<T(T,T)> mul)
+        : n(n), zero(zero), one(one), add(add), mul(mul), a(n, vector<T>(n, zero)) {}
+    
+    SemiringMatrix operator*(const SemiringMatrix& B) const {
+        SemiringMatrix C(n, zero, one, add, mul);
+        for (int i = 0; i < n; i++)
+            for (int k = 0; k < n; k++) {
+                if (a[i][k] == zero) continue;
+                for (int j = 0; j < n; j++)
+                    C.a[i][j] = add(C.a[i][j], mul(a[i][k], B.a[k][j]));
+            }
+        return C;
+    }
+    
+    static SemiringMatrix identity(int n, T zero, T one, function<T(T,T)> add, function<T(T,T)> mul) {
+        SemiringMatrix I(n, zero, one, add, mul);
+        for (int i = 0; i < n; i++) I.a[i][i] = one;
+        return I;
+    }
+    
+    SemiringMatrix power(long long k) const {
+        SemiringMatrix R = identity(n, zero, one, add, mul);
+        SemiringMatrix base = *this;
+        for (; k > 0; k >>= 1) {
+            if (k & 1) R = R * base;
+            base = base * base;
+        }
+        return R;
+    }
+};
+```
+
+---
+
+## Application 1: Shortest Path in Exactly k Edges
+
+```cpp
+// Find shortest path from u to v using exactly k edges
+
+const long long INF = 1e18;
+
+auto dist_k_edges(vector<vector<long long>>& adj, int n, int u, int v, long long k) {
+    SemiringMatrix<long long> A(n, INF, 0,
+        [](long long a, long long b) { return min(a, b); },  // ⊕ = min
+        [](long long a, long long b) {                         // ⊗ = +
+            return (a == INF || b == INF) ? INF : a + b;
+        }
+    );
+    // Fill adjacency matrix
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            A.a[i][j] = adj[i][j];
+    
+    auto Ak = A.power(k);
+    return Ak.a[u][v];
+}
+```
+
+<Callout type="info">
+The identity for (min,+) has 0 on the diagonal and $\infty$ off-diagonal. This represents "zero-edge paths": distance from $i$ to $i$ is 0, distance from $i$ to $j \neq i$ is $\infty$ (no direct path).
+</Callout>
+
+---
+
+## Application 2: Count Walks of Length k
+
+```cpp
+// Count walks of length exactly k from u to v
+
+auto count_walks(vector<vector<int>>& adj, int n, int u, int v, long long k) {
+    SemiringMatrix<long long> A(n, 0, 0,
+        [](long long a, long long b) { return (a + b) % MOD; },   // ⊕ = +
+        [](long long a, long long b) { return a * b % MOD; }       // ⊗ = *
+    );
+    // Set identity diagonal to 1
+    for (int i = 0; i < n; i++) A.a[i][i] = 0;  // zero for off-diag
+    // Fill from adjacency
+    for (int i = 0; i < n; i++)
+        for (int j : adj[i]) A.a[i][j]++;
+    
+    // Need identity matrix for power
+    // identity has 1 on diagonal, 0 off — standard
+    auto Ak = A.power(k);
+    return Ak.a[u][v];
+}
+```
+
+---
+
+## Application 3: Shortest Path with At Most k Edges
+
+Use $(A + I)^k$ where $I$ is identity (allows "staying" at a node with 0 cost):
+
+```cpp
+// Add diagonal: A[i][i] = 0 (self-loops with weight 0)
+// Then (A+I)^k[u][v] = shortest path using at most k edges
+for (int i = 0; i < n; i++) A.a[i][i] = 0;
+auto result = A.power(k);
+```
+
+---
+
+## Application 4: DP with Matrix
+
+Any DP where $dp[n][i] = \bigoplus_{j} (dp[n-1][j] \otimes w[j][i])$ is a semiring matrix multiplication:
+
+$$\text{dp}[n] = \text{dp}[n-1] \cdot W$$
+
+where $W$ is the transition matrix. Then $\text{dp}[n] = \text{dp}[0] \cdot W^n$.
+
+**Examples**:
+- Count strings of length $n$ avoiding pattern: state = DFA state; standard $(+,\times)$
+- Minimum cost path of exactly $n$ steps in DAG: (min,+)
+- Maximum probability path: (max,×)
+
+---
+
+## Tropical Polynomial Algebra
+
+In the (min,+) semiring, "polynomials" (piecewise-linear functions) also form a semiring.
+
+"Tropical multiplication" of two polynomials: $f \otimes g$ has value $(f \otimes g)(x) = \min_j(f(j) + g(x-j))$ — this is (min,+) convolution.
+
+"Tropical addition": $(f \oplus g)(x) = \min(f(x), g(x))$ — pointwise minimum.
+
+**Application**: tropical polynomial division, factorization → connections to optimization.
+
+---
+
+## Comparison: When to Use Each Approach
+
+| Problem | Semiring | Matrix size | Time |
+|---------|---------|------------|------|
+| Count walks, exactly $k$ | $(+, \times)$ | $n \times n$ | $O(n^3 \log k)$ |
+| Shortest path, exactly $k$ edges | $(\min, +)$ | $n \times n$ | $O(n^3 \log k)$ |
+| All-pairs shortest path | $(\min, +)$ iterated | $n \times n$ | $O(n^3 \log n)$ |
+| Reachability in $k$ steps | $(\text{OR}, \text{AND})$ | $n \times n$ | $O(n^3/64 \log k)$ (bitset) |
+| Bottleneck path, $k$ edges | $(\min, \max)$ | $n \times n$ | $O(n^3 \log k)$ |
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Semiring n×n matrix multiply", time: "O(n³)", space: "O(n²)" },
+  { operation: "Semiring matrix power M^k", time: "O(n³ log k)", space: "O(n²)" },
+  { operation: "Boolean reachability (bitset)", time: "O(n³/64 log k)", space: "O(n²/64)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Count Paths",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1422/F",
+    difficulty: "2100",
+    concepts: ["matrix exponentiation", "(+,×) semiring", "walk count"],
+    tier: "standard"
+  },
+  {
+    name: "k-th Path",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1529/E",
+    difficulty: "2400",
+    concepts: ["(min,+) matrix power", "k-edge shortest path"],
+    tier: "advanced"
+  },
+  {
+    name: "Paths and Weights",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/506/E",
+    difficulty: "2600",
+    concepts: ["semiring matrix", "DP transition"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Semirings](/math/algebra/semirings) — definitions and examples of (min,+), (max,+), boolean
+- [Matrix Exponentiation](/math/linear-algebra/matrix-exponentiation) — standard $(+,\times)$ case with linear recurrences
+- [Linear Recurrences](/math/linear-algebra/linear-recurrences) — same technique for sequence computation
+
+---
+
+## References
+
+1. Mohri, M. — Semiring Frameworks for Shortest-Distance Problems, J. Automata (2002)
+2. cp-algorithms — [Matrix Exponentiation](https://cp-algorithms.com/algebra/matrix-exp.html)
+3. Golan, J.S. — Semirings and Their Applications (1999)

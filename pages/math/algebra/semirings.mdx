@@ -1,0 +1,271 @@
+---
+title: Semirings (Min-Plus, Max-Plus)
+description: Tropical semiring, (min,+) and (max,+) algebras, shortest paths via matrix multiplication
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Semirings (Min-Plus, Max-Plus)
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Groups, Rings & Fields", href: "/math/algebra/groups-rings-fields" },
+  { title: "Matrix Basics", href: "/math/linear-algebra/matrix-basics" }
+]} />
+
+## Why This Topic Matters
+
+A **semiring** is like a ring but without additive inverses. The **(min, +) semiring** (tropical semiring) replaces $+$ with $\min$ and $\times$ with $+$. Matrix multiplication over this semiring computes shortest paths. This unifies Bellman-Ford, Floyd-Warshall, and DP transitions into one algebraic framework.
+
+**Contest relevance**: CF Div.1 D/E, shortest path in $k$ steps, matrix chain DP, constrained path problems.
+
+---
+
+## Definition: Semiring
+
+A **semiring** $(R, \oplus, \otimes)$ satisfies:
+1. $(R, \oplus)$ is a commutative monoid (associative, identity $\mathbf{0}$)
+2. $(R, \otimes)$ is a monoid (associative, identity $\mathbf{1}$)
+3. $\otimes$ distributes over $\oplus$
+4. $\mathbf{0} \otimes a = a \otimes \mathbf{0} = \mathbf{0}$ (zero annihilates)
+
+Missing from ring: no requirement of additive inverse ($\oplus$ inverse).
+
+---
+
+## Key Semirings for CP
+
+### (min, +) Tropical Semiring
+
+| Property | Value |
+|---------|-------|
+| Set | $\mathbb{R} \cup \{+\infty\}$ |
+| Addition ($\oplus$) | $\min(a, b)$ |
+| Multiplication ($\otimes$) | $a + b$ |
+| Additive identity $\mathbf{0}$ | $+\infty$ |
+| Multiplicative identity $\mathbf{1}$ | $0$ |
+
+**Distributive law**: $\min(a, b+c) = \min(a, b+c)$ ... actually distributivity is $a \otimes (b \oplus c) = (a \otimes b) \oplus (a \otimes c)$, i.e., $a + \min(b,c) = \min(a+b, a+c)$. ✓
+
+### (max, +) Semiring
+
+| Property | Value |
+|---------|-------|
+| Set | $\mathbb{R} \cup \{-\infty\}$ |
+| Addition ($\oplus$) | $\max(a, b)$ |
+| Multiplication ($\otimes$) | $a + b$ |
+| Identity $\mathbf{0}$ | $-\infty$ |
+| Identity $\mathbf{1}$ | $0$ |
+
+### (min, max) Semiring
+
+- $\oplus = \min$, $\otimes = \max$, $\mathbf{0} = +\infty$, $\mathbf{1} = -\infty$
+- **Bottleneck paths**: find path where maximum edge weight is minimized
+
+### Boolean Semiring
+
+- $\oplus = $ OR, $\otimes = $ AND, $\mathbf{0} = $ False, $\mathbf{1} = $ True
+- **Reachability**: is there a path of any length?
+
+### Standard (sum, product) Ring
+
+Regular matrix multiplication — this is just a special case.
+
+---
+
+## Semiring Matrix Multiplication
+
+```cpp
+// Generic semiring matrix multiplication
+// Provide: zero, one, add (⊕), mul (⊗)
+
+template<typename T>
+using Matrix = vector<vector<T>>;
+
+template<typename T>
+Matrix<T> mat_mul(
+    const Matrix<T>& A,
+    const Matrix<T>& B,
+    T zero,
+    function<T(T,T)> add,  // ⊕
+    function<T(T,T)> mul   // ⊗
+) {
+    int n = A.size(), m = B[0].size(), k = B.size();
+    Matrix<T> C(n, vector<T>(m, zero));
+    for (int i = 0; i < n; i++)
+        for (int l = 0; l < k; l++) {
+            if (A[i][l] == zero) continue;
+            for (int j = 0; j < m; j++)
+                C[i][j] = add(C[i][j], mul(A[i][l], B[l][j]));
+        }
+    return C;
+}
+```
+
+---
+
+## (min, +): Shortest Paths
+
+**Key observation**: Let $A$ be the $n \times n$ weighted adjacency matrix with $A[i][j] = $ weight of edge $i \to j$ (or $\infty$ if no edge).
+
+Then $(A^k)[i][j]$ = shortest path from $i$ to $j$ using **exactly $k$ edges** (in the (min,+) semiring).
+
+$(A^{\text{any power}})[i][j] = $ shortest path using any number $\leq k$ steps if we also set diagonal to 0.
+
+```cpp
+// (min, +) matrix multiplication
+const long long INF = 1e18;
+
+using MinPlusMat = vector<vector<long long>>;
+
+MinPlusMat min_plus_mul(const MinPlusMat& A, const MinPlusMat& B) {
+    int n = A.size();
+    MinPlusMat C(n, vector<long long>(n, INF));
+    for (int i = 0; i < n; i++)
+        for (int k = 0; k < n; k++) {
+            if (A[i][k] == INF) continue;
+            for (int j = 0; j < n; j++)
+                if (B[k][j] != INF)
+                    C[i][j] = min(C[i][j], A[i][k] + B[k][j]);
+        }
+    return C;
+}
+
+// Shortest path in exactly n steps
+MinPlusMat min_plus_pow(MinPlusMat A, long long n) {
+    int sz = A.size();
+    MinPlusMat R(sz, vector<long long>(sz, INF));
+    for (int i = 0; i < sz; i++) R[i][i] = 0;  // identity
+    for (; n > 0; n >>= 1) {
+        if (n & 1) R = min_plus_mul(R, A);
+        A = min_plus_mul(A, A);
+    }
+    return R;
+}
+```
+
+**Connection to Bellman-Ford**: Bellman-Ford = iterating $(A + I)$ where $I$ is the identity (0 on diagonal, $\infty$ off-diagonal), relaxing paths of increasing lengths.
+
+**Connection to Floyd-Warshall**: Floyd = computing $(A+I)^n$ for $n = $ number of nodes (all-pairs shortest paths).
+
+---
+
+## (max, +): Longest Paths / Bottleneck
+
+Same structure but:
+- $\mathbf{0} = -\infty$, $\mathbf{1} = 0$
+- Matrix power gives longest path in $k$ edges
+
+**Applications**:
+- Maximum weight matching in bipartite (via Hungarian algorithm = (max,+) algebra)
+- RNA folding energies
+- "What is the minimum number of hops to achieve distance $\geq d$?"
+
+---
+
+## (min, max): Bottleneck Paths
+
+$(A^k)[i][j]$ = minimum over all paths of length $k$ of the maximum edge weight.
+
+**Application**: find a path where the bottleneck (maximum edge) is minimized — like minimax path / widest path.
+
+```cpp
+// (min, max) matrix: bottleneck path
+auto minmax_mul = [](auto& A, auto& B) {
+    int n = A.size();
+    Matrix<long long> C(n, vector<long long>(n, INF));
+    for (int i = 0; i < n; i++)
+        for (int k = 0; k < n; k++)
+            for (int j = 0; j < n; j++)
+                C[i][j] = min(C[i][j], max(A[i][k], B[k][j]));
+    return C;
+};
+```
+
+---
+
+## Semiring DP
+
+Many DP recurrences are semiring matrix multiplications in disguise:
+
+| DP type | Semiring |
+|---------|---------|
+| Counting paths | $(+, \times)$ standard |
+| Shortest path | $(\min, +)$ tropical |
+| Longest path | $(\max, +)$ |
+| Reachability | $(\text{OR}, \text{AND})$ boolean |
+| Bottleneck path | $(\min, \max)$ |
+| Most reliable path | $(\max, \times)$ probability |
+
+When the DP transition is a semiring matrix multiplication, **matrix exponentiation** applies.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "n×n semiring matrix multiply", time: "O(n³)", space: "O(n²)" },
+  { operation: "Semiring matrix power (M^k)", time: "O(n³ log k)", space: "O(n²)" },
+  { operation: "Floyd-Warshall (APSP)", time: "O(n³)", space: "O(n²)", note: "= (min,+) iterated multiply" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Shortest Paths II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1672",
+    difficulty: "1400",
+    concepts: ["(min,+) matrix", "Floyd-Warshall"],
+    tier: "warmup"
+  },
+  {
+    name: "Minimum Path Length k",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1063/F",
+    difficulty: "2300",
+    concepts: ["(min,+) matrix power", "shortest path in k steps"],
+    tier: "advanced"
+  },
+  {
+    name: "Bottleneck Paths",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/827/F",
+    difficulty: "2400",
+    concepts: ["(min,max) semiring", "bottleneck path"],
+    tier: "advanced"
+  },
+  {
+    name: "Paths in Graph",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/545/E",
+    difficulty: "2500",
+    concepts: ["semiring matrix", "DP over semiring"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Matrix Exponentiation over Semirings](/math/algebra/matrix-semirings) — applying semiring matrix power to DP
+- [Matrix Exponentiation](/math/linear-algebra/matrix-exponentiation) — standard $(+, \times)$ case
+- [Groups, Rings & Fields](/math/algebra/groups-rings-fields) — semiring is ring without additive inverse
+
+---
+
+## References
+
+1. Golan, J.S. — Semirings and Their Applications (1999) — comprehensive algebraic treatment
+2. Mohri, M. — Semiring Frameworks and Algorithms for Shortest-Distance Problems (2002)
+3. cp-algorithms — [Shortest paths in k steps](https://cp-algorithms.com/graph/shortest_path_d_times.html)

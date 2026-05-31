@@ -1,0 +1,252 @@
+---
+title: Cycle Decomposition
+description: Every permutation is a product of disjoint cycles — decomposition, sign, order, and applications
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Cycle Decomposition
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Permutation Groups", href: "/math/algebra/permutation-groups" }
+]} />
+
+## Why This Topic Matters
+
+Cycle decomposition is the canonical form of permutations. It gives: order of a permutation ($\text{lcm}$ of cycle lengths), parity/sign (number of even-length cycles mod 2), fast permutation power (each cycle independently), and fixed-point counting for Burnside.
+
+**Contest relevance**: CF Div.1 B–D, any problem with permutation operations, order of permutations, or parity arguments.
+
+---
+
+## Cycle Notation
+
+A **$k$-cycle** $(a_1\ a_2\ \cdots\ a_k)$ maps $a_1 \to a_2 \to \cdots \to a_k \to a_1$, fixing everything else.
+
+A **1-cycle** $(a)$ is a fixed point — often omitted.
+
+**Every permutation is a product of disjoint cycles** (unique up to reordering cycles and rotation within each cycle).
+
+**Example**: $\sigma = \begin{pmatrix} 1&2&3&4&5\\3&5&1&2&4\end{pmatrix}$
+- $1 \to 3 \to 1$: cycle $(1\ 3)$
+- $2 \to 5 \to 4 \to 2$: cycle $(2\ 5\ 4)$
+
+So $\sigma = (1\ 3)(2\ 5\ 4)$.
+
+---
+
+## Algorithm: Finding Cycle Decomposition
+
+```cpp
+// Find cycle decomposition of permutation p (0-indexed)
+// Returns: vector of cycles, each cycle is a vector of elements
+
+vector<vector<int>> cycle_decomp(const vector<int>& p) {
+    int n = p.size();
+    vector<bool> visited(n, false);
+    vector<vector<int>> cycles;
+    
+    for (int i = 0; i < n; i++) {
+        if (visited[i]) continue;
+        vector<int> cycle;
+        int j = i;
+        while (!visited[j]) {
+            visited[j] = true;
+            cycle.push_back(j);
+            j = p[j];
+        }
+        if (cycle.size() > 1 || /* include fixed points */ false)
+            cycles.push_back(cycle);
+    }
+    return cycles;
+}
+```
+
+**Time**: $O(n)$, since each element is visited once.
+
+---
+
+## Order of a Permutation
+
+A $k$-cycle has order $k$ (applying it $k$ times = identity).
+
+For a product of disjoint cycles of lengths $k_1, k_2, \ldots$:
+
+$$\text{ord}(\sigma) = \text{lcm}(k_1, k_2, \ldots)$$
+
+**Proof**: $\sigma^m = e$ iff every cycle $(a_1\ \cdots\ a_{k_i})$ satisfies $m \equiv 0 \pmod{k_i}$. This holds for all $i$ iff $\text{lcm}(k_i) | m$. Smallest such $m$ is the $\text{lcm}$. $\square$
+
+```cpp
+long long order(const vector<int>& p) {
+    auto cycles = cycle_decomp(p);
+    long long ord = 1;
+    for (auto& c : cycles)
+        ord = lcm(ord, (long long)c.size());
+    return ord;
+}
+```
+
+---
+
+## Sign (Parity) of a Permutation
+
+A **transposition** is a 2-cycle (swap of two elements).
+
+**Theorem**: every permutation is a product of transpositions. The number of transpositions in any such product has the same parity — this is the **sign** of the permutation.
+
+$$\text{sgn}(\sigma) = (-1)^{n - c(\sigma)}$$
+
+where $c(\sigma)$ = number of cycles (including fixed points = 1-cycles), $n$ = total elements.
+
+Equivalently: $\text{sgn}(\sigma) = (-1)^{\text{number of even-length cycles}}$.
+
+**Derivation**: A $k$-cycle = $(a_1\ a_k)(a_1\ a_{k-1})\cdots(a_1\ a_2)$ = product of $k-1$ transpositions. So $k$-cycle has sign $(-1)^{k-1}$.
+
+For disjoint cycles of lengths $k_1, \ldots, k_m$: total sign $= \prod (-1)^{k_i - 1} = (-1)^{\sum(k_i - 1)} = (-1)^{n - m}$. $\square$
+
+```cpp
+int sign(const vector<int>& p) {
+    int n = p.size();
+    auto cycles = cycle_decomp(p);
+    int c = cycles.size();
+    // Count fixed points (1-cycles)
+    vector<bool> visited(n, false);
+    for (auto& cyc : cycles)
+        for (int x : cyc) visited[x] = true;
+    for (int i = 0; i < n; i++)
+        if (!visited[i]) c++;  // fixed point
+    return ((n - c) % 2 == 0) ? 1 : -1;
+}
+```
+
+**Even permutations** (sign = +1) form the alternating group $A_n$.
+
+---
+
+## Permutation to Transpositions (Decomposition)
+
+```cpp
+// Decompose permutation into transpositions
+// Each k-cycle (a1 a2 ... ak) -> (a1,ak)(a1,ak-1)...(a1,a2)
+vector<pair<int,int>> to_transpositions(const vector<int>& p) {
+    auto cycles = cycle_decomp(p);
+    vector<pair<int,int>> result;
+    for (auto& cyc : cycles) {
+        for (int i = cyc.size() - 1; i >= 1; i--)
+            result.push_back({cyc[0], cyc[i]});
+    }
+    return result;
+}
+```
+
+---
+
+## Conjugation and Cycle Structure
+
+**Key fact**: $\tau \sigma \tau^{-1}$ has the same cycle structure as $\sigma$, with each element $a$ replaced by $\tau(a)$.
+
+If $\sigma = (a_1\ a_2\ \cdots\ a_k)$, then $\tau \sigma \tau^{-1} = (\tau(a_1)\ \tau(a_2)\ \cdots\ \tau(a_k))$.
+
+**Consequence**: two permutations in $S_n$ are conjugate iff they have the same **cycle type** (partition of $n$).
+
+The number of permutations with cycle type $\lambda = (1^{m_1} 2^{m_2} \cdots)$ is:
+
+$$\frac{n!}{\prod_k k^{m_k} m_k!}$$
+
+This formula counts permutations by cycle structure — used in Burnside/Pólya.
+
+---
+
+## Fixed Points and Derangements
+
+$\sigma$ has a **fixed point** at $i$ if $\sigma(i) = i$ (a 1-cycle).
+
+Number of permutations of $n$ with no fixed points (**derangements**): $D_n \approx n!/e$.
+
+Number of fixed points of a rotation by $d$ positions in cyclic group $C_n$ acting on $k$-colorings = $k^{\gcd(d,n)}$.
+
+---
+
+## Cycle Index for Burnside/Pólya
+
+The **cycle index** of a group $G$ acting on $\{1, \ldots, n\}$ is:
+
+$$Z(G) = \frac{1}{|G|} \sum_{g \in G} a_1^{c_1(g)} a_2^{c_2(g)} \cdots a_n^{c_n(g)}$$
+
+where $c_k(g)$ = number of $k$-cycles in $g$.
+
+For $G = C_n$ (rotations of $n$-bead necklace): rotation by $d$ has $\gcd(d,n)$ cycles of length $n/\gcd(d,n)$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Find cycle decomposition", time: "O(n)", space: "O(n)" },
+  { operation: "Order of permutation", time: "O(n log n) for LCM", space: "O(n)" },
+  { operation: "Sign of permutation", time: "O(n)", space: "O(n)" },
+  { operation: "Decompose into transpositions", time: "O(n)", space: "O(n)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Permutation Cycles",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1723",
+    difficulty: "1300",
+    concepts: ["cycle decomposition", "cycle count"],
+    tier: "warmup"
+  },
+  {
+    name: "Inversions",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1188",
+    difficulty: "1400",
+    concepts: ["permutation", "inversion count", "parity"],
+    tier: "warmup"
+  },
+  {
+    name: "Permutation Transformation",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1097/F",
+    difficulty: "2200",
+    concepts: ["cycle decomposition", "permutation composition"],
+    tier: "standard"
+  },
+  {
+    name: "Cycle Sort",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1059/E",
+    difficulty: "2400",
+    concepts: ["cycle decomposition", "minimum swaps"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Permutation Exponentiation](/math/algebra/permutation-exp) — fast $\sigma^n$ uses cycle decomposition
+- [Permutation Groups](/math/algebra/permutation-groups) — $S_n$ structure, conjugacy, sign
+- [Derangements](/math/combinatorics/derangements) — fixed-point-free permutations
+- [Burnside's Lemma](/math/combinatorics/burnside) — cycle index uses cycle lengths directly
+
+---
+
+## References
+
+1. Dummit & Foote — Abstract Algebra, §1.3 — cycle notation and $S_n$
+2. cp-algorithms — [Permutations](https://cp-algorithms.com/combinatorics/permutations.html)
+3. Concrete Mathematics — §7.2 — cycle indicator and Burnside

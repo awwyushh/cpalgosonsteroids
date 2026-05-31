@@ -1,0 +1,265 @@
+---
+title: Permutation Exponentiation
+description: Apply a permutation n times in O(k log n) using cycle decomposition — functional graph fast forwarding
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Permutation Exponentiation
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Cycle Decomposition", href: "/math/algebra/cycle-decomposition" },
+  { title: "Fast Exponentiation", href: "/math/foundations/fast-exponentiation" }
+]} />
+
+## Why This Topic Matters
+
+Computing $\sigma^n$ (applying permutation $\sigma$ exactly $n$ times) naively takes $O(k \cdot n)$ for a permutation of size $k$. Using cycle decomposition: $O(k + \log n)$. The key insight: on a cycle of length $L$, applying $\sigma^n$ moves each element by $n \bmod L$ positions.
+
+**Contest relevance**: CF Div.1 B–D, any "apply operation $n$ times" problem where the operation is a permutation or functional graph.
+
+---
+
+## Fast Permutation Power
+
+```cpp
+// Apply permutation p exactly n times to get p^n
+// O(k + log(max_cycle_len)) = O(k) since n mod L needs O(log n) but k dominates
+
+vector<int> perm_pow(const vector<int>& p, long long n) {
+    int k = p.size();
+    vector<bool> visited(k, false);
+    vector<int> result(k);
+    
+    for (int i = 0; i < k; i++) {
+        if (visited[i]) continue;
+        
+        // Find cycle containing i
+        vector<int> cycle;
+        int j = i;
+        while (!visited[j]) {
+            visited[j] = true;
+            cycle.push_back(j);
+            j = p[j];
+        }
+        
+        int L = cycle.size();
+        long long shift = n % L;  // how many positions to advance in cycle
+        
+        // Apply shift: element at position pos in cycle goes to position (pos + shift) % L
+        for (int pos = 0; pos < L; pos++) {
+            result[cycle[pos]] = cycle[(pos + shift) % L];
+        }
+    }
+    return result;
+}
+```
+
+**Why it works**: In cycle $(c_0\ c_1\ \cdots\ c_{L-1})$, applying $\sigma$ once advances each element one position: $c_i \to c_{i+1 \bmod L}$. After $n$ applications, $c_i \to c_{(i+n) \bmod L}$. So $\sigma^n(c_i) = c_{(i+n) \bmod L}$.
+
+Since cycles are disjoint, each cycle is independent — no interaction between cycles.
+
+---
+
+## Alternative: Binary Lifting
+
+For very large $k$ or when $n$ is not known in advance (e.g., variable $n$ in queries):
+
+```cpp
+// Precompute p^(2^j) for j = 0, 1, ..., LOG
+// Then answer arbitrary p^n queries in O(k log n)
+
+const int LOG = 62;
+int anc[LOG][MAXK];  // anc[j][i] = where element i ends up after 2^j applications
+
+void build(const vector<int>& p, int k) {
+    for (int i = 0; i < k; i++) anc[0][i] = p[i];
+    for (int j = 1; j < LOG; j++)
+        for (int i = 0; i < k; i++)
+            anc[j][i] = anc[j-1][anc[j-1][i]];
+}
+
+int apply_n(int start, long long n) {
+    int cur = start;
+    for (int j = 0; j < LOG; j++)
+        if (n >> j & 1) cur = anc[j][cur];
+    return cur;
+}
+```
+
+**Use case**: multiple queries "where does element $x$ end up after $n$ steps?" with different $n$ per query.
+
+---
+
+## Functional Graphs
+
+A **functional graph** has each node with exactly one outgoing edge (i.e., a function $f: [n] \to [n]$).
+
+Structure: each connected component has exactly one cycle, with trees hanging off cycle nodes ("rho" shape).
+
+```
+Trees → Cycle (the "tail" + "loop")
+```
+
+```cpp
+// Functional graph: find where x ends up after exactly n steps
+// Components: detect cycle with Floyd or by counting
+struct FuncGraph {
+    vector<int> f;
+    int n;
+    
+    // For each node: find the cycle it enters, and position in cycle
+    struct NodeInfo {
+        int cycle_entry;  // first cycle node reached from here
+        int dist_to_cycle; // steps to reach cycle
+        int cycle_pos;     // position in cycle
+        int cycle_len;     // length of cycle
+    };
+    
+    vector<NodeInfo> info;
+    
+    void preprocess() {
+        // ... (detailed functional graph decomposition) ...
+    }
+    
+    int step_n(int x, long long n) {
+        auto& ni = info[x];
+        if (n <= ni.dist_to_cycle) {
+            // Still in the tail
+            int cur = x;
+            for (long long i = 0; i < n; i++) cur = f[cur];
+            return cur;
+        }
+        // Reach cycle, then advance
+        n -= ni.dist_to_cycle;
+        n %= ni.cycle_len;
+        int cur = ni.cycle_entry;
+        for (long long i = 0; i < n; i++) cur = f[cur];
+        return cur;
+    }
+};
+```
+
+---
+
+## Permutation Composition is Associative
+
+For matrix-exponentiation style: treat $\sigma$ as a $k \times k$ permutation matrix and use matrix power. But this is $O(k^3 \log n)$ — much worse. The direct cycle method is $O(k)$.
+
+For repeated composition of **different** permutations, use matrix form if the recurrence has structure.
+
+---
+
+## Order of a Permutation
+
+$\sigma^m = \text{id}$ iff $m \equiv 0 \pmod{L_i}$ for every cycle of length $L_i$, i.e., $\text{lcm}(L_1, L_2, \ldots) | m$.
+
+Maximum order of any permutation in $S_n$ (Landau's function $g(n)$): maximize $\text{lcm}$ of a partition of $n$.
+
+```cpp
+long long order(const vector<int>& p) {
+    auto cycles = cycle_decomp(p);
+    long long ord = 1;
+    for (auto& c : cycles)
+        ord = lcm(ord, (long long)c.size());
+    return ord;
+}
+```
+
+Values of $g(n)$: $g(5) = 6$ (cycles $2+3$), $g(10) = 2520 = \text{lcm}(2,3,5,7)$... grows roughly as $e^{\sqrt{n \ln n}}$.
+
+---
+
+## Inverse Permutation Power
+
+$\sigma^{-n} = (\sigma^{-1})^n$ or equivalently on a cycle of length $L$: shift by $-n \equiv L - (n \bmod L) \pmod L$.
+
+```cpp
+vector<int> perm_pow_neg(const vector<int>& p, long long n) {
+    vector<int> inv_p = inverse(p);  // O(k)
+    return perm_pow(inv_p, n);       // O(k)
+}
+// Or: on each cycle of length L, shift by (L - n%L) % L
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "perm_pow via cycles", time: "O(k)", space: "O(k)" },
+  { operation: "Binary lifting precompute", time: "O(k log n)", space: "O(k log n)" },
+  { operation: "Binary lifting query", time: "O(log n)", space: "O(1)" },
+  { operation: "Functional graph step-n", time: "O(cycle_len) amortized", space: "O(k)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Permutation Cycles",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1723",
+    difficulty: "1300",
+    concepts: ["cycle decomposition", "permutation"],
+    tier: "warmup"
+  },
+  {
+    name: "Company Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1688",
+    difficulty: "1600",
+    concepts: ["binary lifting", "functional graph"],
+    tier: "standard"
+  },
+  {
+    name: "Planets Queries I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1750",
+    difficulty: "1600",
+    concepts: ["permutation exponentiation", "functional graph"],
+    tier: "standard"
+  },
+  {
+    name: "Permutation Power",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1196/F",
+    difficulty: "2200",
+    concepts: ["permutation exponentiation", "cycle"],
+    tier: "standard"
+  },
+  {
+    name: "Functional Graph",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1442/C",
+    difficulty: "2400",
+    concepts: ["functional graph", "permutation power", "binary lifting"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Cycle Decomposition](/math/algebra/cycle-decomposition) — fundamental structure powering `perm_pow`
+- [Permutation Groups](/math/algebra/permutation-groups) — $\sigma^n$ is the group operation applied $n$ times
+- [Fast Exponentiation](/math/foundations/fast-exponentiation) — binary lifting mirrors fast power
+- [Matrix Exponentiation](/math/linear-algebra/matrix-exponentiation) — general $O(k^3 \log n)$ alternative
+
+---
+
+## References
+
+1. cp-algorithms — [Functional Graphs](https://cp-algorithms.com/graph/functional_graph.html)
+2. USACO Guide — [Binary Lifting](https://usaco.guide/plat/binary-jump)
+3. Knuth, D. — TAOCP Vol. 1, §1.3.3 — permutation cycles

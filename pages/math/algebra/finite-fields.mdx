@@ -1,0 +1,240 @@
+---
+title: Finite Fields
+description: GF(p), GF(p^k), primitive polynomials, irreducibility, and their role in NTT and coding theory
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Finite Fields
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Groups, Rings & Fields", href: "/math/algebra/groups-rings-fields" },
+  { title: "Primitive Roots", href: "/math/number-theory/primitive-roots" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+Every finite field has order $p^k$ and is unique (up to isomorphism). $\mathbb{F}_p = \mathbb{Z}/p\mathbb{Z}$ is modular arithmetic. $\mathbb{F}_{p^k}$ is polynomial arithmetic mod an irreducible polynomial. NTT primes are chosen so $\mathbb{F}_p^*$ is cyclic with large 2-power order. GF(2) underlies all XOR/bitwise algebraic structures.
+
+**Contest relevance**: NTT prime selection, GF(2) linear algebra, problems over $\mathbb{F}_{p^k}$.
+
+---
+
+## Classification of Finite Fields
+
+**Theorem (Galois)**: 
+1. For every prime power $q = p^k$, there exists a unique (up to isomorphism) finite field $\mathbb{F}_q$ of order $q$.
+2. Every finite field has order $p^k$ for some prime $p$ and integer $k \geq 1$.
+3. $\mathbb{F}_{p^k}$ is the splitting field of $x^{p^k} - x$ over $\mathbb{F}_p$.
+
+**Proof sketch**: 
+- The characteristic of any finite field is a prime $p$ (the additive group has prime order by Cauchy's theorem if the characteristic were composite, we'd get zero divisors).
+- The field has $p^k$ elements for some $k$: the field contains $\mathbb{F}_p$ as a subfield; as an $\mathbb{F}_p$-vector space it has dimension $k$, giving $p^k$ elements.
+- $x^{p^k} - x$ splits completely in $\mathbb{F}_{p^k}$ (Frobenius), and its $p^k$ roots are exactly all elements of the field.
+- Uniqueness follows from the splitting field being unique. $\square$
+
+---
+
+## GF(p): The Prime Field
+
+$\mathbb{F}_p = \mathbb{Z}/p\mathbb{Z}$ with:
+- Addition: addition mod $p$
+- Multiplication: multiplication mod $p$
+- Inverse of $a$: $a^{p-2} \bmod p$ (Fermat's little theorem)
+
+**Multiplicative group** $\mathbb{F}_p^* = \mathbb{F}_p \setminus \{0\}$ is cyclic of order $p-1$. A generator is a primitive root.
+
+```cpp
+// GF(p) arithmetic
+struct GFp {
+    long long val, p;
+    GFp(long long v, long long p) : val((v % p + p) % p), p(p) {}
+    GFp operator+(GFp b) const { return {val + b.val, p}; }
+    GFp operator-(GFp b) const { return {val - b.val + p, p}; }
+    GFp operator*(GFp b) const { return {val * b.val % p, p}; }
+    GFp inv() const { return {power(val, p - 2, p), p}; }
+    GFp operator/(GFp b) const { return *this * b.inv(); }
+};
+```
+
+---
+
+## GF(p^k): Extension Fields
+
+Construct $\mathbb{F}_{p^k}$ as $\mathbb{F}_p[x] / (f(x))$ where $f$ is an **irreducible polynomial** of degree $k$ over $\mathbb{F}_p$.
+
+Elements: polynomials of degree $< k$ with coefficients in $\mathbb{F}_p$.
+- Addition: add coefficients mod $p$
+- Multiplication: multiply polynomials, then reduce mod $f(x)$
+
+**Well-definedness**: since $f$ is irreducible, $\mathbb{F}_p[x]/(f(x))$ is a field (no zero divisors).
+
+### GF(4) = GF(2²) Example
+
+Irreducible over GF(2): $f(x) = x^2 + x + 1$.
+
+Elements: $\{0, 1, x, x+1\}$ (degree $< 2$, coefficients mod 2).
+
+Multiplication table (reducing mod $x^2 + x + 1$, i.e., $x^2 \equiv x + 1$):
+
+| $\times$ | $x$ | $x+1$ |
+|----------|-----|-------|
+| $x$ | $x^2 = x+1$ | $x^2+x = 1$ |
+| $x+1$ | $1$ | $x^2+1 = x$ |
+
+Note: $x$ is a primitive element (generator of $\mathbb{F}_4^*$, order 3).
+
+```cpp
+// GF(2^k) using bitmask representation
+// Element = k-bit integer; bit i = coefficient of x^i
+// f = irreducible polynomial (degree k), represented as (k+1)-bit integer
+
+struct GF2k {
+    uint64_t val;
+    static uint64_t MOD;  // irreducible polynomial (top bit set at position k)
+    static int K;
+    
+    GF2k(uint64_t v = 0) : val(v) {}
+    GF2k operator+(GF2k b) const { return {val ^ b.val}; }  // XOR = add over GF(2)
+    GF2k operator-(GF2k b) const { return {val ^ b.val}; }  // same as add in char 2
+    GF2k operator*(GF2k b) const {
+        uint64_t res = 0, a = val, bv = b.val;
+        for (int i = 0; i < K; i++) {
+            if (bv & 1) res ^= a;
+            bv >>= 1;
+            a <<= 1;
+            if (a >> K & 1) a ^= MOD;  // reduce mod f
+        }
+        return {res};
+    }
+    GF2k inv() const { return power(*this, (1ULL << K) - 2); }  // Fermat: a^(2^k - 2)
+    bool operator==(GF2k b) const { return val == b.val; }
+};
+```
+
+---
+
+## Irreducible Polynomials over GF(p)
+
+A polynomial $f \in \mathbb{F}_p[x]$ of degree $k$ is **irreducible** if it has no factors of degree $1, \ldots, k-1$ over $\mathbb{F}_p$.
+
+**Checking irreducibility** over $\mathbb{F}_2$:
+1. For degree $k$, check that $f$ has no roots in $\mathbb{F}_2$ (i.e., $f(0) \neq 0$ and $f(1) \neq 0$)
+2. For higher degree, check that $\gcd(f, x^{2^d} - x) = 1$ in $\mathbb{F}_2[x]$ for all $d | k$, $d < k$
+
+```cpp
+// Check if binary polynomial f (degree k) is irreducible over GF(2)
+bool is_irreducible_gf2(uint64_t f, int k) {
+    // Condition: x^{2^k} ≡ x (mod f), and gcd(x^{2^d} - x, f) = 1 for d|k, d<k
+    // Compute x^{2^k} mod f using repeated squaring in GF(2)[x]/(f)
+    // ... (polynomial multiplication mod f over GF(2)) ...
+    return true;  // placeholder
+}
+```
+
+**Known irreducible polynomials** over GF(2):
+- Degree 1: $x$, $x+1$
+- Degree 2: $x^2+x+1$
+- Degree 3: $x^3+x+1$, $x^3+x^2+1$
+- Degree 4: $x^4+x+1$, $x^4+x^3+1$, $x^4+x^3+x^2+x+1$
+- Degree 8 (used in AES): $x^8+x^4+x^3+x+1$ (0x11B)
+
+---
+
+## Primitive Polynomials
+
+A polynomial $f$ of degree $k$ over $\mathbb{F}_p$ is **primitive** if $x$ (as element of $\mathbb{F}_{p^k} = \mathbb{F}_p[x]/(f)$) is a **primitive element** — a generator of $\mathbb{F}_{p^k}^*$.
+
+Equivalently: $x$ has multiplicative order $p^k - 1$ modulo $f$.
+
+Every primitive polynomial is irreducible, but not every irreducible polynomial is primitive.
+
+**Primitive polynomials over GF(2)**:
+- Degree 2: $x^2+x+1$ (primitive, period 3 = $2^2-1$)
+- Degree 3: $x^3+x+1$ (primitive, period 7), $x^3+x^2+1$ (primitive)
+- Degree 4: $x^4+x+1$ (primitive, period 15)
+
+**Application**: maximal-length LFSRs use primitive polynomials. The XOR shift random number generators use $x^{32} + x^a + 1$ type primitives.
+
+---
+
+## Frobenius Endomorphism
+
+In $\mathbb{F}_{p^k}$, the **Frobenius** map $\phi: a \mapsto a^p$ is a field automorphism.
+
+**Properties**:
+- $\phi(a + b) = \phi(a) + \phi(b)$: follows from $(a+b)^p = a^p + b^p$ in characteristic $p$ (binomial coefficient $\binom{p}{i} \equiv 0 \pmod p$ for $0 < i < p$)
+- $\phi^k = \text{id}$ (identity): $a^{p^k} = a$ for all $a \in \mathbb{F}_{p^k}$
+- The subfield fixed by $\phi^d$ is $\mathbb{F}_{p^d}$ for $d | k$
+
+**Proof that $(a+b)^p = a^p + b^p$**: All binomial terms $\binom{p}{i} a^i b^{p-i}$ for $0 < i < p$ have $p | \binom{p}{i}$ (since $\binom{p}{i} = p!/(i!(p-i)!)$ and $p$ is prime, $p$ divides numerator but not denominator). So they vanish mod $p$. $\square$
+
+---
+
+## NTT Primes as Fields
+
+For NTT of size $2^k$, need prime $p$ with $2^k | (p-1)$. Then:
+- $\mathbb{F}_p^*$ is cyclic of order $p-1$
+- $2^k | (p-1)$ means there exists element of order $2^k$ (a primitive $2^k$-th root of unity)
+- This root of unity $\omega = g^{(p-1)/2^k}$ enables the Fourier transform
+
+$p = 998244353 = 119 \cdot 2^{23} + 1$: primitive root $g = 3$, so $\omega_{2^{23}} = 3^{119} \bmod p$.
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "GF(p) multiply", time: "O(log p) for modular reduction", space: "O(1)" },
+  { operation: "GF(2^k) multiply (k-bit elements)", time: "O(k²) naive, O(k log k) with NTT", space: "O(k)" },
+  { operation: "GF(2^k) inverse (Fermat)", time: "O(k² log 2^k) = O(k³)", space: "O(1)" },
+  { operation: "Check irreducibility (degree k over GF(2))", time: "O(k² · d(k))", space: "O(k)" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "GF(2^k) Inverse",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1610/G",
+    difficulty: "2500",
+    concepts: ["finite field", "GF(2^k)", "irreducible polynomial"],
+    tier: "advanced"
+  },
+  {
+    name: "NTT Prime Selection",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/632/E",
+    difficulty: "2300",
+    concepts: ["finite field", "NTT", "primitive root"],
+    tier: "standard"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Groups, Rings & Fields](/math/algebra/groups-rings-fields) — ring/field definitions; $\mathbb{F}_p$ is the canonical finite field
+- [Primitive Roots](/math/number-theory/primitive-roots) — generator of $\mathbb{F}_p^*$
+- [NTT-Friendly Primes](/math/advanced-number-theory/ntt-primes) — $\mathbb{F}_p$ structure enables fast NTT
+- [GF(2) Linear Algebra](/math/linear-algebra/gf2) — linear algebra over $\mathbb{F}_2 = \text{GF}(2)$
+
+---
+
+## References
+
+1. Lidl, R. & Niederreiter, H. — Finite Fields (2nd ed., Encyclopedia of Math.) — comprehensive reference
+2. Ireland & Rosen — A Classical Introduction to Modern Number Theory, Ch. 7 — finite fields
+3. van Lint, J.H. — Introduction to Coding Theory — GF(2^k) in practice
