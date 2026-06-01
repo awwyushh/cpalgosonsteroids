@@ -1,0 +1,88 @@
+---
+title: Probability
+description: Probability theory for competitive programming — from axioms to Markov chains, randomized algorithms, and hashing
+---
+
+import { TopicGrid, TopicCard } from '../../../components/TopicGrid'
+
+# Probability
+
+Probability powers randomized algorithms, expected-value DPs, Markov chain analyses, and hashing guarantees. This section builds from first principles to contest-ready tools.
+
+---
+
+<TopicGrid>
+  <TopicCard
+    title="Basic Probability"
+    href="/math/probability/basic-probability"
+    difficulty="Medium"
+    description="Axioms, conditional probability, Bayes' theorem, inclusion-exclusion"
+  />
+  <TopicCard
+    title="Expected Value & Linearity"
+    href="/math/probability/expected-value"
+    difficulty="Medium"
+    description="Linearity of expectation, indicator variables, geometric distribution tricks"
+  />
+  <TopicCard
+    title="Probability DP"
+    href="/math/probability/probability-dp"
+    difficulty="Hard"
+    description="Expected-value DPs, probability over states, backward DP"
+  />
+  <TopicCard
+    title="Markov Chains"
+    href="/math/probability/markov-chains"
+    difficulty="Hard"
+    description="Transition matrices, stationary distributions, hitting times"
+  />
+  <TopicCard
+    title="Random Walks"
+    href="/math/probability/random-walks"
+    difficulty="Hard"
+    description="Gambler's ruin, Pólya's theorem, optional stopping theorem"
+  />
+  <TopicCard
+    title="Randomized Algorithms"
+    href="/math/probability/randomized-algorithms"
+    difficulty="Expert"
+    description="Karger's min-cut, Miller-Rabin primality, Pollard's rho factorization"
+  />
+  <TopicCard
+    title="Hashing & Birthday Paradox"
+    href="/math/probability/hashing-probability"
+    difficulty="Expert"
+    description="Universal hashing, birthday paradox, Bloom filters, polynomial hashing"
+  />
+  <TopicCard
+    title="Coupon Collector & Occupancy"
+    href="/math/probability/coupon-collector"
+    difficulty="Hard"
+    description="Coupon collector problem, balls-into-bins, load balancing"
+  />
+</TopicGrid>
+
+---
+
+## Learning Path
+
+**Start here if new to probability in CP:**
+1. [Basic Probability](/math/probability/basic-probability) — sample spaces, conditional prob, Bayes
+2. [Expected Value](/math/probability/expected-value) — linearity is the key tool
+3. [Probability DP](/math/probability/probability-dp) — combine expectation with DP
+
+**For randomized algorithm analysis:**
+4. [Randomized Algorithms](/math/probability/randomized-algorithms) — Monte Carlo vs Las Vegas
+5. [Hashing](/math/probability/hashing-probability) — universal hashing theory
+6. [Coupon Collector](/math/probability/coupon-collector) — occupancy problems
+
+**For advanced stochastic analysis:**
+7. [Markov Chains](/math/probability/markov-chains) — stationary distributions, mixing
+8. [Random Walks](/math/probability/random-walks) — optional stopping, Pólya
+
+---
+
+## Prerequisites
+
+- Basic combinatorics (counting, permutations, combinations)
+- [Modular Arithmetic](/math/number-theory/modular-arithmetic) — for probability mod prime
