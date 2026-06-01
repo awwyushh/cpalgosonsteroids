@@ -1,0 +1,138 @@
+---
+title: Memory Fundamentals
+description: Stack vs heap, memory layout, and practical memory limits for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+
+# Memory Fundamentals
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Complexity Analysis", href: "/ds/foundations/complexity" }
+]} />
+
+## Why This Topic Matters
+
+Memory limit violations (MLE) are as fatal as TLE. Understanding memory layout helps you estimate usage, avoid stack overflows, and write cache-friendly code.
+
+---
+
+## Memory Regions
+
+| Region | Contents | Typical size in CP |
+|--------|---------|-------------------|
+| **Stack** | Local variables, function calls | 1–8 MB |
+| **Heap** | `new`, `malloc`, `vector` | 256 MB (contest default) |
+| **Global/static** | Global arrays, `static` vars | 256 MB (contest default) |
+| **Code** | Compiled instructions | small |
+
+**Key insight**: global arrays don't use stack. For large arrays ($> 10^6$ elements), declare them globally:
+
+```cpp
+// BAD: stack overflow for large n
+void solve() {
+    int dp[1000001];  // ~4MB on stack — might crash
+}
+
+// GOOD: global
+int dp[1000001];  // in data segment, safe
+int main() { ... }
+```
+
+---
+
+## Memory Usage Estimation
+
+| Type | Size |
+|------|------|
+| `int` | 4 bytes |
+| `long long` | 8 bytes |
+| `double` | 8 bytes |
+| `bool` (in array) | 1 byte |
+| `pair<int,int>` | 8 bytes |
+| `vector<int>` header | 24 bytes (pointer + size + capacity) |
+| `string` header | 32 bytes |
+
+**Formula**: `sizeof(T) * n` bytes for array of `n` elements of type `T`.
+
+**Common limits**:
+- $10^6$ `int` = 4 MB
+- $10^6$ `long long` = 8 MB  
+- $10^6$ `pair<int,int>` = 8 MB
+- $10^6$ `vector<int>` (empty) = 24 MB (just headers!)
+
+<Callout type="warning">
+A 256 MB limit ≈ $64 \times 10^6$ `int`s. Don't allocate arrays of size $10^8$ — that's 400 MB.
+</Callout>
+
+---
+
+## Stack Overflow Prevention
+
+Default stack is ~1–8 MB on most judges. Deep recursion dies silently with SIGSEGV.
+
+```cpp
+// Recursive DFS on tree with n=10^5 and depth=10^5: stack overflow!
+void dfs(int v) { dfs(child[v]); }  // 10^5 frames × ~100 bytes = 10 MB
+
+// Fix: iterative DFS with explicit stack
+void dfs_iterative(int root) {
+    stack<int> stk;
+    stk.push(root);
+    while (!stk.empty()) {
+        int v = stk.top(); stk.pop();
+        for (int u : adj[v]) stk.push(u);
+    }
+}
+```
+
+Or increase stack size (system-specific, not portable).
+
+---
+
+## Memory-Efficient Patterns
+
+**`vector<bool>`**: packed bitset (1 bit per bool). 8× smaller but slow for random access.
+
+**Static arrays vs vectors**:
+```cpp
+int a[MAXN];          // zero overhead, fast
+vector<int> a(n);     // small overhead, dynamic size
+```
+
+**Reusing arrays**: instead of clearing, use a "timestamp" trick:
+```cpp
+int last_visit[MAXN];
+int timer = 0;
+bool visited(int v) { return last_visit[v] == timer; }
+void visit(int v) { last_visit[v] = timer; }
+void clear_all() { timer++; }  // O(1) "clear"
+```
+
+---
+
+## Memory for Common DS
+
+| Structure | Memory for n elements |
+|----------|----------------------|
+| `int a[n]` | $4n$ bytes |
+| Segment tree | $4 \times 4n$ bytes (4 nodes per element) |
+| BIT | $4n$ bytes |
+| DSU | $8n$ bytes (parent + rank) |
+| Adjacency list (m edges) | $\sim 8(n + m)$ bytes |
+| `unordered_map` (n entries) | $\sim 60n$ bytes (high constant) |
+
+---
+
+## Common Pitfalls
+
+1. **Declaring large arrays locally**: stack overflow. Use global.
+2. **`vector<vector<int>>`**: fine for small $n$, but $10^6$ inner vectors = 24 MB just for headers.
+3. **Memory fragmentation**: many small `new` allocations can exhaust heap faster than expected.
+4. **`string` in DP**: strings are expensive — prefer integer encoding or hash.

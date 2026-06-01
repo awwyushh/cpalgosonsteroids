@@ -1,0 +1,161 @@
+---
+title: Generic Programming & Templates
+description: C++ templates, policy-based data structures, and generic DS patterns for competitive programming
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+
+# Generic Programming & Templates
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Complexity Analysis", href: "/ds/foundations/complexity" }
+]} />
+
+## Why This Topic Matters
+
+Writing a generic segment tree once, then instantiating it for sum, max, GCD, etc. saves coding time in contests. C++ templates and the `__gnu_pbds` policy-based data structures give you sorted sets with `order_of_key` and `find_by_order` — capabilities not in standard `std::set`.
+
+---
+
+## Template Functions
+
+```cpp
+// Generic max function (already in <algorithm> but for illustration)
+template<typename T>
+T my_max(T a, T b) { return a > b ? a : b; }
+
+// Generic gcd
+template<typename T>
+T gcd(T a, T b) { return b == 0 ? a : gcd(b, a % b); }
+```
+
+---
+
+## Generic Segment Tree
+
+```cpp
+template<typename T, typename Combine>
+struct SegTree {
+    int n;
+    vector<T> tree;
+    T identity;
+    Combine combine;
+    
+    SegTree(int n, T identity, Combine combine)
+        : n(n), identity(identity), combine(combine), tree(4 * n, identity) {}
+    
+    void update(int node, int l, int r, int pos, T val) {
+        if (l == r) { tree[node] = val; return; }
+        int mid = (l + r) / 2;
+        if (pos <= mid) update(2*node, l, mid, pos, val);
+        else update(2*node+1, mid+1, r, pos, val);
+        tree[node] = combine(tree[2*node], tree[2*node+1]);
+    }
+    
+    T query(int node, int l, int r, int ql, int qr) {
+        if (qr < l || r < ql) return identity;
+        if (ql <= l && r <= qr) return tree[node];
+        int mid = (l + r) / 2;
+        return combine(query(2*node, l, mid, ql, qr),
+                       query(2*node+1, mid+1, r, ql, qr));
+    }
+    
+    void update(int pos, T val) { update(1, 0, n-1, pos, val); }
+    T query(int l, int r) { return query(1, 0, n-1, l, r); }
+};
+
+// Usage:
+SegTree<int, function<int(int,int)>> sum_tree(n, 0, plus<int>());
+SegTree<int, function<int(int,int)>> max_tree(n, INT_MIN, [](int a, int b){ return max(a,b); });
+```
+
+---
+
+## Policy-Based Data Structures (PBDS)
+
+`__gnu_pbds::tree` — sorted set with O(log n) order statistics:
+
+```cpp
+#include <ext/pb_ds/assoc_container.hpp>
+#include <ext/pb_ds/tree_policy.hpp>
+using namespace __gnu_pbds;
+
+typedef tree<int, null_type, less<int>,
+             rb_tree_tag, tree_order_statistics_node_update> ordered_set;
+
+ordered_set s;
+s.insert(5); s.insert(2); s.insert(8);
+
+s.order_of_key(5);   // rank of 5 (0-indexed): 1
+*s.find_by_order(0); // element at rank 0: 2
+```
+
+**For duplicates**: use `pair<int,int>` with a unique second component:
+```cpp
+typedef tree<pair<int,int>, null_type, less<pair<int,int>>,
+             rb_tree_tag, tree_order_statistics_node_update> ordered_multiset;
+
+int id = 0;
+ordered_multiset ms;
+ms.insert({val, id++});  // unique pairs allow duplicates
+
+// Count elements < val:
+ms.order_of_key({val, INT_MIN});
+```
+
+---
+
+## Common Generic Patterns
+
+### Generic DSU
+```cpp
+template<int MAXN>
+struct DSU {
+    int parent[MAXN], rank[MAXN];
+    DSU() { iota(parent, parent + MAXN, 0); fill(rank, rank + MAXN, 0); }
+    int find(int x) { return parent[x] == x ? x : parent[x] = find(parent[x]); }
+    bool unite(int a, int b) {
+        a = find(a); b = find(b);
+        if (a == b) return false;
+        if (rank[a] < rank[b]) swap(a, b);
+        parent[b] = a;
+        if (rank[a] == rank[b]) rank[a]++;
+        return true;
+    }
+};
+```
+
+### Lambda Comparator
+```cpp
+auto cmp = [](pair<int,int> a, pair<int,int> b) {
+    return a.first != b.first ? a.first < b.first : a.second > b.second;
+};
+priority_queue<pair<int,int>, vector<pair<int,int>>, decltype(cmp)> pq(cmp);
+```
+
+---
+
+## Useful Macros for CP
+
+```cpp
+#define all(x) (x).begin(), (x).end()
+#define pb push_back
+#define fi first
+#define se second
+#define rep(i, a, b) for (int i = (a); i < (b); i++)
+
+// Type aliases
+using ll = long long;
+using pii = pair<int,int>;
+using vi = vector<int>;
+```
+
+<Callout type="info">
+PBDS is GCC-specific. If you're on a non-GCC judge, you'll need a manual balanced BST (treap or splay). Most competitive programming judges use GCC.
+</Callout>

@@ -1,0 +1,140 @@
+---
+title: Complexity Analysis
+description: Big-O notation, practical time limits, and complexity estimation for CP
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Complexity Analysis
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Essential</span>
+</div>
+
+## Why This Topic Matters
+
+Before implementing, you must estimate whether your solution is fast enough. A correct $O(n^3)$ solution with $n = 10^4$ will TLE; an $O(n \log n)$ solution passes. Complexity analysis is the first skill — without it, you're guessing.
+
+**Contest relevance**: Every problem. Read constraints first, estimate complexity, then implement.
+
+---
+
+## Learning Objectives
+
+- Understand Big-O, Big-Ω, Big-Θ definitions
+- Estimate algorithm complexity by counting operations
+- Know the "$10^8$ operations per second" rule of thumb
+- Recognize common complexities and their limits
+
+---
+
+## Definitions
+
+**Big-O** (upper bound): $f(n) = O(g(n))$ if $\exists C, n_0: f(n) \leq C \cdot g(n)$ for all $n \geq n_0$.
+
+**Big-Ω** (lower bound): $f(n) = \Omega(g(n))$ if $g(n) = O(f(n))$.
+
+**Big-Θ** (tight): $f(n) = \Theta(g(n))$ if both $O$ and $\Omega$ hold.
+
+In CP, "Big-O" informally means tight complexity.
+
+---
+
+## The 10^8 Rule
+
+Modern computers execute roughly $10^8$–$10^9$ simple operations per second. A 1-second time limit allows ~$10^8$ operations.
+
+| Complexity | Max $n$ for 1s |
+|-----------|----------------|
+| $O(n!)$ | $\leq 11$ |
+| $O(2^n)$ | $\leq 26$ |
+| $O(n^3)$ | $\leq 500$ |
+| $O(n^2)$ | $\leq 5{,}000$–$10{,}000$ |
+| $O(n \sqrt{n})$ | $\leq 10^5$–$10^6$ |
+| $O(n \log^2 n)$ | $\leq 10^6$ |
+| $O(n \log n)$ | $\leq 10^6$–$10^7$ |
+| $O(n)$ | $\leq 10^8$ |
+| $O(\log n)$ | any |
+| $O(1)$ | any |
+
+<Callout type="warning">
+These are rough guides. Constant factors matter. Cache-friendly $O(n^2)$ can beat cache-unfriendly $O(n \log n)$ for small $n$. Always verify with actual benchmarks when close to limits.
+</Callout>
+
+---
+
+## Estimating Complexity
+
+**Count nested loops**:
+```cpp
+for (int i = 0; i < n; i++)          // O(n)
+    for (int j = i; j < n; j++)       // O(n) each → O(n²) total
+        for (int k = 0; k < 10; k++)  // O(1) constant
+            // ...
+// Total: O(n²)
+```
+
+**Recurrences**:
+- $T(n) = 2T(n/2) + O(n)$: $O(n \log n)$ (merge sort)
+- $T(n) = T(n-1) + O(n)$: $O(n^2)$ (insertion sort)
+- $T(n) = T(n/2) + O(1)$: $O(\log n)$ (binary search)
+
+**Master theorem**: $T(n) = aT(n/b) + f(n)$:
+- $f(n) = O(n^{\log_b a - \epsilon})$: $T(n) = \Theta(n^{\log_b a})$
+- $f(n) = \Theta(n^{\log_b a})$: $T(n) = \Theta(n^{\log_b a} \log n)$
+- $f(n) = \Omega(n^{\log_b a + \epsilon})$: $T(n) = \Theta(f(n))$
+
+---
+
+## Common Complexities in CP
+
+```
+O(1)          — hash lookup, array access
+O(log n)      — binary search, GCD, segment tree query
+O(√n)         — trial division, Mo's block size
+O(n)          — linear scan, prefix sum
+O(n log n)    — sorting, merge sort, FFT
+O(n log² n)   — offline range queries with BIT
+O(n √n)       — Mo's algorithm, sqrt decomp
+O(n²)         — brute force DP (small n)
+O(n² log n)   — Floyd-Warshall + optimization
+O(n³)         — matrix multiplication, Floyd-Warshall
+O(2^n · n)    — bitmask DP
+O(2^n)        — subset enumeration
+```
+
+---
+
+## Complexity of Standard Operations
+
+| Operation | Complexity |
+|-----------|-----------|
+| `std::sort(a, a+n)` | $O(n \log n)$ |
+| `std::lower_bound` | $O(\log n)$ |
+| `unordered_map lookup` | $O(1)$ amortized, $O(n)$ worst |
+| `set/map insert/find` | $O(\log n)$ |
+| String concatenation in loop | $O(n^2)$ — use `ostringstream` |
+| `pow(a, b)` (float) | $O(1)$ — but imprecise! |
+
+---
+
+## Common Pitfalls
+
+1. **Forgetting log factors**: $O(n)$ sieve vs $O(n \log \log n)$ Sieve of Eratosthenes.
+2. **Constant factors**: unordered_map has high constants; sometimes plain arrays are 5× faster.
+3. **Worst-case vs average-case**: quicksort is $O(n^2)$ worst case.
+4. **I/O**: printing $10^6$ lines with `cout` without `ios_base::sync_with_stdio(false)` adds ~1 second.
+
+---
+
+## Practical CP Checklist
+
+Before submitting:
+- [ ] What is $n$? What's the constraint?
+- [ ] What is my solution's complexity?
+- [ ] Is $n^{complexity} \leq 10^8$? (with safety margin 10×)
+- [ ] Any hidden quadratic behavior (string ops, set operations in loops)?

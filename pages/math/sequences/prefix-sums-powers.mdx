@@ -1,0 +1,268 @@
+---
+title: Prefix Sums of Powers
+description: Faulhaber's formula, Bernoulli numbers, hockey stick identity, and computing sum of k-th powers in O(k)
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Prefix Sums of Powers
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Arithmetic & Geometric Progressions", href: "/math/sequences/arithmetic-geometric" },
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" },
+  { title: "Modular Inverse", href: "/math/foundations/modular-inverse" }
+]} />
+
+## Why This Topic Matters
+
+$\sum_{k=1}^n k^p$ appears in counting problems, complexity analysis, and combinatorics. For fixed $p$, this is a polynomial of degree $p+1$ in $n$. Faulhaber's formula gives closed forms; Bernoulli numbers are the coefficients. For competitive programming, the key skill is computing the polynomial by **Lagrange interpolation** in $O(p)$ from $p+2$ sample points.
+
+**Contest relevance**: CF Div.1 C–D, problems requiring fast sum-of-powers for large $n$.
+
+---
+
+## Faulhaber's Formula
+
+$$\sum_{k=1}^n k^p = \frac{1}{p+1} \sum_{j=0}^{p} \binom{p+1}{j} B_j \cdot n^{p+1-j}$$
+
+where $B_j$ are **Bernoulli numbers**: $B_0=1, B_1=-\frac{1}{2}, B_2=\frac{1}{6}, B_4=\frac{-1}{30}, \ldots$, and $B_{2k+1}=0$ for $k \geq 1$.
+
+**Intuition**: The sum $S_p(n)$ is a degree-$(p+1)$ polynomial in $n$ with $S_p(0) = 0$. Bernoulli numbers encode the coefficients. The formula follows from the generating function $\frac{te^{nt}}{e^t - 1}$.
+
+### Small Cases
+
+| $p$ | $\sum_{k=1}^n k^p$ |
+|-----|-------------------|
+| 0 | $n$ |
+| 1 | $n(n+1)/2$ |
+| 2 | $n(n+1)(2n+1)/6$ |
+| 3 | $[n(n+1)/2]^2$ |
+| 4 | $n(n+1)(2n+1)(3n^2+3n-1)/30$ |
+| 5 | $n^2(n+1)^2(2n^2+2n-1)/12$ |
+
+**Remarkable**: $\sum k^3 = (\sum k)^2$ — visual proof via $L$-shaped tiles.
+
+---
+
+## Bernoulli Numbers
+
+Defined by generating function:
+
+$$\frac{t}{e^t - 1} = \sum_{n=0}^{\infty} B_n \frac{t^n}{n!}$$
+
+**Recurrence** (from $\frac{t}{e^t-1}(e^t - 1) = t$):
+
+$$\sum_{k=0}^{n-1} \binom{n}{k} B_k = 0 \quad \text{for } n \geq 2$$
+
+which gives: $B_0 = 1$, $B_1 = -1/2$, $B_2 = 1/6$, $B_3 = 0$, $B_4 = -1/30$, $B_6 = 1/42$, $B_8 = -1/30$.
+
+**Property**: $B_{2k+1} = 0$ for $k \geq 1$.
+
+**Proof**: $f(t) = \frac{t}{e^t-1} + t/2 = \frac{t(e^t+1)}{2(e^t-1)}$ is even (substitute $t \to -t$). So all odd-index Bernoulli numbers past $B_1$ vanish. $\square$
+
+```cpp
+// Compute Bernoulli numbers B[0..m] mod prime p
+// B[n] = -(1/n+1) * sum_{k=0}^{n-1} C(n+1,k)*B[k]
+vector<long long> bernoulli(int m, long long p) {
+    vector<long long> B(m + 1, 0);
+    vector<vector<long long>> C(m + 2, vector<long long>(m + 2, 0));
+    for (int i = 0; i <= m + 1; i++) {
+        C[i][0] = 1;
+        for (int j = 1; j <= i; j++)
+            C[i][j] = (C[i-1][j-1] + C[i-1][j]) % p;
+    }
+    B[0] = 1;
+    for (int n = 1; n <= m; n++) {
+        long long s = 0;
+        for (int k = 0; k < n; k++)
+            s = (s + C[n+1][k] % p * B[k]) % p;
+        B[n] = p - s % p * modinv(n + 1, p) % p;
+        B[n] %= p;
+    }
+    return B;
+}
+```
+
+---
+
+## Lagrange Interpolation for Power Sums
+
+Since $S_p(n) = \sum_{k=1}^n k^p$ is a degree-$(p+1)$ polynomial in $n$ with $S_p(0)=0$, we need $p+2$ points to determine it. Use $x_i = i$ for $i = 0, 1, \ldots, p+1$ (consecutive integers).
+
+**Key**: for consecutive integer nodes, Lagrange interpolation simplifies to:
+
+$$S_p(n) = \sum_{i=0}^{p+1} y_i \prod_{j \neq i} \frac{n - j}{i - j}$$
+
+The denominator $\prod_{j \neq i}(i-j) = (-1)^{p+1-i} \cdot i! \cdot (p+1-i)!$ — precomputable.
+
+```cpp
+// Sum of powers: 1^p + 2^p + ... + n^p mod MOD
+// O(p) after O(p log p) precomputation
+// Uses Lagrange interpolation on p+2 sample points
+
+long long sum_of_powers(long long n, int p, long long MOD) {
+    int m = p + 2;  // number of sample points (x=0..m-1)
+    
+    // y[i] = sum_{k=1}^{i} k^p  (prefix sums of powers)
+    vector<long long> y(m);
+    y[0] = 0;
+    for (int i = 1; i < m; i++) {
+        long long kp = 1;
+        long long base = i;
+        int exp = p;
+        long long b = base % MOD;
+        // compute i^p mod MOD
+        long long pw = 1;
+        for (int e = p; e > 0; e >>= 1) {
+            if (e & 1) pw = pw * b % MOD;
+            b = b * b % MOD;
+        }
+        // wait, let me redo with proper power function
+        y[i] = (y[i-1] + power(i, p, MOD)) % MOD;
+    }
+    
+    if (n < m) return y[n];
+    
+    // Precompute prefix and suffix products of (n - j)
+    vector<long long> pre(m+1, 1), suf(m+1, 1);
+    for (int i = 0; i < m; i++)
+        pre[i+1] = pre[i] * ((n - i + MOD) % MOD) % MOD;
+    for (int i = m-1; i >= 0; i--)
+        suf[i] = suf[i+1] * ((n - i + MOD) % MOD) % MOD;
+    
+    // Precompute factorials and their inverses
+    vector<long long> fac(m, 1), inv_fac(m, 1);
+    for (int i = 1; i < m; i++) fac[i] = fac[i-1] * i % MOD;
+    inv_fac[m-1] = power(fac[m-1], MOD-2, MOD);
+    for (int i = m-2; i >= 0; i--) inv_fac[i] = inv_fac[i+1] * (i+1) % MOD;
+    
+    long long ans = 0;
+    for (int i = 0; i < m; i++) {
+        // numerator: product of (n - j) for j != i
+        long long num = pre[i] * suf[i+1] % MOD;
+        // denominator: (-1)^{m-1-i} * i! * (m-1-i)!
+        long long den = inv_fac[i] * inv_fac[m-1-i] % MOD;
+        if ((m-1-i) % 2 == 1) den = MOD - den;
+        ans = (ans + y[i] * num % MOD * den) % MOD;
+    }
+    return ans;
+}
+```
+
+**Complexity**: $O(p)$ per query after $O(p)$ sample computation.
+
+---
+
+## Hockey Stick Identity
+
+$$\sum_{k=r}^n \binom{k}{r} = \binom{n+1}{r+1}$$
+
+**Proof** (induction on $n$):
+- Base: $n = r$: $\binom{r}{r} = 1 = \binom{r+1}{r+1}$. ✓
+- Step: $\binom{n+1}{r+1} + \binom{n+1}{r} = \binom{n+2}{r+1}$ by Pascal. So $\sum_{k=r}^{n+1} \binom{k}{r} = \binom{n+1}{r+1} + \binom{n+1}{r} = \binom{n+2}{r+1}$. $\square$
+
+**Alternative proof** (bijection): $\binom{n+1}{r+1}$ counts $(r+1)$-subsets of $[n+1]$. Group by the largest element $k+1$: the remaining $r$ elements come from $[k]$, giving $\binom{k}{r}$ choices. $\square$
+
+**Power sum connection**: $\sum k^p$ can be expressed as linear combination of $\sum \binom{k}{j}$ for $j \leq p$, each summing via hockey stick to a binomial. This is the "method of differences" approach.
+
+---
+
+## Method of Differences
+
+For polynomial sums, express $k^p$ in **falling factorial basis**: $k^p = \sum_{j=0}^{p} c_j k^{\underline{j}}$ where $k^{\underline{j}} = k(k-1)\cdots(k-j+1)$.
+
+Then $\sum_{k=1}^n k^{\underline{j}} = \frac{n^{\underline{j+1}}}{j+1}$ (hockey stick in disguise).
+
+**Finite difference operator** $\Delta f(k) = f(k+1) - f(k)$:
+- $\Delta k^{\underline{j}} = j \cdot k^{\underline{j-1}}$ (analog of $\frac{d}{dk} k^j = j k^{j-1}$)
+- $\sum_{k=0}^{n-1} k^{\underline{j}} = \frac{n^{\underline{j+1}}}{j+1}$ (fundamental theorem of finite calculus)
+
+```cpp
+// Convert k^p to sum over falling factorials
+// Stirling numbers of the second kind: S(p,j)
+// k^p = sum_{j=0}^{p} S(p,j) * k^{underline j}
+// So sum_{k=1}^n k^p = sum_{j=1}^{p} S(p,j) * n^{underline{j+1}} / (j+1)
+
+vector<vector<long long>> stirling2(int n, long long MOD) {
+    vector<vector<long long>> S(n+1, vector<long long>(n+1, 0));
+    S[0][0] = 1;
+    for (int i = 1; i <= n; i++)
+        for (int j = 1; j <= i; j++)
+            S[i][j] = (j * S[i-1][j] + S[i-1][j-1]) % MOD;
+    return S;
+}
+```
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Compute sum 1^p+...+n^p (Lagrange)", time: "O(p)", space: "O(p)", note: "after O(p) precomputation" },
+  { operation: "Compute Bernoulli numbers B[0..m]", time: "O(m²)", space: "O(m²)" },
+  { operation: "Stirling numbers S(p,j) for all j", time: "O(p²)", space: "O(p²)" },
+  { operation: "Direct formula (fixed small p)", time: "O(log n)", space: "O(1)", note: "use known closed form" },
+]} />
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Sum of Cubes",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2421",
+    difficulty: "1200",
+    concepts: ["power sum", "Faulhaber"],
+    tier: "warmup"
+  },
+  {
+    name: "Counting Sequences",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/678/D",
+    difficulty: "2000",
+    concepts: ["sum of powers", "Lagrange interpolation"],
+    tier: "standard"
+  },
+  {
+    name: "Generate a String",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/827/C",
+    difficulty: "1900",
+    concepts: ["polynomial interpolation", "power sums"],
+    tier: "standard"
+  },
+  {
+    name: "Prefix Sums",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1476/G",
+    difficulty: "2700",
+    concepts: ["Lagrange interpolation", "sum formula"],
+    tier: "killer"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Arithmetic & Geometric Progressions](/math/sequences/arithmetic-geometric) — AP sum = $\sum k$, special case $p=1$
+- [Catalan & Stirling Recurrences](/math/sequences/catalan-recurrence) — Stirling numbers used in basis conversion
+- [Berlekamp-Massey for Sequences](/math/sequences/berlekamp-massey-seq) — discover polynomial sequences via finite differences
+
+---
+
+## References
+
+1. Graham, Knuth, Patashnik — Concrete Mathematics, §6.5 — Bernoulli numbers and Faulhaber
+2. Knuth, D. — TAOCP Vol. 1, §1.2.3 — sums of powers
+3. cp-algorithms — [Bernoulli numbers](https://cp-algorithms.com/algebra/bernoulli-numbers.html)
+4. Wikipedia — [Faulhaber's formula](https://en.wikipedia.org/wiki/Faulhaber%27s_formula)

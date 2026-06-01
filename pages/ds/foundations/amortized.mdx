@@ -1,0 +1,120 @@
+---
+title: Amortized Analysis
+description: Aggregate, accounting, and potential methods for analyzing data structure operations
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+
+# Amortized Analysis
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Complexity Analysis", href: "/ds/foundations/complexity" }
+]} />
+
+## Why This Topic Matters
+
+Some operations are occasionally expensive but cheap on average. A dynamic array `push_back` is $O(n)$ when it doubles — but averaged over $n$ operations, it's $O(1)$. Amortized analysis proves these bounds rigorously.
+
+**Contest relevance**: Understanding WHY splay trees / link-cut trees / union-find are efficient. Prerequisite for advanced DS analysis.
+
+---
+
+## Three Methods
+
+### 1. Aggregate Method
+
+Compute total cost of $n$ operations, divide by $n$.
+
+**Example: dynamic array doubling**
+
+Starting with capacity 1, double on overflow. After $n$ pushes:
+- Copy costs: $1 + 2 + 4 + \cdots + 2^{\lfloor \log n \rfloor} < 2n$
+- Push costs: $n$ (one per operation)
+- Total: $< 3n$ → $O(1)$ amortized per operation
+
+### 2. Accounting Method
+
+Assign amortized cost $\hat{c}_i$ to each operation. Rule: $\sum \hat{c}_i \geq \sum c_i$ (bank never goes negative).
+
+**Example: dynamic array**
+
+Assign amortized cost 3 to each push:
+- 1 for the push itself
+- 1 stored as "credit" on new element
+- 1 stored for the old element (to cover future copy)
+
+When doubling: $n$ credits pay for $n$ copies — bank always non-negative.
+
+### 3. Potential Method
+
+Define potential $\Phi$ (represents "stored energy"). Amortized cost:
+
+$$\hat{c}_i = c_i + \Phi_i - \Phi_{i-1}$$
+
+Total: $\sum \hat{c}_i = \sum c_i + \Phi_n - \Phi_0 \geq \sum c_i$ (if $\Phi_n \geq \Phi_0$).
+
+**Example: dynamic array** with $\Phi = 2 \cdot |\text{elements}| - |\text{capacity}|$
+
+Before doubling ($n$ elements, capacity $n$): $\Phi = n$.  
+After doubling: $\Phi = 2n - 2n = 0$.  
+Drop of $n$ in $\Phi$ pays for the $n$ copies. Each push has $\hat{c} = O(1)$.
+
+---
+
+## Classic Examples
+
+### Stack with Multi-Pop
+
+Operations: push ($O(1)$), multi-pop $k$ items ($O(k)$).
+
+**Potential**: $\Phi = $ number of elements on stack.
+
+- Push: $c = 1$, $\Delta\Phi = +1$, $\hat{c} = 2$
+- Multi-pop $k$: $c = k$, $\Delta\Phi = -k$, $\hat{c} = 0$
+
+All operations amortized $O(1)$. Total cost of $n$ operations: $O(n)$.
+
+### Union-Find (Path Compression)
+
+With union by rank + path compression: amortized $O(\alpha(n))$ per operation where $\alpha$ is the inverse Ackermann function.
+
+**Rough argument**: ranks are bounded by $O(\log n)$, path compression flattens future paths, potential decreases when ranks decrease.
+
+### Splay Tree
+
+$O(\log n)$ amortized per splay, rotate, insert, delete.
+
+**Potential**: $\Phi = \sum_{v} \log(\text{subtree size of } v)$
+
+Access lemma: splaying a node at depth $d$ has amortized cost $O(\log n)$ regardless of $d$.
+
+---
+
+## When to Use Amortized Analysis
+
+| Scenario | Method |
+|---------|--------|
+| All operations with occasional expensive one | Aggregate |
+| Tracking "credits" for future work | Accounting |
+| Abstract potential energy | Potential |
+
+---
+
+## Practical Takeaway for CP
+
+You rarely need to prove amortized bounds in a contest. But you need to **trust** them:
+
+- `vector::push_back`: $O(1)$ amortized — safe to use in $O(n)$ loops
+- DSU find: $O(\alpha(n))$ ≈ $O(1)$ for all practical $n$
+- `unordered_map` insert: $O(1)$ amortized — but hash collisions can blow up
+- `std::string` in loop: NOT amortized $O(1)$ if concatenating
+
+<Callout type="warning">
+`unordered_map` worst case is $O(n)$ per operation if you use "anti-hash" inputs. Use a custom hash in competitive programming.
+</Callout>

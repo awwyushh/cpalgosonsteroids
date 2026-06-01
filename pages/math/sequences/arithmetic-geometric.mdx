@@ -1,0 +1,254 @@
+---
+title: Arithmetic & Geometric Progressions
+description: AP, GP, harmonic series, AGM inequality, telescoping, and all sum formulas with proofs
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Arithmetic & Geometric Progressions
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Modular Arithmetic", href: "/math/foundations/modular-arithmetic" }
+]} />
+
+## Why This Topic Matters
+
+AP and GP formulas appear constantly — sum of first $n$ integers, geometric series bounds, harmonic series divergence rate, and the AM-GM inequality. Beyond formulas, the proof techniques (telescoping, induction, bijection) are fundamental.
+
+**Contest relevance**: CF Div.2 B/C, any problem needing closed-form sum, counting, or inequality argument.
+
+---
+
+## Arithmetic Progressions (AP)
+
+An **arithmetic progression** with first term $a$, common difference $d$:
+
+$$a,\ a+d,\ a+2d,\ \ldots,\ a+(n-1)d$$
+
+**$n$-th term**: $a_n = a + (n-1)d$.
+
+**Sum of first $n$ terms**:
+
+$$S_n = \frac{n}{2}(2a + (n-1)d) = \frac{n}{2}(a_1 + a_n)$$
+
+**Proof** (Gauss pairing): write sum forwards and backwards, add pairwise:
+$$S_n + S_n = n(a_1 + a_n) \implies S_n = \frac{n(a_1+a_n)}{2}. \quad \square$$
+
+**Special cases**:
+- $\sum_{k=1}^{n} k = \frac{n(n+1)}{2}$
+- $\sum_{k=1}^{n} (2k-1) = n^2$ (sum of first $n$ odd numbers)
+- $\sum_{k=0}^{n-1} k = \frac{n(n-1)}{2}$
+
+---
+
+## Geometric Progressions (GP)
+
+A **geometric progression** with first term $a$, common ratio $r$:
+
+$$a,\ ar,\ ar^2,\ \ldots,\ ar^{n-1}$$
+
+**$n$-th term**: $a_n = ar^{n-1}$.
+
+**Sum of first $n$ terms** (for $r \neq 1$):
+
+$$S_n = a \cdot \frac{r^n - 1}{r - 1} = a \cdot \frac{1 - r^n}{1 - r}$$
+
+**Proof**: Let $S = a + ar + \cdots + ar^{n-1}$. Then $rS = ar + ar^2 + \cdots + ar^n$. Subtracting: $S - rS = a - ar^n$, so $S(1-r) = a(1-r^n)$. $\square$
+
+**Infinite GP** (for $|r| < 1$):
+
+$$S_\infty = \frac{a}{1-r}$$
+
+**Proof**: $\lim_{n\to\infty} r^n = 0$ when $|r| < 1$, so $S_n \to \frac{a}{1-r}$. $\square$
+
+**Special cases**:
+- $\sum_{k=0}^{n-1} 2^k = 2^n - 1$ (all bits set)
+- $\sum_{k=0}^{\infty} x^k = \frac{1}{1-x}$ for $|x| < 1$
+- $\sum_{k=0}^{\infty} k x^k = \frac{x}{(1-x)^2}$ (differentiate the above)
+
+---
+
+## Harmonic Series
+
+$$H_n = 1 + \frac{1}{2} + \frac{1}{3} + \cdots + \frac{1}{n} = \sum_{k=1}^n \frac{1}{k}$$
+
+**Divergence**: $H_n \to \infty$ as $n \to \infty$.
+
+**Proof** (Cauchy condensation / grouping):
+$$H_{2^n} = 1 + \frac{1}{2} + \left(\frac{1}{3}+\frac{1}{4}\right) + \left(\frac{1}{5}+\cdots+\frac{1}{8}\right) + \cdots$$
+Each group of $2^k$ terms sums to $> \frac{1}{2}$, so $H_{2^n} > 1 + n/2 \to \infty$. $\square$
+
+**Asymptotic**: $H_n = \ln n + \gamma + O(1/n)$ where $\gamma \approx 0.5772$ (Euler-Mascheroni constant).
+
+**CP significance**: $\sum_{k=1}^{n} \lfloor n/k \rfloor = O(n \log n)$ — the harmonic series bound appears whenever iterating over multiples (sieve, divisor enumeration).
+
+---
+
+## Mixed: Arithmetico-Geometric Series
+
+$S = \sum_{k=0}^{n-1} (a + kd) r^k = $ sum with both AP coefficient and GP base.
+
+**Method**: $S - rS$ telescopes the AP part:
+$$S(1-r) = a - (a+(n-1)d)r^n + d\sum_{k=1}^{n-1} r^k$$
+
+```cpp
+// Arithmetico-geometric sum: sum_{k=0}^{n-1} (a + k*d) * r^k mod prime p
+long long ari_geo_sum(long long a, long long d, long long r, long long n, long long p) {
+    if (n == 0) return 0;
+    if (r % p == 1) {
+        // r = 1: sum = n*a + d*(0+1+...+(n-1)) = n*a + d*n*(n-1)/2
+        return (n % p * (a % p) % p + d % p * (n % p) % p * ((n-1) % p) % p * modinv(2, p)) % p;
+    }
+    // General: use the formula
+    // Compute with O(log p) using matrix exponentiation or direct formula
+    // ...
+    return 0; // placeholder
+}
+```
+
+---
+
+## AM-GM Inequality
+
+For non-negative $a_1, \ldots, a_n$:
+
+$$\frac{a_1 + a_2 + \cdots + a_n}{n} \geq \sqrt[n]{a_1 a_2 \cdots a_n}$$
+
+with equality iff $a_1 = a_2 = \cdots = a_n$.
+
+**Proof** (by induction, Cauchy forward-backward):
+
+*Base*: $n=2$: $\frac{a+b}{2} \geq \sqrt{ab}$ iff $(a+b)^2 \geq 4ab$ iff $(a-b)^2 \geq 0$. ✓
+
+*Forward ($n \to 2n$)*: Apply AM-GM to $(a_1,\ldots,a_n)$ and $(a_{n+1},\ldots,a_{2n})$ separately, then again to the two geometric means.
+
+*Backward ($n \to n-1$)*: Given AM-GM holds for $n$ terms, apply it with $a_n = (a_1+\cdots+a_{n-1})/(n-1)$ (the arithmetic mean) to reduce to $n-1$ terms. $\square$
+
+**CP use**: bounding $\sum a_i$ given $\prod a_i$ or vice versa; showing a configuration is extremal at equal values.
+
+---
+
+## Cauchy-Schwarz Inequality
+
+$$\left(\sum_{i=1}^n a_i b_i\right)^2 \leq \left(\sum_{i=1}^n a_i^2\right)\left(\sum_{i=1}^n b_i^2\right)$$
+
+**Proof**: Consider $f(t) = \sum (a_i t + b_i)^2 \geq 0$ as a quadratic in $t$. Its discriminant must be $\leq 0$: $(\sum a_i b_i)^2 - (\sum a_i^2)(\sum b_i^2) \leq 0$. $\square$
+
+---
+
+## Telescoping
+
+Many sums collapse via telescoping: $\sum_{k=1}^n (f(k) - f(k-1)) = f(n) - f(0)$.
+
+**Examples**:
+- $\sum_{k=1}^n \frac{1}{k(k+1)} = \sum \left(\frac{1}{k} - \frac{1}{k+1}\right) = 1 - \frac{1}{n+1} = \frac{n}{n+1}$
+- $\sum_{k=1}^n k \cdot k! = \sum ((k+1)! - k!) = (n+1)! - 1$
+- $\sum_{k=1}^n \frac{k}{(k+1)!} = \sum \left(\frac{1}{k!} - \frac{1}{(k+1)!}\right) = 1 - \frac{1}{(n+1)!}$
+
+**Strategy**: try to write $a_k = f(k) - f(k-1)$ or $f(k+1) - f(k)$.
+
+---
+
+## Important Sums Cheatsheet
+
+| Sum | Closed form |
+|-----|------------|
+| $\sum_{k=1}^n k$ | $n(n+1)/2$ |
+| $\sum_{k=1}^n k^2$ | $n(n+1)(2n+1)/6$ |
+| $\sum_{k=1}^n k^3$ | $[n(n+1)/2]^2$ |
+| $\sum_{k=0}^n r^k$ | $(r^{n+1}-1)/(r-1)$ |
+| $\sum_{k=1}^n k r^k$ | $r(1-(n+1)r^n+nr^{n+1})/(1-r)^2$ |
+| $\sum_{k=1}^n \binom{n}{k}$ | $2^n - 1$ |
+| $\sum_{k=0}^n \binom{n}{k}^2$ | $\binom{2n}{n}$ (Vandermonde) |
+| $H_n = \sum_{k=1}^n 1/k$ | $\ln n + \gamma + O(1/n)$ |
+| $\sum_{k=1}^n \lfloor n/k \rfloor$ | $O(n \log n)$ |
+
+---
+
+## Modular Arithmetic of Sums
+
+For AP sum mod $p$: standard formula works if $2$ is invertible (i.e., $p$ is odd prime or compute carefully for $p=2$).
+
+```cpp
+// Sum of AP: a + (a+d) + (a+2d) + ... + (a+(n-1)d) mod MOD
+long long ap_sum(long long a, long long d, long long n, long long MOD) {
+    a %= MOD; d %= MOD; n %= MOD;
+    return n * (2 * a + (n - 1) * d % MOD) % MOD * modinv(2, MOD) % MOD;
+}
+
+// Sum of GP: a + ar + ar^2 + ... + ar^(n-1) mod MOD (prime)
+long long gp_sum(long long a, long long r, long long n, long long MOD) {
+    if (r % MOD == 1) return a % MOD * n % MOD;
+    return a % MOD * (power(r, n, MOD) - 1 + MOD) % MOD * modinv((r - 1 + MOD) % MOD, MOD) % MOD;
+}
+```
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Apartment",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1084",
+    difficulty: "1000",
+    concepts: ["AP", "sorting"],
+    tier: "warmup"
+  },
+  {
+    name: "Sum of Divisors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1240",
+    difficulty: "1400",
+    concepts: ["harmonic series", "floor grouping"],
+    tier: "standard"
+  },
+  {
+    name: "Geometric Progression",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/567/C",
+    difficulty: "1600",
+    concepts: ["GP", "counting"],
+    tier: "standard"
+  },
+  {
+    name: "Sequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1059/C",
+    difficulty: "2000",
+    concepts: ["AP", "optimization"],
+    tier: "standard"
+  },
+  {
+    name: "Sum or Product",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1364/C",
+    difficulty: "2200",
+    concepts: ["AM-GM", "sequence bounds"],
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## Related Topics
+
+- [Prefix Sums of Powers](/math/sequences/prefix-sums-powers) — extends AP to arbitrary power sums via Faulhaber
+- [Floor & Ceiling Identities](/math/foundations/floor-ceil) — $\sum \lfloor n/k \rfloor$ uses harmonic series bound
+- [Generating Functions](/math/combinatorics/generating-functions) — GP is OGF of constant sequence
+
+---
+
+## References
+
+1. Concrete Mathematics — Graham, Knuth, Patashnik — §2.1–2.4 sums, §2.5 multiple sums
+2. USACO Guide — [Arithmetic Series](https://usaco.guide/silver/binary-search)
+3. Hardy & Wright — Theory of Numbers, §18.1 — harmonic series

@@ -1,0 +1,217 @@
+---
+title: Cache Complexity & Cache-Friendliness
+description: CPU cache hierarchy, spatial/temporal locality, and writing fast cache-friendly CP code
+---
+
+import { Callout } from '../../../components/Callout'
+import { Prerequisites } from '../../../components/Prerequisites'
+
+# Cache Complexity & Cache-Friendliness
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Memory Fundamentals", href: "/ds/foundations/memory" }
+]} />
+
+## Why This Topic Matters
+
+Cache effects explain why an $O(n^2)$ row-major traversal is 10× faster than column-major. BIT is faster than segment tree in practice partly due to cache behavior. For tight TLEs, cache optimization is a real technique.
+
+---
+
+## Cache Hierarchy
+
+| Level | Size | Latency |
+|-------|------|---------|
+| L1 cache | 32–64 KB | ~1–4 ns |
+| L2 cache | 256 KB – 1 MB | ~4–12 ns |
+| L3 cache | 4–32 MB | ~30–50 ns |
+| RAM | GBs | ~100 ns |
+| SSD | TB | ~100 µs |
+
+**Cache line**: 64 bytes (16 ints). When you access one int, the whole 64-byte line loads.
+
+**Implication**: sequential access = one cache miss per 16 accesses. Random access = one miss per access.
+
+---
+
+## Spatial Locality
+
+**Good**: access nearby memory locations.
+**Bad**: random memory jumps.
+
+```cpp
+// FAST: row-major (C++ stores rows contiguously)
+for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+        sum += a[i][j];  // sequential access
+
+// SLOW: column-major
+for (int j = 0; j < n; j++)
+    for (int i = 0; i < n; i++)
+        sum += a[i][j];  // stride-n jumps
+```
+
+For $n = 1000$: row-major is ~5× faster.
+
+---
+
+## Temporal Locality
+
+Reuse recently accessed data before it's evicted.
+
+**Loop tiling** (matrix multiplication):
+```cpp
+// Naive: poor cache reuse of B
+for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+        for (int k = 0; k < n; k++)
+            C[i][j] += A[i][k] * B[k][j];
+
+// Tiled: block size fits in L1 cache
+const int BLOCK = 64;
+for (int ii = 0; ii < n; ii += BLOCK)
+  for (int jj = 0; jj < n; jj += BLOCK)
+    for (int kk = 0; kk < n; kk += BLOCK)
+      for (int i = ii; i < min(ii+BLOCK, n); i++)
+        for (int j = jj; j < min(jj+BLOCK, n); j++)
+          for (int k = kk; k < min(kk+BLOCK, n); k++)
+            C[i][j] += A[i][k] * B[k][j];
+```
+
+---
+
+## BIT vs Segment Tree: Cache Perspective
+
+BIT (Fenwick tree) is faster than segment tree in practice:
+- BIT stores all values in one flat array — sequential/nearby access
+- Recursive segment tree jumps between parent/child pointers
+- For $n = 10^6$ queries: BIT is typically 2–3× faster
+
+**Iterative segment tree** closes the gap (flat array, no pointers).
+
+---
+
+## Struct of Arrays vs Array of Structs
+
+```cpp
+// Array of Structs (AoS) — bad for cache when accessing one field
+struct Node { int val, lazy, left, right; };
+Node nodes[MAXN];
+
+// Struct of Arrays (SoA) — better cache for val-only traversals
+int val[MAXN], lazy[MAXN], left[MAXN], right[MAXN];
+```
+
+For segment trees doing only value queries, SoA can be faster.
+
+---
+
+## Practical Tips for CP
+
+1. **Use arrays over linked lists**: arrays have spatial locality; linked lists don't.
+2. **Iterative over recursive**: recursive calls have overhead + cache thrashing.
+3. **Process queries in sorted order**: cache-friendly traversal (Mo's algorithm exploits this).
+4. **Avoid `unordered_map` for hot loops**: high constant + cache unfriendly. Use arrays with coordinate compression.
+5. **`__builtin_prefetch`**: hint CPU to prefetch memory early (advanced, rarely needed in CP).
+
+```cpp
+// Prefetch hint (sometimes useful in tight BFS/traversal)
+__builtin_prefetch(&arr[i + 16], 0, 0);  // prefetch 16 ahead
+```
+
+<parameter name="content">---
+title: Cache Complexity & Cache-Friendliness
+description: CPU cache hierarchy, spatial/temporal locality, and writing fast cache-friendly CP code
+---
+
+import { Callout } from '../../../components/Callout'
+import { Prerequisites } from '../../../components/Prerequisites'
+
+# Cache Complexity & Cache-Friendliness
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Memory Fundamentals", href: "/ds/foundations/memory" }
+]} />
+
+## Why This Topic Matters
+
+Cache effects explain why an $O(n^2)$ row-major traversal is 10× faster than column-major. BIT is faster than segment tree in practice partly due to cache behavior. For tight TLEs, cache optimization is a real technique.
+
+---
+
+## Cache Hierarchy
+
+| Level | Size | Latency |
+|-------|------|---------|
+| L1 cache | 32–64 KB | ~1–4 ns |
+| L2 cache | 256 KB – 1 MB | ~4–12 ns |
+| L3 cache | 4–32 MB | ~30–50 ns |
+| RAM | GBs | ~100 ns |
+
+**Cache line**: 64 bytes (16 ints). When you access one int, the whole 64-byte line loads.
+
+**Implication**: sequential access = one cache miss per 16 accesses. Random access = one miss per access.
+
+---
+
+## Spatial Locality
+
+**Good**: access nearby memory locations.
+
+```cpp
+// FAST: row-major (C++ stores rows contiguously)
+for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+        sum += a[i][j];  // sequential
+
+// SLOW: column-major (stride-n jumps)
+for (int j = 0; j < n; j++)
+    for (int i = 0; i < n; i++)
+        sum += a[i][j];
+```
+
+For $n = 1000$: row-major is ~5× faster.
+
+---
+
+## BIT vs Segment Tree: Cache Perspective
+
+BIT is faster than segment tree in practice:
+- BIT stores all values in a flat array — nearby access
+- Recursive segment tree jumps between parent/child nodes
+- For $n = 10^6$ queries: BIT is typically 2–3× faster
+
+**Iterative segment tree** closes the gap (flat array, no pointers).
+
+---
+
+## Practical Tips for CP
+
+1. **Use arrays over linked lists**: arrays have spatial locality.
+2. **Iterative over recursive**: recursive calls trash cache with activation frames.
+3. **Process queries in sorted order**: Mo's algorithm exploits this directly.
+4. **Avoid `unordered_map` in hot loops**: high constant + cache unfriendly. Use arrays with coordinate compression instead.
+5. **Keep working set in L1/L2**: if your active data fits in 256 KB, it stays in cache.
+
+---
+
+## Struct Layout
+
+```cpp
+// Array of Structs — reads all fields even if you need only one
+struct Node { int val, lazy, left, right; };
+Node nodes[MAXN];
+
+// Struct of Arrays — better when accessing one field across all nodes
+int val[MAXN], lazy[MAXN];
+```
+
+For segment trees with heavy lazy operations, SoA can give ~1.5× speedup.

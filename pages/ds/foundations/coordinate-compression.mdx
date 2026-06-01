@@ -1,0 +1,210 @@
+---
+title: Coordinate Compression
+description: Compressing large value ranges to dense indices for arrays, segment trees, and BITs
+---
+
+import { Callout } from '../../../components/Callout'
+import { ComplexityTable } from '../../../components/ComplexityTable'
+import { Prerequisites } from '../../../components/Prerequisites'
+import { ProblemTable } from '../../../components/ProblemTable'
+
+# Coordinate Compression
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Complexity Analysis", href: "/ds/foundations/complexity" }
+]} />
+
+## Why This Topic Matters
+
+Values can be up to $10^9$ but $n \leq 10^5$. A segment tree over $[0, 10^9]$ would be too large. Coordinate compression maps the $n$ actual values to indices $[0, n-1]$, allowing $O(n \log n)$ structures.
+
+**Contest relevance**: CF Div.2 C/D, any problem with large value ranges but few distinct values.
+
+---
+
+## Learning Objectives
+
+- Compress a set of values to contiguous indices
+- Use `lower_bound` to map back and forth
+- Apply to segment trees, BITs, merge sort inversions
+- Handle 2D compression for planar queries
+
+---
+
+## 1D Compression
+
+```cpp
+vector<int> vals = {100, 5, 1000000, 42, 5, 100};
+
+// Step 1: sort and deduplicate
+vector<int> comp = vals;
+sort(comp.begin(), comp.end());
+comp.erase(unique(comp.begin(), comp.end()), comp.end());
+// comp = {5, 42, 100, 1000000}
+
+// Step 2: map each value to its compressed index
+auto compress = [&](int v) {
+    return lower_bound(comp.begin(), comp.end(), v) - comp.begin();
+};
+// compress(5) = 0, compress(42) = 1, compress(100) = 2, compress(1000000) = 3
+
+// Step 3: decompress
+auto decompress = [&](int idx) {
+    return comp[idx];
+};
+```
+
+**Full pattern**:
+```cpp
+struct Compressor {
+    vector<int> vals;
+    
+    void add(int v) { vals.push_back(v); }
+    
+    void build() {
+        sort(vals.begin(), vals.end());
+        vals.erase(unique(vals.begin(), vals.end()), vals.end());
+    }
+    
+    int compress(int v) const {
+        return lower_bound(vals.begin(), vals.end(), v) - vals.begin();
+    }
+    
+    int decompress(int i) const { return vals[i]; }
+    int size() const { return vals.size(); }
+};
+```
+
+---
+
+## Common Use: Inversion Count
+
+Count pairs $(i, j)$ with $i < j$ and $a[i] > a[j]$. Use BIT over compressed values:
+
+```cpp
+int inversion_count(vector<int> a) {
+    int n = a.size();
+    vector<int> comp = a;
+    sort(comp.begin(), comp.end());
+    comp.erase(unique(comp.begin(), comp.end()), comp.end());
+    
+    auto idx = [&](int v) {
+        return lower_bound(comp.begin(), comp.end(), v) - comp.begin() + 1;
+    };
+    
+    vector<int> bit(n + 2, 0);
+    auto update = [&](int i) { for (; i <= n; i += i & -i) bit[i]++; };
+    auto query = [&](int i) { int s = 0; for (; i > 0; i -= i & -i) s += bit[i]; return s; };
+    
+    long long inv = 0;
+    for (int i = n - 1; i >= 0; i--) {
+        int ci = idx(a[i]);
+        inv += query(ci - 1);
+        update(ci);
+    }
+    return inv;
+}
+```
+
+---
+
+## 2D Compression
+
+For problems with points $(x, y)$ where both coordinates need compression:
+
+```cpp
+// Compress x and y independently
+vector<int> xs, ys;
+for (auto [x, y] : points) { xs.push_back(x); ys.push_back(y); }
+
+auto build_comp = [](vector<int>& v) {
+    sort(v.begin(), v.end());
+    v.erase(unique(v.begin(), v.end()), v.end());
+};
+build_comp(xs); build_comp(ys);
+
+auto cx = [&](int x) { return lower_bound(xs.begin(), xs.end(), x) - xs.begin(); };
+auto cy = [&](int y) { return lower_bound(ys.begin(), ys.end(), y) - ys.begin(); };
+```
+
+---
+
+## With Ranges (not just points)
+
+For queries like "sum of elements in value range $[l, r]$":
+
+```cpp
+// Compress all query endpoints too!
+vector<int> all_vals;
+for (int v : data) all_vals.push_back(v);
+for (auto [l, r] : queries) {
+    all_vals.push_back(l);
+    all_vals.push_back(r);
+}
+sort(all_vals.begin(), all_vals.end());
+all_vals.erase(unique(all_vals.begin(), all_vals.end()), all_vals.end());
+```
+
+<Callout type="warning">
+When compressing query ranges, include both endpoints in the compressed set, or you'll get off-by-one errors when mapping range boundaries.
+</Callout>
+
+---
+
+## Complexity Summary
+
+<ComplexityTable rows={[
+  { operation: "Build compressor (n values)", time: "O(n log n)", space: "O(n)" },
+  { operation: "Single compress/decompress", time: "O(log n)", space: "O(1)" },
+]} />
+
+---
+
+## Common Mistakes
+
+1. **Compressing queries separately**: include all query values in compression set.
+2. **1-indexed vs 0-indexed**: BITs need 1-indexed; add 1 after `lower_bound`.
+3. **Not deduplicating**: `unique` without `erase` leaves duplicates.
+
+---
+
+## Problems
+
+<ProblemTable problems={[
+  {
+    name: "Inversions",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1648",
+    difficulty: "1000",
+    concepts: ["coordinate compression", "BIT"],
+    tier: "warmup"
+  },
+  {
+    name: "Forest Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1652",
+    difficulty: "1200",
+    concepts: ["2D prefix sum", "compression"],
+    tier: "standard"
+  },
+  {
+    name: "Salary Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1141",
+    difficulty: "1200",
+    concepts: ["coordinate compression", "BIT"],
+    tier: "standard"
+  },
+  {
+    name: "Little Artem and Array",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/558/E",
+    difficulty: "2000",
+    concepts: ["coordinate compression", "offline queries"],
+    tier: "advanced"
+  }
+]} />
