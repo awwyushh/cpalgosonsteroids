@@ -1,0 +1,283 @@
+---
+title: Tree Properties & Queries
+description: Tree diameters, tree hashing/isomorphism, LCA (Binary lifting, Euler Tour RMQ), HLD, Centroid Decomposition, and Virtual Trees
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Tree Properties & Advanced Queries
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DFS & Connectivity", href: "/graphs/connectivity" },
+  { title: "Segment Tree", href: "/ds/segment-tree" }
+]} />
+
+Trees possess elegant structural constraints: $|E| = |V| - 1$ and they are acyclic. This allows us to perform tree isomorphisms, binary lifts, heavy-light path splits, centroid divides, and auxiliary tree compressions. This module covers advanced tree algorithms.
+
+---
+
+## 1. Tree Core Properties
+
+### A. Tree Diameter
+The diameter of a tree is the maximum distance between any two nodes.
+* **Double-DFS Algorithm**:
+  1. Run DFS starting from any arbitrary node $x$ to find the furthest node $y$.
+  2. Run DFS starting from $y$ to find the furthest node $z$.
+  3. The distance between $y$ and $z$ is the diameter of the tree.
+* **Proof**: Let $P$ be a diameter path. For any node $x$, the furthest node from $x$ must be one of the endpoints of the diameter path.
+
+### B. Tree Hashing (Isomorphism Check)
+To check if two trees are **structurally identical** (isomorphic) ignoring their node labels:
+* We compute a hash for every subtree bottom-up.
+* The hash of a node $u$ is a function of the sorted list of hashes of its children. To prevent collisions, we map child hashes to random values using a custom generator or polynomial hash.
+
+```cpp
+// Robust Tree Hashing C++ Template
+map<vector<ll>, ll> hash_map; // Maps sorted child hashes to a unique ID
+ll get_tree_hash(int u, int p, const vector<vector<int>>& adj) {
+    vector<ll> child_hashes;
+    for (int v : adj[u]) {
+        if (v == p) continue;
+        child_hashes.push_back(get_tree_hash(v, u, adj));
+    }
+    sort(child_hashes.begin(), child_hashes.end());
+    if (!hash_map.count(child_hashes)) {
+        hash_map[child_hashes] = hash_map.size() + 1; // Assign unique structural ID
+    }
+    return hash_map[child_hashes];
+}
+```
+
+---
+
+## 2. Lowest Common Ancestor (LCA)
+Finds the deepest node that is an ancestor of both $u$ and $v$.
+
+### A. Binary Lifting
+* **Concept**: Precompute $up[u][i]$ — the $2^i$-th parent of $u$.
+* **Query**: Jump up to align depths, then jump up in powers of 2 to find LCA.
+* **Complexity**: $O(N \log N)$ preprocessing, $O(\log N)$ query.
+
+### B. Euler Tour + RMQ (Sparse Table)
+* **Concept**: Flatten the tree into an array of size $2N-1$ using DFS. A node is recorded whenever we enter or exit it.
+* The LCA of $u$ and $v$ is the node with the **minimum depth** in the range between the first occurrences of $u$ and $v$ in the Euler Tour!
+* **Complexity**: $O(N \log N)$ preprocessing, **$O(1)$ query** (using RMQ sparse table).
+
+---
+
+## 3. Heavy-Light Decomposition (HLD)
+HLD splits the tree edges into **heavy edges** (leading to the child with the largest subtree) and **light edges**.
+* **Path Property**: Any path from root to node $u$ passes through at most $\log N$ heavy chains and at most $\log N$ light edges.
+* By numbering HLD vertices in DFS order (processing heavy children first), all heavy chains form **contiguous segments** in our DFS list. This allows us to perform path updates/queries using a segment tree in **$O(\log^2 N)$**!
+
+### C++ Heavy-Light Decomposition (Path Sum / Update) Template:
+```cpp
+struct HLD {
+    int n, timer;
+    vector<vector<int>> adj;
+    vector<int> parent, depth, heavy, head, pos, sz;
+    // Segment tree for queries
+    vector<ll> tree;
+
+    HLD(int n) : n(n), timer(0), adj(n), parent(n), depth(n), heavy(n, -1), head(n), pos(n), sz(n), tree(4 * n, 0) {}
+
+    void add_edge(int u, int v) {
+        adj[u].push_back(v); adj[v].push_back(u);
+    }
+
+    int dfs_heavy(int u, int p, int d) {
+        parent[u] = p; depth[u] = d; sz[u] = 1;
+        int max_c_sz = 0;
+        for (int v : adj[u]) {
+            if (v == p) continue;
+            int c_sz = dfs_heavy(v, u, d + 1);
+            sz[u] += c_sz;
+            if (c_sz > max_c_sz) {
+                max_c_sz = c_sz;
+                heavy[u] = v;
+            }
+        }
+        return sz[u];
+    }
+
+    void decompose(int u, int h) {
+        head[u] = h;
+        pos[u] = timer++;
+        if (heavy[u] != -1) {
+            decompose(heavy[u], h); // Keep heavy chain head
+        }
+        for (int v : adj[u]) {
+            if (v != parent[u] && v != heavy[u]) {
+                decompose(v, v); // Start new heavy chain with head v
+            }
+        }
+    }
+
+    void update_node(int u, ll val) {
+        update_segtree(1, 0, n - 1, pos[u], val);
+    }
+
+    ll query_path(int u, int v) {
+        ll res = 0;
+        while (head[u] != head[v]) {
+            if (depth[head[u]] > depth[head[v]]) swap(u, v);
+            res += query_segtree(1, 0, n - 1, pos[head[v]], pos[v]);
+            v = parent[head[v]];
+        }
+        if (depth[u] > depth[v]) swap(u, v);
+        res += query_segtree(1, 0, n - 1, pos[u], pos[v]);
+        return res;
+    }
+    
+    // Standard Segment tree stubs (not fully expanded for space)
+    void update_segtree(int node, int s, int e, int idx, ll val) { /* ... */ }
+    ll query_segtree(int node, int s, int e, int l, int r) { /* ... */ return 0; }
+};
+```
+
+---
+
+## 4. Centroid Decomposition
+A centroid of a tree is a vertex whose removal splits the tree into components, each having size at most $N/2$.
+* By recursively finding the centroid of each component, we build the **Centroid Tree** of depth at most $\log N$.
+* This allows us to answer complex path queries in **$O(N \log N)$** by projecting all paths through their lowest common centroid.
+
+---
+
+## 5. Virtual Trees (Auxiliary Trees)
+In some problems, we are given a small subset of $K$ "key" vertices and need to answer queries on paths connecting them. Running a full tree traversal takes $O(N)$ which is too slow.
+A **Virtual Tree** compresses the tree to only contain:
+1. The $K$ key vertices.
+2. The pairwise Lowest Common Ancestors (LCAs) of all key vertices.
+
+The size of this virtual tree is strictly at most $2K - 1$.
+
+### Construction Algorithm ($O(K \log K)$):
+1. Sort the key vertices by their DFS entry times (`tin`).
+2. Maintain a stack representing the active rightmost path of the virtual tree.
+3. For each key vertex $u$, find $a = \text{LCA}(u, \text{stack.top()})$.
+4. Pop elements from the stack and link them in the virtual tree until the stack top's depth is $\le$ depth of $a$.
+5. Insert the LCA $a$ (if not already present) and $u$ onto the stack.
+
+```cpp
+// Virtual Tree Construction C++ Template
+vector<int> tin(N); // DFS entry times
+auto compare_dfs = [](int u, int v) { return tin[u] < tin[v]; };
+
+vector<vector<int>> virt_adj; // Virtual tree adjacency list
+
+void build_virtual_tree(vector<int> keys) {
+    sort(keys.begin(), keys.end(), compare_dfs);
+    // Remove duplicates
+    keys.erase(unique(keys.begin(), keys.end()), keys.end());
+
+    vector<int> st;
+    st.push_back(keys[0]);
+    virt_adj[keys[0]].clear();
+
+    for (size_t i = 1; i < keys.size(); i++) {
+        int u = keys[i];
+        int lca_node = get_lca(u, st.back());
+        
+        if (lca_node != st.back()) {
+            while (st.size() >= 2 && tin[st[st.size() - 2]] >= tin[lca_node]) {
+                // Link st.back() to its parent in virtual tree
+                virt_adj[st[st.size() - 2]].push_back(st.back());
+                st.pop_back();
+            }
+            if (st.back() != lca_node) {
+                virt_adj[lca_node].clear();
+                virt_adj[lca_node].push_back(st.back());
+                st.pop_back();
+                st.push_back(lca_node);
+            }
+        }
+        virt_adj[u].clear();
+        st.push_back(u);
+    }
+    while (st.size() >= 2) {
+        virt_adj[st[st.size() - 2]].push_back(st.back());
+        st.pop_back();
+    }
+}
+```
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Tree Diameter",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1131",
+    difficulty: "Easy",
+    concepts: ["DFS", "Tree Diameter"],
+    why: "Implements two-DFS diameter endpoint calculation.",
+    tier: "warmup"
+  },
+  {
+    name: "Company Queries II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1688",
+    difficulty: "Easy",
+    concepts: ["LCA", "Binary Lifting"],
+    why: "Standard multi-query LCA verification.",
+    tier: "warmup"
+  },
+  {
+    name: "Path Queries",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1138",
+    difficulty: "Medium",
+    concepts: ["HLD", "Segment Tree"],
+    why: "The gold standard problem for Heavy-Light Decomposition path sum updates.",
+    tier: "standard"
+  },
+  {
+    name: "Centroid Decomposition",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/321/problem/C",
+    difficulty: "2100",
+    concepts: ["Centroid Tree", "Divide & Conquer"],
+    why: "Recursively decomposes a tree to assign rank letters such that no two equal letters share a path containing a higher letter.",
+    tier: "advanced"
+  },
+  {
+    name: "Subtree Isomorphism",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/763/problem/D",
+    difficulty: "2600",
+    concepts: ["Tree Hashing", "Isomorphism"],
+    why: "Find the root that maximizes the count of structurally distinct subtrees. Demands polynomial tree hashing.",
+    tier: "killer"
+  },
+  {
+    name: "Kingdom and its Cities",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/613/problem/D",
+    difficulty: "2500",
+    concepts: ["Virtual Trees", "Tree DP"],
+    why: "An elite problem requiring you to construct a Virtual Tree over key cities in O(K log K) and run DP to find the minimum cut vertices.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **USACO Guide** — [Heavy-Light Decomposition](https://usaco.guide/plat/hld)
+2. **cp-algorithms** — [LCA using RMQ](https://cp-algorithms.com/graph/lca_to_rmq.html)
+3. **OI Wiki** — [Virtual Tree / Auxiliary Tree](https://oi-wiki.org/graph/virtual-tree/)

@@ -15,6 +15,10 @@
     "title": "🧠 Dynamic Programming",
     "type": "page"
   },
+  "graphs": {
+    "title": "🕸️ Graphs & Trees",
+    "type": "page"
+  },
   "roadmaps": {
     "title": "🗺️ Roadmaps",
     "type": "page"

@@ -1,0 +1,9 @@
+{
+  "index": "Overview",
+  "math": "1. Foundational Graph Theory & Math",
+  "connectivity": "2. Traversals & Connectivity",
+  "shortest-paths-mst": "3. Shortest Paths & Spanning Trees",
+  "trees": "4. Tree Properties & Queries",
+  "flows-matchings": "5. Flows, Cuts & Matchings",
+  "niche-concepts": "6. Advanced & Niche Graph Concepts"
+}

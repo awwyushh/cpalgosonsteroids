@@ -1,0 +1,249 @@
+---
+title: Traversals & Connectivity
+description: BFS/DFS, Topological sorting, Strongly Connected Components (Tarjan/Kosaraju), 2-SAT implication graphs, bridges, and Block-Cut Trees
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Graph Traversals & Connectivity
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Easy</span>
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Graph Representations", href: "/reference/templates" },
+  { title: "Recursion & Backtracking", href: "/roadmaps" }
+]} />
+
+Analyzing graph structures begins with traversal and connectivity analysis. This module starts with topological sorting of Directed Acyclic Graphs (DAGs), details Strongly Connected Components (SCCs) for logical satisfiability (2-SAT), and explores structural bottlenecks (Bridges, Articulation Points, and Block-Cut Trees).
+
+---
+
+## 1. Topological Sorting (Kahn's BFS vs. DFS)
+A topological sort of a directed graph is a linear ordering of its vertices such that for every directed edge $u \to v$, vertex $u$ comes before $v$ in the ordering. This is only possible if the graph is a **Directed Acyclic Graph (DAG)**.
+
+### Kahn's BFS Algorithm ($O(V + E)$):
+Maintain an array of in-degrees. Vertices with in-degree $0$ are placed in a queue:
+```cpp
+vector<int> topo_sort(int n, const vector<vector<int>>& adj) {
+    vector<int> in_degree(n, 0);
+    for (int u = 0; u < n; u++) {
+        for (int v : adj[u]) in_degree[v]++;
+    }
+    queue<int> q;
+    for (int i = 0; i < n; i++) {
+        if (in_degree[i] == 0) q.push(i);
+    }
+    vector<int> order;
+    while (!q.empty()) {
+        int u = q.front(); q.pop();
+        order.push_back(u);
+        for (int v : adj[u]) {
+            if (--in_degree[v] == 0) q.push(v);
+        }
+    }
+    if (order.size() != n) return {}; // Cycle detected!
+    return order;
+}
+```
+
+---
+
+## 2. Strongly Connected Components (SCC)
+In a directed graph, a strongly connected component is a maximal subset of vertices such that every vertex is reachable from any other vertex in the subset.
+
+### Tarjan's SCC Algorithm ($O(V + E)$):
+Tarjan's algorithm uses a single-pass DFS to identify components using two arrays:
+* `tin[u]`: The time at which vertex $u$ is first visited.
+* `low[u]`: The lowest `tin` value reachable from $u$'s DFS subtree using at most one back-edge.
+
+<Callout type="theorem" title="Tarjan's Low-Link Rules">
+When traversing edge $u \to v$:
+1. If $v$ is unvisited: Recursively run DFS on $v$, then update `low[u] = min(low[u], low[v])`.
+2. If $v$ is on the active recursion stack: Update `low[u] = min(low[u], tin[v])`.
+If `low[u] == tin[u]` after visiting all children, $u$ is the head of an SCC. Pop all vertices up to $u$ from the stack.
+</Callout>
+
+---
+
+## 3. 2-Satisfiability (2-SAT)
+Given a boolean formula in Conjunctive Normal Form (CNF) where each clause has exactly two literals, e.g. $(x_1 \lor \neg x_2) \land (\neg x_1 \lor x_3)$, determine if there exists a satisfying assignment.
+
+### Implication Graph Reduction:
+We rewrite each clause $(A \lor B)$ as two logical implications:
+$$\neg A \to B \quad \text{and} \quad \neg B \to A$$
+We build a directed graph on $2N$ vertices representing the variables and their negations.
+
+1. Find the SCCs of the implication graph.
+2. If any variable $x_i$ and its negation $\neg x_i$ lie in the **same SCC**, the formula is **unsatisfiable** (since $x_i \implies \neg x_i$ and $\neg x_i \implies x_i$).
+3. Otherwise, a satisfying assignment is found by assigning values using the topological sort order of the SCCs. If $\text{scc\_id}[x_i] < \text{scc\_id}[\neg x_i]$, assign $x_i = \text{false}$, otherwise $x_i = \text{true}$.
+
+### C++ Tarjan's SCC & 2-SAT Solver:
+```cpp
+struct TwoSat {
+    int n;
+    vector<vector<int>> adj;
+    vector<int> tin, low, scc_id;
+    vector<bool> in_stack;
+    stack<int> st;
+    int timer = 0, scc_count = 0;
+
+    TwoSat(int n) : n(n), adj(2 * n), tin(2 * n, -1), low(2 * n, -1), scc_id(2 * n, -1), in_stack(2 * n, false) {}
+
+    void add_clause(int u, bool u_sign, int v, bool v_sign) {
+        // u_sign = true means variable u, false means ~u
+        int node_u = u_sign ? u : u + n;
+        int neg_u = u_sign ? u + n : u;
+        int node_v = v_sign ? v : v + n;
+        int neg_v = v_sign ? v + n : v;
+        
+        adj[neg_u].push_back(node_v); // ~u -> v
+        adj[neg_v].push_back(node_u); // ~v -> u
+    }
+
+    void dfs_scc(int u) {
+        tin[u] = low[u] = ++timer;
+        st.push(u);
+        in_stack[u] = true;
+        for (int v : adj[u]) {
+            if (tin[v] == -1) {
+                dfs_scc(v);
+                low[u] = min(low[u], low[v]);
+            } else if (in_stack[v]) {
+                low[u] = min(low[u], tin[v]);
+            }
+        }
+        if (low[u] == tin[u]) {
+            scc_count++;
+            while (true) {
+                int curr = st.top(); st.pop();
+                in_stack[curr] = false;
+                scc_id[curr] = scc_count;
+                if (curr == u) break;
+            }
+        }
+    }
+
+    bool solve(vector<bool>& assignment) {
+        for (int i = 0; i < 2 * n; i++) {
+            if (tin[i] == -1) dfs_scc(i);
+        }
+        assignment.assign(n, false);
+        for (int i = 0; i < n; i++) {
+            if (scc_id[i] == scc_id[i + n]) return false; // Unsatisfiable!
+            assignment[i] = scc_id[i] > scc_id[i + n];
+        }
+        return true;
+    }
+};
+```
+
+---
+
+## 4. Bridges & Articulation Points
+* **Bridge (Cut-Edge)**: An edge whose removal increases the number of connected components.
+* **Articulation Point (Cut-Vertex)**: A vertex whose removal increases the number of connected components.
+
+We find both in $O(V + E)$ using a DFS tree with `tin` and `low` arrays:
+* **Bridge Condition**: Edge $u \to v$ is a bridge iff:
+  $$low[v] > tin[u]$$
+  This means there is no path from $v$'s subtree to any ancestor of $u$.
+* **Articulation Point Condition**: Node $u$ is a cut-vertex iff:
+  1. $u$ is the root of the DFS tree and has $\ge 2$ children in the DFS tree.
+  2. $u$ is not the root, and has a child $v$ such that $low[v] \ge tin[u]$.
+
+---
+
+## 5. Block-Cut Tree (BCT)
+A **Block-Cut Tree** is a tree representing the biconnected structure of an undirected graph.
+* **Blocks**: Maximal biconnected components (subgraphs with no articulation points).
+* **Vertices of BCT**: Articulation points of the graph and the blocks themselves.
+* **Edges of BCT**: An edge connects an articulation point to a block if the point is part of that block.
+
+Constructing a BCT allows us to reduce complex vertex-connectivity queries on graphs down to simple path queries on a tree!
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Course Schedule",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1679",
+    difficulty: "Easy",
+    concepts: ["Topological Sorting", "BFS"],
+    why: "Perfect introductory problem for Kahn's indegree BFS algorithm.",
+    tier: "warmup"
+  },
+  {
+    name: "Flight Routes Check",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1682",
+    difficulty: "Medium",
+    concepts: ["SCC", "Kosaraju"],
+    why: "Find out if a graph is strongly connected, and print a counter-example path if not.",
+    tier: "standard"
+  },
+  {
+    name: "Giant Pizza",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1684",
+    difficulty: "Medium",
+    concepts: ["2-SAT", "Tarjan"],
+    why: "Classic 2-SAT application to choose pizza toppings satisfying everyone's pairs of demands.",
+    tier: "standard"
+  },
+  {
+    name: "Road Construction (Bridges)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1676",
+    difficulty: "Medium",
+    concepts: ["Bridges", "Articulation Points"],
+    why: "Identify critical road links whose disconnection isolates regions.",
+    tier: "standard"
+  },
+  {
+    name: "Tourist Reform",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/732/problem/F",
+    difficulty: "2100",
+    concepts: ["Biconnected Components", "DFS Trees"],
+    why: "Direct edges to maximize the minimum reachability size. Requires collapsing biconnected components.",
+    tier: "advanced"
+  },
+  {
+    name: "Checkposts",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/427/C",
+    difficulty: "1700",
+    concepts: ["SCC", "Counting"],
+    why: "Find the minimum cost to build police checkpoints, and count ways by analyzing independent SCC min-weights.",
+    tier: "standard"
+  },
+  {
+    name: "Block-Cut Tree Query",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/960/problem/F",
+    difficulty: "2500",
+    concepts: ["Block-Cut Tree", "LCA on BCT"],
+    why: "Elite connectivity problem where we build the block-cut tree of articulation points to solve vertex reachability queries.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **cp-algorithms** — [Strongly Connected Components](https://cp-algorithms.com/graph/strongly-connected-components.html)
+2. **OI Wiki** — [Implication Graph (2-SAT)](https://oi-wiki.org/graph/2-sat/)
+3. **USACO Guide** — [Biconnected Components](https://usaco.guide/plat/biconnected)

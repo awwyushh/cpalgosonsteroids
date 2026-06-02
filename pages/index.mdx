@@ -51,6 +51,12 @@ Think: cp-algorithms + USACO Guide + KACTL + OI Wiki + ICPC Notebook, but unifie
     tags={["tree rerooting", "SOS DP", "CHT", "Aliens trick", "Slope trick"]}
   />
   <TopicCard
+    title="Graphs & Trees"
+    href="/graphs"
+    description="Foundational graph theorems, traversals, strongly connected components, tree queries (LCA, HLD, Centroid), flows, cuts, and matchings."
+    tags={["Matrix-Tree", "block-cut", "HLD", "Dinic's", "Blossom matching"]}
+  />
+  <TopicCard
     title="Roadmaps"
     href="/roadmaps"
     description="Structured learning paths from beginner to ICPC World Finals level."
@@ -250,6 +256,55 @@ Think: cp-algorithms + USACO Guide + KACTL + OI Wiki + ICPC Notebook, but unifie
     description="Maintaining piecewise linear convex functions using priority queues."
     difficulty="expert"
     time="5h"
+  />
+</TopicGrid>
+
+---
+
+## Quick Jump — Graphs & Trees
+
+<TopicGrid>
+  <TopicCard
+    title="Matrix-Tree Theorem"
+    href="/graphs/math"
+    description="Counting spanning trees in O(N³) via Laplacian matrix determinants."
+    difficulty="hard"
+    time="3h"
+  />
+  <TopicCard
+    title="2-SAT (Implications)"
+    href="/graphs/connectivity"
+    description="Solving logical 2-SAT in O(V + E) using Tarjan's SCC on implication graphs."
+    difficulty="medium"
+    time="2h"
+  />
+  <TopicCard
+    title="Heavy-Light Decomp"
+    href="/graphs/trees"
+    description="O(log² N) path updates and queries on trees using segment trees."
+    difficulty="hard"
+    time="5h"
+  />
+  <TopicCard
+    title="Edmonds' Directed MST"
+    href="/graphs/shortest-paths-mst"
+    description="Minimum spanning trees on directed graphs using Edmonds' Chu-Liu cyclic compression."
+    difficulty="hard"
+    time="4h"
+  />
+  <TopicCard
+    title="Dinic's Max Flow"
+    href="/graphs/flows-matchings"
+    description="Layered network flows in O(V² E) using BFS levels and DFS dead-end pruning."
+    difficulty="medium"
+    time="4h"
+  />
+  <TopicCard
+    title="Chordal Graph MCS"
+    href="/graphs/niche-concepts"
+    description="O(V + E) perfect elimination orderings via Maximum Cardinality Search."
+    difficulty="expert"
+    time="4h"
   />
 </TopicGrid>
 

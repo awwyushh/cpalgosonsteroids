@@ -1,0 +1,282 @@
+---
+title: Flows, Cuts & Matchings
+description: Ford-Fulkerson, Dinic's Max Flow, Min Cost Max Flow (MCMF with potentials), Hopcroft-Karp Bipartite matching, Edmonds' Blossom algorithm, and bipartite theorems
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Network Flows, Cuts & Matchings
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+  <span className="badge badge-legendary">Legendary</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DFS & Connectivity", href: "/graphs/connectivity" },
+  { title: "Shortest Paths", href: "/graphs/shortest-paths-mst" }
+]} />
+
+Network flows translate complex optimization and assignment tasks into topological path bottlenecks. This module covers the Max-Flow Min-Cut Theorem, Dinic's layered path flow, Min Cost Max Flow (MCMF) using potential-shifting Dijkstra, Hopcroft-Karp matching, Edmonds' odd-cycle Blossom compression, and core bipartite dualities.
+
+---
+
+## 1. Maximum Flow & Dinic's Algorithm
+The **Max-Flow Min-Cut Theorem** states that the maximum amount of flow passing from source $s$ to sink $t$ in a flow network is exactly equal to the minimum capacity of edges that, when removed, disconnect $s$ from $t$.
+
+### Dinic's Algorithm ($O(V^2 E)$):
+Dinic's algorithm speeds up max flow by constructing a **Level Graph** via BFS in each step, and then sending a **Block Flow** along augmenting paths using DFS.
+
+<Callout type="tip" title="Current Arc Optimization">
+During the DFS phase of Dinic's, we maintain a `ptr` array (pointing to the current outgoing edge under inspection). If an edge is saturated or fails to reach the sink, we increment `ptr` to skip it in future DFS visits. This prevents dead-ends and guarantees the $O(V^2 E)$ complexity!
+On unit networks (e.g. bipartite matching networks), Dinic's terminates in exactly $O(E \sqrt{V})$ steps.
+</Callout>
+
+### C++ Dinic's Max Flow Template:
+```cpp
+struct Dinic {
+    struct Edge {
+        int to; ll cap, flow; int rev;
+    };
+    int n;
+    vector<vector<Edge>> adj;
+    vector<int> level, ptr;
+
+    Dinic(int n) : n(n), adj(n), level(n), ptr(n) {}
+
+    void add_edge(int from, int to, ll cap) {
+        adj[from].push_back({to, cap, 0, (int)adj[to].size()});
+        adj[to].push_back({from, 0, 0, (int)adj[from].size() - 1}); // Residual edge
+    }
+
+    bool bfs(int s, int t) {
+        fill(level.begin(), level.end(), -1);
+        level[s] = 0;
+        queue<int> q; q.push(s);
+        while (!q.empty()) {
+            int u = q.front(); q.pop();
+            for (auto& e : adj[u]) {
+                if (e.cap - e.flow > 0 && level[e.to] == -1) {
+                    level[e.to] = level[u] + 1;
+                    q.push(e.to);
+                }
+            }
+        }
+        return level[t] != -1;
+    }
+
+    ll dfs(int u, int t, ll pushed) {
+        if (pushed == 0 || u == t) return pushed;
+        for (int& cid = ptr[u]; cid < adj[u].size(); ++cid) {
+            auto& e = adj[u][cid];
+            if (level[u] + 1 != level[e.to] || e.cap - e.flow == 0) continue;
+            ll tr = dfs(e.to, t, min(pushed, e.cap - e.flow));
+            if (tr == 0) continue;
+            e.flow += tr;
+            adj[e.to][e.rev].flow -= tr;
+            return tr;
+        }
+        return 0;
+    }
+
+    ll max_flow(int s, int t) {
+        ll flow = 0;
+        while (bfs(s, t)) {
+            fill(ptr.begin(), ptr.end(), 0);
+            while (ll pushed = dfs(s, t, INF)) {
+                flow += pushed;
+            }
+        }
+        return flow;
+    }
+};
+```
+
+---
+
+## 2. Min Cost Max Flow (MCMF)
+Finds the maximum flow from $s$ to $t$ that minimizes the total cost (sum of flow $\times$ unit cost of each edge).
+
+### Dijkstra with Potentials (Johnson's Technique):
+Running SPFA repeatedly in Successive Shortest Path (SSP) is slow. We can use **Dijkstra** if we can guarantee non-negative edge weights.
+We maintain node potentials $h[u]$:
+* For each edge $u \to v$ with cost $c$, we define the reduced cost:
+  $$c'(u \to v) = c(u \to v) + h[u] - h[v] \ge 0$$
+* After running Dijkstra, we update the potentials: $h[i] = h[i] + dist[i]$.
+This enables safe, high-speed $O(F \cdot E \log V)$ MCMF!
+
+### C++ MCMF Template (Dijkstra with Potentials):
+```cpp
+struct MCMF {
+    struct Edge {
+        int to; ll cap, flow, cost; int rev;
+    };
+    int n;
+    vector<vector<Edge>> adj;
+    vector<ll> d, pot;
+    vector<int> p_node, p_edge;
+
+    MCMF(int n) : n(n), adj(n), d(n), pot(n, 0), p_node(n), p_edge(n) {}
+
+    void add_edge(int from, int to, ll cap, ll cost) {
+        adj[from].push_back({to, cap, 0, cost, (int)adj[to].size()});
+        adj[to].push_back({from, 0, 0, -cost, (int)adj[from].size() - 1});
+    }
+
+    bool dijkstra(int s, int t) {
+        fill(d.begin(), d.end(), INF);
+        d[s] = 0;
+        priority_queue<pair<ll, int>, vector<pair<ll, int>>, greater<pair<ll, int>>> pq;
+        pq.push({0, s});
+        
+        while (!pq.empty()) {
+            auto [dist, u] = pq.top(); pq.pop();
+            if (dist > d[u]) continue;
+            
+            for (int i = 0; i < adj[u].size(); i++) {
+                auto& e = adj[u][i];
+                ll new_d = d[u] + e.cost + pot[u] - pot[e.to];
+                if (e.cap - e.flow > 0 && new_d < d[e.to]) {
+                    d[e.to] = new_d;
+                    p_node[e.to] = u;
+                    p_edge[e.to] = i;
+                    pq.push({d[e.to], e.to});
+                }
+            }
+        }
+        return d[t] != INF;
+    }
+
+    pair<ll, ll> min_cost_max_flow(int s, int t) {
+        ll flow = 0, cost = 0;
+        // Initial potentials (use SPFA if negative costs initially exist)
+        fill(pot.begin(), pot.end(), 0);
+        
+        while (dijkstra(s, t)) {
+            for (int i = 0; i < n; i++) {
+                if (d[i] != INF) pot[i] += d[i];
+            }
+            ll push = INF;
+            for (int curr = t; curr != s; curr = p_node[curr]) {
+                auto& e = adj[p_node[curr]][p_edge[curr]];
+                push = min(push, e.cap - e.flow);
+            }
+            flow += push;
+            for (int curr = t; curr != s; curr = p_node[curr]) {
+                auto& e = adj[p_node[curr]][p_edge[curr]];
+                e.flow += push;
+                adj[curr][e.rev].flow -= push;
+                cost += push * e.cost;
+            }
+        }
+        return {flow, cost};
+    }
+};
+```
+
+---
+
+## 3. General Graph Matching (Blossom Algorithm)
+In non-bipartite graphs, odd-length cycles (blossoms) prevent simple alternating paths.
+* **Edmonds' Blossom Algorithm** solves maximum matching in general graphs in $O(V^3)$ or $O(V^2 E)$ by dynamically identifying odd cycles and contracting them into virtual nodes, finding an alternating path, and unrolling the cycles.
+
+---
+
+## 4. Bipartite Core Theorems
+
+### A. Hall's Marriage Theorem
+A bipartite graph $G = (L \cup R, E)$ has a matching covering all vertices in $L$ **if and only if** for every subset of vertices $S \subseteq L$, the size of its neighborhood $N(S)$ satisfies:
+$$|N(S)| \ge |S|$$
+
+### B. Kőnig's Theorem
+In any bipartite graph, the size of the maximum matching is exactly equal to the size of the **minimum vertex cover** (smallest subset of vertices that touches all edges).
+* **Corollary**: The size of the maximum independent set is $V - \text{MaxMatching}$.
+
+### C. Dilworth's Theorem & Antichains
+In any finite partially ordered set (poset), the length of the minimum chain cover (minimum path cover on a DAG) is equal to the size of the **maximum antichain** (largest subset of elements where no two are comparable).
+* We find the minimum path cover on a DAG of size $N$ by constructing a bipartite matching on $2N$ vertices and subtracting the matching size:
+$$\text{MinPathCover} = N - \text{MaxBipartiteMatching}$$
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Download Speed",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1694",
+    difficulty: "Easy",
+    concepts: ["Max Flow", "Dinic's"],
+    why: "Standard maximum network flow baseline check.",
+    tier: "warmup"
+  },
+  {
+    name: "Police Chase",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1695",
+    difficulty: "Easy",
+    concepts: ["Min Cut", "Dinic's"],
+    why: "Identify the exact edges of the minimum cut separating source and sink.",
+    tier: "warmup"
+  },
+  {
+    name: "School Dance",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1696",
+    difficulty: "Easy",
+    concepts: ["Bipartite Matching", "Dinic's"],
+    why: "Find the maximum bipartite matching pairs of students.",
+    tier: "warmup"
+  },
+  {
+    name: "Distinct Routes",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1711",
+    difficulty: "Medium",
+    concepts: ["Max Flow", "Edge Disjoint Paths"],
+    why: "Send multiple routes from 1 to N without sharing any edges. Demands path retrieval on residual graphs.",
+    tier: "standard"
+  },
+  {
+    name: "Card Game",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/802/N",
+    difficulty: "2400",
+    concepts: ["MCMF", "Dijkstra Potentials"],
+    why: "Elite matching task where cards are paired to optimize total cost. Demands high-speed potential-shifting MCMF.",
+    tier: "advanced"
+  },
+  {
+    name: "Minimum Path Cover",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1696",
+    difficulty: "Medium",
+    concepts: ["Dilworth's Theorem", "Bipartite Matching"],
+    why: "Standard DAG minimal path cover using maximum bipartite matching.",
+    tier: "standard"
+  },
+  {
+    name: "General Graph Matching",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/general_matching",
+    difficulty: "Hard",
+    concepts: ["Blossom Algorithm", "General Matching"],
+    why: "Direct test for Edmonds' Blossom cycle contracting maximum matching algorithm.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **cp-algorithms** — [Dinic's Algorithm](https://cp-algorithms.com/graph/dinic.html)
+2. **OI Wiki** — [Minimum Cost Maximum Flow](https://oi-wiki.org/graph/flow/min-cost/)
+3. **USACO Guide** — [Maximum Bipartite Matching](https://usaco.guide/plat/rect-matching)

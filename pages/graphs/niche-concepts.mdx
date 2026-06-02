@@ -1,0 +1,195 @@
+---
+title: Advanced & Niche Graph Concepts
+description: Hierholzer's Eulerian paths, Chinese Postman, Hamiltonian cycles, planarity testing, and chordal graph perfect elimination orderings
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Advanced & Niche Graph Concepts
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+  <span className="badge badge-legendary">Legendary</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DFS & Connectivity", href: "/graphs/connectivity" },
+  { title: "Shortest Paths & MST", href: "/graphs/shortest-paths-mst" }
+]} />
+
+When graphs possess highly specialized structural constraints or represent NP-hard domains, we utilize structural decompositions and path properties. This module covers Eulerian cycles via Hierholzer's algorithm, the Chinese Postman Problem, Hamiltonian boundaries (Dirac/Ore), planarity boundaries (Kuratowski), and Chordal Graph Perfect Elimination Orderings (PEO).
+
+---
+
+## 1. Eulerian Paths & Cycles
+An Eulerian Path is a trail in a graph that visits every edge exactly once. An Eulerian Cycle is an Eulerian Path that starts and ends at the same vertex.
+
+### Existence Conditions:
+* **Undirected Graph**:
+  * **Cycle**: Connected, and all vertices have even degrees.
+  * **Path**: Connected, and exactly 0 or 2 vertices have odd degrees.
+* **Directed Graph**:
+  * **Cycle**: Strongly connected, and every vertex has $\text{in-degree} = \text{out-degree}$.
+  * **Path**: Strongly connected, and at most one vertex has $\text{out-degree} - \text{in-degree} = 1$ (start) and at most one vertex has $\text{in-degree} - \text{out-degree} = 1$ (end).
+
+### Hierholzer's Algorithm ($O(V + E)$):
+Finds an Eulerian cycle by greedily traversing unvisited edges. When a node has no outgoing edges left, it is pushed to the path.
+
+<Callout type="tip" title="Post-Order Traversal Stack">
+Hierholzer's works by pushing nodes onto our output list *only after* all their outgoing edges are exhausted in the DFS recursion. This naturally resolves nested loops and prints the Eulerian cycle in reverse topological path order!
+</Callout>
+
+### C++ Hierholzer's Eulerian Cycle Template:
+```cpp
+struct Eulerian {
+    int n;
+    vector<vector<pair<int, int>>> adj; // {to, edge_id}
+    vector<bool> visited_edge;
+
+    Eulerian(int n, int m) : n(n), adj(n), visited_edge(m, false) {}
+
+    void add_edge(int u, int v, int id) {
+        adj[u].push_back({v, id});
+        adj[v].push_back({u, id});
+    }
+
+    vector<int> find_eulerian_cycle(int start_node) {
+        vector<int> path;
+        vector<int> curr_edge_ptr(n, 0);
+        
+        // Recursive stack
+        auto dfs = [&](auto& self, int u) -> void {
+            while (curr_edge_ptr[u] < adj[u].size()) {
+                auto [v, id] = adj[u][curr_edge_ptr[u]++];
+                if (visited_edge[id]) continue;
+                visited_edge[id] = true;
+                self(self, v);
+            }
+            path.push_back(u); // Push after exhausting all edges
+        };
+
+        dfs(dfs, start_node);
+        reverse(path.begin(), path.end());
+        return path;
+    }
+};
+```
+
+---
+
+## 2. The Chinese Postman Problem (CPP)
+Given a connected undirected graph with non-negative edge weights, find the shortest closed walk that visits every edge at least once.
+* If the graph is Eulerian: The answer is simply the sum of all edge weights.
+* If not: We must duplicate certain edges to make all odd-degree vertices even.
+  1. Find all vertices with odd degrees (there is an even number of them, say $2K$).
+  2. Compute all-pairs shortest paths between these odd vertices using Floyd-Warshall or Dijkstra.
+  3. Find a **minimum weight perfect matching** on these odd vertices.
+  4. The answer is: $\sum W_e + \text{MinMatchingCost}$.
+
+---
+
+## 3. Hamiltonian Paths & Cycles
+A Hamiltonian Path/Cycle visits every vertex exactly once. This is an NP-complete problem.
+
+### Boundary Theorems:
+* **Dirac's Theorem**: If a simple graph has $N \ge 3$ vertices and every vertex has degree $\text{deg}(v) \ge N/2$, then the graph is Hamiltonian.
+* **Ore's Theorem**: If a simple graph has $N \ge 3$ vertices and for every pair of non-adjacent vertices $u, v$, we have:
+  $$\text{deg}(u) + \text{deg}(v) \ge N$$
+  then the graph is Hamiltonian.
+
+---
+
+## 4. Planarity Testing
+A graph is planar if it can be embedded in a 2D plane without edge crossings.
+* **Kuratowski's Theorem**: A finite graph $G$ is planar **if and only if** it contains no subgraph that is homeomorphic to $K_5$ (complete graph on 5 vertices) or $K_{3,3}$ (complete bipartite utility graph).
+
+---
+
+## 5. Chordal & Perfect Graphs
+A graph is **chordal** if every cycle of length 4 or more has a **chord** (an edge connecting two non-adjacent vertices of the cycle). Chordal graphs are a subset of **perfect graphs** (graphs where the chromatic number equals the clique size for every induced subgraph).
+
+### Maximum Cardinality Search (MCS) & Perfect Elimination Ordering (PEO):
+An ordering of vertices $v_1, v_2, \dots, v_n$ is a **Perfect Elimination Ordering (PEO)** if for every $i$, the neighbors of $v_i$ that appear *after* $v_i$ form a clique.
+* **Theorem**: A graph is chordal **if and only if** it has a PEO!
+* We find a PEO in $O(V + E)$ using **Maximum Cardinality Search (MCS)**:
+  1. Initialize weights of all vertices to 0.
+  2. For step $i = N$ down to 1:
+     * Choose an unvisited vertex $u$ with maximum weight.
+     * Set $v_i = u$.
+     * Increment weights of all unvisited neighbors of $u$.
+  3. Verify if the resulting PEO sequence forms a clique for all successors. If yes, the graph is chordal!
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Mail Delivery",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1691",
+    difficulty: "Easy",
+    concepts: ["Eulerian Cycle", "Hierholzer"],
+    why: "Standard undirected Eulerian cycle finding baseline.",
+    tier: "warmup"
+  },
+  {
+    name: "Teleporters Path",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1693",
+    difficulty: "Easy",
+    concepts: ["Eulerian Path", "Directed Hierholzer"],
+    why: "Directed Eulerian path verification from 1 to N.",
+    tier: "warmup"
+  },
+  {
+    name: "Chinese Postman Problem",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/POSTMAN/",
+    difficulty: "Hard",
+    concepts: ["Floyd-Warshall", "Min-Weight Matching"],
+    why: "Direct implementation of the Chinese Postman edge covering matching strategy.",
+    tier: "standard"
+  },
+  {
+    name: "Perfect Elimination Ordering",
+    platform: "Library Checker",
+    link: "https://judge.yosupo.jp/problem/chordal_graph_recognition",
+    difficulty: "Hard",
+    concepts: ["Maximum Cardinality Search", "Chordal Graphs"],
+    why: "Verify if a graph is chordal by finding a PEO using MCS in O(V + E).",
+    tier: "killer"
+  },
+  {
+    name: "Hamiltonian Paths Count",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1690",
+    difficulty: "Medium",
+    concepts: ["TSP", "Bitmask DP"],
+    why: "Count the number of Hamiltonian paths on a directed graph.",
+    tier: "standard"
+  },
+  {
+    name: "Planarity Checker",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/PLANAR/",
+    difficulty: "Legendary",
+    concepts: ["Planarity Testing", "Kuratowski"],
+    why: "Assess if a graph is planar by detecting Kuratowski K_5/K_3,3 subdivisions.",
+    tier: "legendary"
+  }
+]} />
+
+---
+
+## References
+
+1. **cp-algorithms** — [Eulerian Path](https://cp-algorithms.com/graph/euler_path.html)
+2. **OI Wiki** — [Chordal Graphs & MCS](https://oi-wiki.org/graph/chordal/)
+3. **Introduction to Graph Theory** (Douglas West)

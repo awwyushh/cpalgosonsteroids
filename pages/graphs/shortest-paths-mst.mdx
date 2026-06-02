@@ -1,0 +1,251 @@
+---
+title: Shortest Paths & Spanning Trees
+description: Dijkstra, Bellman-Ford, SPFA, Dial's, Kruskal, Prim, Boruvka's MST, and Edmonds' Directed Spanning Tree
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Shortest Paths & Minimum Spanning Trees
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Easy</span>
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Graph Representations", href: "/reference/templates" },
+  { title: "Disjoint Set (DSU)", href: "/ds/dsu" }
+]} />
+
+Finding optimal connectivity paths and minimum spanning weights are fundamental optimization tasks. This module covers shortest paths over positive, negative, and bounded integer weights, and investigates undirected spanning forests alongside Directed MSTs.
+
+---
+
+## 1. Shortest Path Algorithms
+
+### A. Dijkstra's Algorithm
+Finds the single-source shortest path in graphs with non-negative edge weights.
+* **Sparse Heap Variant**: $O(E \log V)$ using `std::priority_queue`.
+* **Dense Array Variant**: $O(V^2)$ by scanning all nodes to find the minimum distance vertex. Highly optimized in dense graphs where $E \approx V^2$.
+
+### B. Bellman-Ford & SPFA (Shortest Path Faster Algorithm)
+* **Bellman-Ford**: Relaxes all edges $V-1$ times in $O(VE)$ to handle negative edge weights and detect negative cycles.
+* **SPFA**: A queue-based optimization of Bellman-Ford that only relaxes edges from updated nodes.
+  * **Average Complexity**: $O(E)$
+  * **SLF/LLL Optimizations**: Small Label First (insert at front of deque if $d(v) < d(\text{front})$) speeds up convergence.
+
+<Callout type="warning" title="SPFA Worst Case is Hackable!">
+The worst-case complexity of SPFA remains $O(V E)$. On grid graphs or graphs containing nested chains/cycles, a clever testmaker can easily force your queue to overflow and time out. Never use SPFA unless negative weights prevent you from using Dijkstra!
+</Callout>
+
+### C. Dial's Algorithm ($O(V + W)$)
+When edge weights are small integers bounded by $W$:
+* Instead of a log-heap, we maintain an array of $W + 1$ buckets (represented as lists of vertices).
+* We scan the buckets sequentially to extract the minimum distance node. This achieves a linear runtime!
+
+### D. Floyd-Warshall ($O(V^3)$)
+Computes all-pairs shortest paths using dynamic programming:
+$$dp[i][j][k] = \min(dp[i][j][k-1], dp[i][k][k-1] + dp[k][j][k-1])$$
+
+---
+
+## 2. Minimum Spanning Tree (MST)
+
+### A. Kruskal's Algorithm ($O(E \log E)$)
+Sorts all edges by weight and greedily inserts them using Disjoint Set Union (DSU) to avoid forming cycles.
+
+### B. Prim's Algorithm ($O(E \log V)$)
+Greedily expands a single tree node-by-node using a priority queue of cut-edges.
+
+### C. Boruvka's Algorithm ($O(E \log V)$)
+Merges components in parallel. In each round, every connected component identifies its cheapest outgoing edge. These edges are added to the MST simultaneously.
+
+<Callout type="tip" title="Why Boruvka is Crucial in CP">
+Since Boruvka's algorithm halves the number of components in each round, it terminates in at most $\log V$ rounds. This is extremely powerful in problems where edges are not explicit (e.g. finding the XOR MST of a set of values, where we can find components' nearest neighbors using a **Trie** in $O(N \log (\max A))$ total time).
+</Callout>
+
+---
+
+## 3. Directed MST (Chu-Liu-Edmonds Algorithm)
+Given a directed graph, find a spanning tree directed away from root $r$ with minimum total weight.
+* Kruskal/Prim does not work because directed cycles cannot be easily resolved greedily.
+* **Chu-Liu-Edmonds Algorithm**:
+  1. For each node $u \neq r$, pick its cheapest incoming edge $(v \to u)$ with weight $W$.
+  2. If the chosen edges form no cycles, we are done! They constitute the Directed MST.
+  3. If there are cycles, contract each cycle into a virtual node.
+  4. For all outgoing/incoming edges of the cycle, adjust their weights: an incoming edge $(x \to u)$ in the cycle has its weight modified to $W_{new} = W_{old} - W_{\text{cycle-in}}$, compensating for breaking the cycle edge.
+  5. Recursively solve for the contracted graph, and unroll the cycles.
+
+### C++ Chu-Liu-Edmonds directed MST Implementation:
+```cpp
+struct Edge {
+    int u, v; ll w;
+};
+
+ll directed_mst(int N, int M, int root, vector<Edge>& edges) {
+    ll ans = 0;
+    vector<int> parent(N), comp(N), bio(N);
+    vector<ll> min_in(N);
+
+    while (true) {
+        fill(min_in.begin(), min_in.end(), INF);
+        fill(parent.begin(), parent.end(), -1);
+        
+        for (auto& e : edges) {
+            if (e.u != e.v && e.w < min_in[e.v]) {
+                min_in[e.v] = e.w;
+                parent[e.v] = e.u;
+            }
+        }
+        
+        // Check if all nodes (except root) have an incoming edge
+        for (int i = 0; i < N; i++) {
+            if (i == root) continue;
+            if (min_in[i] == INF) return -1; // No MST possible
+        }
+
+        int scc_cnt = 0;
+        fill(comp.begin(), comp.end(), -1);
+        fill(bio.begin(), bio.end(), -1);
+        
+        // Cycle detection
+        for (int i = 0; i < N; i++) {
+            if (i == root) continue;
+            ans += min_in[i];
+            
+            int curr = i;
+            while (curr != root && bio[curr] != i && comp[curr] == -1) {
+                bio[curr] = i;
+                curr = parent[curr];
+            }
+            // Cycle found!
+            if (curr != root && comp[curr] == -1) {
+                int u = curr;
+                do {
+                    comp[u] = scc_cnt;
+                    u = parent[u];
+                } while (u != curr);
+                scc_cnt++;
+            }
+        }
+
+        if (scc_cnt == 0) break; // No cycles left!
+
+        // Compress other vertices
+        for (int i = 0; i < N; i++) {
+            if (comp[i] == -1) comp[i] = scc_cnt++;
+        }
+
+        // Adjust edges for contracted vertices
+        for (auto& e : edges) {
+            ll prev_in = min_in[e.v];
+            e.u = comp[e.u];
+            e.v = comp[e.v];
+            if (e.u != e.v) {
+                e.w -= prev_in; // Adjust weight
+            }
+        }
+        N = scc_cnt;
+        root = comp[root];
+    }
+    return ans;
+}
+```
+
+---
+
+## Complexity Reference Table
+
+<ComplexityTable rows={[
+  { operation: "Dijkstra (Sparse Heap)", time: "O(E log V)", space: "O(V + E)" },
+  { operation: "Dijkstra (Dense Array)", time: "O(V^2)", space: "O(V^2)" },
+  { operation: "Bellman-Ford", time: "O(VE)", space: "O(V + E)" },
+  { operation: "Dial's Algorithm", time: "O(V + W)", space: "O(V + W)" },
+  { operation: "Floyd-Warshall", time: "O(V^3)", space: "O(V^2)" },
+  { operation: "Boruvka's MST", time: "O(E log V)", space: "O(V + E)" },
+  { operation: "Chu-Liu Directed MST", time: "O(VE) -> O(E log V)", space: "O(V + E)" }
+]} />
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Shortest Routes I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1671",
+    difficulty: "Easy",
+    concepts: ["Dijkstra", "Single-Source Shortest Path"],
+    why: "Standard sparse heap-based Dijkstra baseline validation.",
+    tier: "warmup"
+  },
+  {
+    name: "Shortest Routes II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1672",
+    difficulty: "Easy",
+    concepts: ["Floyd-Warshall", "All-Pairs Shortest Path"],
+    why: "Checks O(V^3) lookup speed for multi-query shortest paths.",
+    tier: "warmup"
+  },
+  {
+    name: "High Score",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1673",
+    difficulty: "Medium",
+    concepts: ["Bellman-Ford", "Negative Cycles"],
+    why: "Requires finding if a negative cycle lies on *any* path connecting 1 to N.",
+    tier: "standard"
+  },
+  {
+    name: "Road Reparation",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1675",
+    difficulty: "Easy",
+    concepts: ["Kruskal's MST", "DSU"],
+    why: "Classic undirected minimum spanning forest check.",
+    tier: "warmup"
+  },
+  {
+    name: "XOR-MST",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/888/G",
+    difficulty: "2300",
+    concepts: ["Boruvka's MST", "Trie", "XOR"],
+    why: "An elite problem where edges are defined implicitly by the XOR of value nodes. Solved beautifully using Boruvka + Binary Trie.",
+    tier: "killer"
+  },
+  {
+    name: "Constant Length Shortest Path",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/960/problem/F",
+    difficulty: "2100",
+    concepts: ["Dial's Algorithm", "0-1 BFS"],
+    why: "Demands O(V + E) Dial's bucket traversal to pass in ultra-tight time limits.",
+    tier: "advanced"
+  },
+  {
+    name: "Chu-Liu Directed Spanning Tree",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/DIRMST/",
+    difficulty: "Hard",
+    concepts: ["Directed MST", "Chu-Liu-Edmonds"],
+    why: "Direct test for Edmonds' directed spanning tree cyclic compression algorithm.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **cp-algorithms** — [Chu-Liu-Edmonds Directed MST](https://cp-algorithms.com/graph/mst-directed.html)
+2. **OI Wiki** — [Shortest Path Faster Algorithm](https://oi-wiki.org/graph/spfa/)
+3. **USACO Guide** — [Boruvka's Algorithm](https://usaco.guide/plat/mst)
