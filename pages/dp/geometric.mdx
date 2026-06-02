@@ -1,0 +1,273 @@
+---
+title: Convex Hull Trick & Aliens
+description: Convex Hull Trick (deque), Li Chao Tree, and Aliens Trick (WQS binary search) for cardinality-constrained DPs
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic Programming: Convex Hull Trick & Aliens
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DP Foundations", href: "/dp/foundations" },
+  { title: "Segment Tree", href: "/ds/segment-tree" },
+  { title: "Binary Search", href: "/roadmaps" }
+]} />
+
+When transitions involve linear or convex optimizations over a continuous/discrete domain, we can apply geometric dualities. This module covers reducing $O(N^2)$ minimum envelope selections to $O(1)$ amortized using Monotonic Convex Hull Trick, $O(\log X)$ using Li Chao Trees, and removing cardinality constraints on convex functions in $O(\log C)$ using Aliens Trick.
+
+---
+
+## 1. Convex Hull Trick (CHT)
+Convex Hull Trick applies to DP recurrences of the form:
+$$dp[i] = \min_{j < i} (dp[j] - m_j \cdot x_i)$$
+Notice that $dp[j] - m_j \cdot x_i$ is a linear equation $y = m_j \cdot x + c_j$ evaluated at $x = x_i$, where the slope is $m_j$ and the y-intercept is $c_j = dp[j]$.
+We want to find the minimum value of any line in our set at a given point $x_i$. This is equivalent to finding the **lower envelope** of a set of lines.
+
+### A. Monotone Deque CHT ($O(N)$ total)
+If the slopes $m_j$ are added in sorted order (monotone) and the query points $x_i$ are also sorted, we can maintain the lower envelope in a double-ended queue (deque).
+* **Insert line**: Remove lines from the back of the envelope if they become redundant.
+* **Query point**: Pop lines from the front if they perform worse than their successor at the current $x_i$.
+
+```cpp
+struct Line {
+    ll m, c;
+    ll eval(ll x) { return m * x + c; }
+};
+
+// Check if intersection of L1 and L3 is to the left of L1 and L2
+// i.e., L2 is completely redundant. Uses __int128 to prevent overflow.
+bool is_redundant(Line l1, Line l2, Line l3) {
+    return (__int128)(l3.c - l1.c) * (l1.m - l2.m) <= 
+           (__int128)(l2.c - l1.c) * (l1.m - l3.m);
+}
+
+struct MonotoneCHT {
+    deque<Line> dq;
+
+    void add_line(ll m, ll c) { // Slopes must be added in descending order for min
+        Line l = {m, c};
+        while (dq.size() >= 2 && is_redundant(dq[dq.size() - 2], dq.back(), l)) {
+            dq.pop_back();
+        }
+        dq.push_back(l);
+    }
+
+    ll query(ll x) { // Queries must be non-decreasing
+        while (dq.size() >= 2 && dq[0].eval(x) >= dq[1].eval(x)) {
+            dq.pop_front();
+        }
+        return dq[0].eval(x);
+    }
+};
+```
+
+---
+
+## 2. Li Chao Tree ($O(\log V)$ per Line / Segment)
+What if slopes are added in **any** order, and queries are at **arbitrary** points?
+The **Li Chao Tree** is a specialized segment tree that stores lines (or line segments) over a coordinate range $[L, R]$.
+
+### Insertion Logic:
+At each node representing interval $[l, r]$:
+1. Compare the new line and the node's existing line at the midpoint $m = (l+r)/2$.
+2. The line that is better at $m$ becomes the node's stored line.
+3. The other line is recursively passed down to the child interval where it could still potentially be better.
+
+```cpp
+struct LiChaoTree {
+    static const ll INF = 2e18;
+    struct Node {
+        Line line = {0, INF};
+        int lc = -1, rc = -1;
+    };
+    
+    vector<Node> tree;
+    ll L, R;
+
+    LiChaoTree(ll L, ll R) : L(L), R(R) {
+        tree.push_back(Node());
+    }
+
+    void add_line(Line new_line, int u = 0, ll l = -1e18, ll r = 1e18) {
+        if (l == -1e18) { l = L; r = R; }
+        ll mid = l + (r - l) / 2;
+        
+        bool better_l = new_line.eval(l) < tree[u].line.eval(l);
+        bool better_m = new_line.eval(mid) < tree[u].line.eval(mid);
+        
+        if (better_m) swap(tree[u].line, new_line);
+        if (l == r) return;
+        
+        if (better_l != better_m) {
+            if (tree[u].lc == -1) { tree[u].lc = tree.size(); tree.push_back(Node()); }
+            add_line(new_line, tree[u].lc, l, mid);
+        } else {
+            if (tree[u].rc == -1) { tree[u].rc = tree.size(); tree.push_back(Node()); }
+            add_line(new_line, tree[u].rc, mid + 1, r);
+        }
+    }
+
+    ll query(ll x, int u = 0, ll l = -1e18, ll r = 1e18) {
+        if (u == -1) return INF;
+        if (l == -1e18) { l = L; r = R; }
+        ll res = tree[u].line.eval(x);
+        if (l == r) return res;
+        
+        ll mid = l + (r - l) / 2;
+        if (x <= mid) res = min(res, query(x, tree[u].lc, l, mid));
+        else res = min(res, query(x, tree[u].rc, mid + 1, r));
+        return res;
+    }
+};
+```
+
+---
+
+## 3. Aliens Trick (WQS Binary Search / Lagrange Multipliers)
+Suppose we want to solve a DP with a **cardinality constraint**:
+* *“Find the minimum cost to partition an array into **exactly $K$** segments.”*
+Let $f(x)$ be the minimum cost to partition the array into $x$ segments. In many problems, the function $f(x)$ is **convex** (i.e. the difference of successive terms $f(x+1) - f(x)$ is non-decreasing).
+
+### The Mathematical Insight:
+Since $f(x)$ is convex, if we introduce a penalty $C$ for choosing each segment, the cost function becomes:
+$$g(x) = f(x) + C \cdot x$$
+For a fixed penalty $C$, we can solve the DP **without** any cardinality constraint (we just add $+C$ to our transition cost whenever we start a new segment). Let the optimal unconstrained DP choose $x^*(C)$ segments.
+Because $f(x)$ is convex, the optimal number of segments $x^*(C)$ is **monotonically decreasing** with respect to $C$. If we charge a higher penalty $C$, the DP naturally chooses fewer segments!
+
+Therefore, we can **binary search** over the penalty value $C$:
+1. Run unconstrained DP with penalty $C$ (computes both optimal cost and the number of segments chosen).
+2. If the number of segments chosen is $> K$, we need a larger penalty $C$.
+3. If the number of segments chosen is $< K$, we need a smaller penalty $C$.
+4. Once we find the $C$ where the unconstrained DP chooses $K$ segments, the optimal answer for exactly $K$ segments is:
+$$f(K) = \text{unconstrained\_cost} - C \cdot K$$
+
+<Callout type="proof" title="Visualizing as Lagrange Multipliers">
+The penalty $C$ is a Lagrange Multiplier. Minimizing $f(x)$ subject to $x = K$ is equivalent to finding the saddle point of the Lagrangian $\mathcal{L}(x, C) = f(x) + C(x - K)$.
+Minimizing this over $x$ for a tuned $C$ yields the minimum value at $x=K$. Geometrically, $C$ represents the slope of the tangent line to the convex function $f(x)$ at $x = K$. By searching for the slope $C$ that touches the curve at $x = K$, we recover the y-coordinate.
+</Callout>
+
+### C++ Aliens Trick Implementation:
+Let's find the minimum cost to make exactly $K$ partitions. The unconstrained DP function returns `{min_cost, segment_count}`.
+
+```cpp
+// Returns {min_cost, segment_count} for a given partition penalty C
+pair<ll, int> solve_unconstrained(ll C) {
+    // dp[i] = {min_cost, seg_count}
+    vector<pair<ll, int>> dp(N + 1, {1e18, 0});
+    dp[0] = {0, 0};
+    
+    for (int i = 1; i <= N; i++) {
+        for (int j = 0; j < i; j++) {
+            ll cost = dp[j].first + get_cost(j + 1, i) + C;
+            int count = dp[j].second + 1;
+            if (cost < dp[i].first) {
+                dp[i] = {cost, count};
+            } else if (cost == dp[i].first) {
+                // If costs are equal, prioritize choosing fewer/more segments
+                // to handle collinearity.
+                dp[i].second = min(dp[i].second, count);
+            }
+        }
+    }
+    return dp[N];
+}
+
+ll solve_aliens(int K) {
+    ll low = 0, high = 1e12; // Binary search bounds on penalty C
+    ll best_C = 0;
+    
+    while (low <= high) {
+        ll mid = low + (high - low) / 2;
+        auto [cost, count] = solve_unconstrained(mid);
+        
+        if (count >= K) {
+            best_C = mid;
+            low = mid + 1; // Increase penalty to reduce count
+        } else {
+            high = mid - 1; // Decrease penalty to increase count
+        }
+    }
+    
+    auto [cost, count] = solve_unconstrained(best_C);
+    // Recover the exact cost at K using the optimal penalty
+    return cost - best_C * K;
+}
+```
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "The Fair Nut and Rectangles",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/1083/problem/E",
+    difficulty: "2100",
+    concepts: ["Monotone CHT", "Geometry"],
+    why: "Perfect introductory sandbox for CHT with sorted coordinates.",
+    tier: "standard"
+  },
+  {
+    name: "Kalila and Dimna",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/319/C",
+    difficulty: "2400",
+    concepts: ["CHT", "Dynamic Hull"],
+    why: "Classic DP with non-monotone slopes, requires CHT or Li Chao Tree to solve in O(N log N).",
+    tier: "standard"
+  },
+  {
+    name: "Cats Transport",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/311/problem/E",
+    difficulty: "2400",
+    concepts: ["CHT", "Monotonic Deque"],
+    why: "Requires expanding the cost term and using standard deque-based CHT on prefixes.",
+    tier: "advanced"
+  },
+  {
+    name: "Aliens (IOI 2016)",
+    platform: "IOI",
+    link: "https://ioinformatics.org/files/ioi2016problem2.pdf",
+    difficulty: "Legendary",
+    concepts: ["Aliens Trick", "Li Chao Tree", "Optimal Partitioning"],
+    why: "The historical problem that popularized the Aliens Trick. Combines CHT/Li Chao with Lagrange Multiplier binary search.",
+    tier: "legendary"
+  },
+  {
+    name: "April Fools' Problem (Medium)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/802/problem/N",
+    difficulty: "2400",
+    concepts: ["Aliens Trick", "Flows / Convexity"],
+    why: "A brilliant problem where we choose exactly K server-client pairings using unconstrained greedy matching + penalty binary search.",
+    tier: "advanced"
+  },
+  {
+    name: "Duff in the Army",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/587/E",
+    difficulty: "2400",
+    concepts: ["Li Chao Tree", "Centroid Decomposition"],
+    why: "A killer geometric tree problem requiring query of line segments along centroid paths.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **USACO Guide** — [Convex Hull Trick](https://usaco.guide/plat/convex-hull-trick)
+2. **IOI 2016 Solutions** — [Aliens Trick Explanation](https://ioinformatics.org/files/ioi2016solutions.pdf)
+3. **Codeforces Blog** — [WQS Binary Search / Aliens Trick](https://codeforces.com/blog/entry/73602)

@@ -1,0 +1,294 @@
+---
+title: Dynamic DP & Tree Convolutions
+description: Dynamic DP (DDP) using tropical matrices on trees, DSU on Tree (Sack) for O(N log N) subtree queries, and advanced Plug DP
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic DP & Tree Convolutions
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+  <span className="badge badge-legendary">Legendary</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Algebraic DP", href: "/dp/algebraic-structural" },
+  { title: "Heavy-Light Decomposition", href: "/ds/graph-structures" },
+  { title: "Segment Tree", href: "/ds/segment-tree" }
+]} />
+
+When graph structures undergo dynamic updates (e.g., node weights change) and we must answer DP queries in real-time, standard bottom-up recalculation is too slow. This module covers **Dynamic DP (DDP)** using tropical matrix exponentiation on trees, **DSU on Tree (Sack)** for $O(N \log N)$ set merging, and advanced **Plug DP** for grid routing.
+
+---
+
+## 1. Dynamic DP (DDP) on Trees
+Dynamic DP is a powerful framework that allows us to answer tree DP queries under dynamic point updates in **$O(\log^2 N)$** or **$O(\log N)$** time.
+
+### The Model: Max Weight Independent Set (MWIS)
+Given a tree where each node $u$ has a weight $W[u]$, find the maximum weight of an independent set of nodes.
+* $dp[u][0]$: Max weight of independent set in subtree $u$ excluding $u$.
+* $dp[u][1]$: Max weight of independent set in subtree $u$ including $u$.
+
+Recurrence:
+$$dp[u][0] = \sum_{v \in \text{child}(u)} \max(dp[v][0], dp[v][1])$$
+$$dp[u][1] = W[u] + \sum_{v \in \text{child}(u)} dp[v][0]$$
+
+### Heavy-Light Decomposition Splitting:
+Using Heavy-Light Decomposition (HLD), we split the children of $u$ into a single **heavy child** $h$ and a set of **light children** $\text{light}(u)$.
+We define the **light DP values** ($g$-values) which only accumulate the light subtrees of $u$:
+$$g[u][0] = \sum_{v \in \text{light}(u)} \max(dp[v][0], dp[v][1])$$
+$$g[u][1] = W[u] + \sum_{v \in \text{light}(u)} dp[v][0]$$
+
+Now, we can express the full DP values of $u$ in terms of its heavy child $h$:
+$$dp[u][0] = g[u][0] + \max(dp[h][0], dp[h][1])$$
+$$dp[u][1] = g[u][1] + dp[h][0]$$
+
+### The Max-Plus Matrix Formulation:
+In the **Max-Plus Tropical Semiring** (where addition is $\max$ and multiplication is $+$), we can rewrite this transition as a matrix-vector product!
+
+$$\begin{bmatrix} dp[u][0] \\ dp[u][1] \end{bmatrix} = \begin{bmatrix} g[u][0] & g[u][0] \\ g[u][1] & -\infty \end{bmatrix} \otimes \begin{bmatrix} dp[h][0] \\ dp[h][1] \end{bmatrix}$$
+
+Let's expand this multiplication:
+1. Row 1: $\max(g[u][0] + dp[h][0], g[u][0] + dp[h][1]) = g[u][0] + \max(dp[h][0], dp[h][1])$
+2. Row 2: $\max(g[u][1] + dp[h][0], -\infty + dp[h][1]) = g[u][1] + dp[h][0]$
+This matches our transitions perfectly!
+
+<Callout type="theorem" title="Why Segment Trees Can Solve Dynamic Tree DP">
+Since matrix multiplication over the Max-Plus semiring is associative, we can represent each heavy path in our tree as a sequence of matrices. By placing these matrices in a **Segment Tree** over the HLD intervals, querying the DP value of a heavy path is equivalent to a range product query!
+When node $u$'s weight is updated:
+1. Update the transition matrix at its HLD index in the Segment Tree.
+2. The heavy path product changes. If this changes the path's root value, it affects the light $g$-values of its parent.
+3. Propagate this change up the light edges by updating the parent's matrix, taking $O(\log^2 N)$ total time.
+</Callout>
+
+---
+
+## 2. Dynamic DP (DDP) C++ Template
+Here is a high-speed implementation of Dynamic DP for Max Weight Independent Set on a tree.
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+typedef long long ll;
+
+const ll INF = 1e16;
+
+struct Matrix {
+    ll mat[2][2];
+    Matrix() {
+        mat[0][0] = mat[0][1] = mat[1][0] = mat[1][1] = -INF;
+    }
+    static Matrix identity() {
+        Matrix res;
+        res.mat[0][0] = res.mat[1][1] = 0;
+        return res;
+    }
+    // Max-Plus matrix multiplication
+    Matrix operator*(const Matrix& other) const {
+        Matrix res;
+        for (int i = 0; i < 2; i++) {
+            for (int k = 0; k < 2; k++) {
+                if (mat[i][k] == -INF) continue;
+                for (int j = 0; j < 2; j++) {
+                    if (other.mat[k][j] == -INF) continue;
+                    res.mat[i][j] = max(res.mat[i][j], mat[i][k] + other.mat[k][j]);
+                }
+            }
+        }
+        return res;
+    }
+};
+
+// Segment tree over HLD heavy paths
+struct SegTree {
+    int n;
+    vector<Matrix> tree;
+    SegTree(int n) : n(n), tree(4 * n) {}
+
+    void update(int node, int start, int end, int idx, const Matrix& val) {
+        if (start == end) {
+            tree[node] = val;
+            return;
+        }
+        int mid = (start + end) / 2;
+        if (idx <= mid) update(2 * node, start, mid, idx, val);
+        else update(2 * node + 1, mid + 1, end, idx, val);
+        tree[node] = tree[2 * node] * tree[2 * node + 1]; // Left to right path product
+    }
+
+    Matrix query(int node, int start, int end, int l, int r) {
+        if (l <= start && end <= r) return tree[node];
+        int mid = (start + end) / 2;
+        if (r <= mid) return query(2 * node, start, mid, l, r);
+        if (l > mid) return query(2 * node + 1, mid + 1, end, l, r);
+        return query(2 * node, start, mid, l, r) * query(2 * node + 1, mid + 1, end, l, r);
+    }
+};
+```
+
+---
+
+## 3. DSU on Tree (Sack) & Small-to-Large Merging
+DSU on Tree is an incredibly elegant technique used to answer subtree queries (e.g. "how many vertices in subtree $u$ have color $c$") offline in **$O(N \log N)$** time.
+
+### The Algorithm:
+For each node $u$:
+1. Traverse all **light children** of $u$, recursively compute their answers, and **clear** the color frequency maps to free memory.
+2. Traverse the **heavy child** of $u$, recursively compute its answer, but **keep** its frequency map active!
+3. Loop through all light children's subtrees and merge their color values into the heavy child's map (which currently represents $u$'s map).
+4. Answer the query for node $u$ using the merged map.
+5. If $u$ is a light child of its parent, clear its map.
+
+<Callout type="proof" title="Complexity of DSU on Tree">
+A node $v$ is added to a frequency map only when its ancestor's light edge is traversed. Under Heavy-Light decomposition, any path from a node to the root contains at most $\log N$ light edges. Thus, each node $v$ is merged/visited at most $\log N$ times throughout the entire DFS. The total complexity is therefore strictly bounded by $O(N \log N)$!
+</Callout>
+
+### C++ DSU on Tree Template:
+```cpp
+struct DSUOnTree {
+    int n;
+    vector<vector<int>> adj;
+    vector<int> col, sz, tin, tout, node_at, cnt;
+    int col_freq_count = 0; // Tracks unique properties
+
+    DSUOnTree(int n, vector<int>& col) : n(n), adj(n), col(col), sz(n), tin(n), tout(n), node_at(n), cnt(1e5 + 5, 0) {}
+
+    void dfs_size(int u, int p, int& timer) {
+        tin[u] = ++timer;
+        node_at[timer] = u;
+        sz[u] = 1;
+        for (int& v : adj[u]) {
+            if (v == p) continue;
+            dfs_size(v, u, timer);
+            sz[u] += sz[v];
+            // Put the heavy child at the front of adjacency list
+            if (sz[v] > sz[adj[u][0]] || adj[u][0] == p) {
+                swap(v, adj[u][0]);
+            }
+        }
+        tout[u] = timer;
+    }
+
+    void add(int u, int val) {
+        if (cnt[col[u]] == 0 && val == 1) col_freq_count++;
+        cnt[col[u]] += val;
+        if (cnt[col[u]] == 0 && val == -1) col_freq_count--;
+    }
+
+    void solve(int u, int p, bool keep) {
+        // Step 1: Solve light children and clear their maps
+        for (int i = 1; i < adj[u].size(); i++) {
+            int v = adj[u][i];
+            if (v != p) solve(v, u, false);
+        }
+        
+        // Step 2: Solve heavy child and keep its map
+        if (sz[u] > 1 && adj[u][0] != p) {
+            solve(adj[u][0], u, true);
+        }
+        
+        // Step 3: Add light children elements
+        for (int i = 1; i < adj[u].size(); i++) {
+            int v = adj[u][i];
+            if (v == p) continue;
+            for (int t = tin[v]; t <= tout[v]; t++) {
+                add(node_at[t], 1);
+            }
+        }
+        add(u, 1);
+        
+        // [Query Point] answer query for node u here!
+        // e.g., ans[u] = col_freq_count;
+
+        // Step 5: Clear maps if u is a light child
+        if (!keep) {
+            for (int t = tin[u]; t <= tout[u]; t++) {
+                add(node_at[t], -1);
+            }
+        }
+    }
+};
+```
+
+---
+
+## 4. Advanced Plug DP (Connectivity / Bracket Profiles)
+Plug DP is a highly specialized variant of cell-by-cell profile DP used to find the number of paths, cycles, or Hamiltonian structures in a grid.
+
+### State Space Representation:
+Instead of just tracking whether a cell is covered or uncovered (which works for dominoes), we must track **connectivity** — i.e., how path endpoints are linked to each other to avoid forming premature isolated cycles.
+
+We represent path endpoints crossing the border using **bracket sequences**:
+* `0`: No plug crossing.
+* `1` / `(`: An open path endpoint that must merge with a corresponding right-endpoint.
+* `2` / `)`: A closed path endpoint.
+
+Since there are 3 possible plug states per border segment, a grid of width $W$ has $3^{W+1}$ states. We compress this base-3 sequence into a single integer profile.
+* When moving to a cell, we inspect the **left plug** $L$ and the **up plug** $U$.
+* We resolve the transition by matching brackets. For example, if $L = 1$ and $U = 2$, we are merging a left-endpoint and a right-endpoint. This closes a loop! If this is not the very last cell in the grid, doing this is an invalid transition (since it creates a disjoint closed loop).
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Distinct Colors",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1139",
+    difficulty: "Medium",
+    concepts: ["DSU on Tree", "Subtree Queries"],
+    why: "The ultimate sandbox for testing your DSU on Tree template to find unique colors in subtrees.",
+    tier: "standard"
+  },
+  {
+    name: "Lomsat Gelral",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/600/E",
+    difficulty: "2000",
+    concepts: ["DSU on Tree", "Small-to-Large"],
+    why: "Classic subtree sum of dominant colors requiring efficient map merges.",
+    tier: "standard"
+  },
+  {
+    name: "Can you answer these queries VII",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/GSS7/",
+    difficulty: "Hard",
+    concepts: ["Dynamic DP on Array", "HLD"],
+    why: "Query maximum segment sum on tree paths under node updates. Excellent warm-up for DDP matrix structures.",
+    tier: "advanced"
+  },
+  {
+    name: "Subtree Queries II",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/938/problem/G",
+    difficulty: "2600",
+    concepts: ["Dynamic DP", "HLD", "Tropical Matrices"],
+    why: "A brilliant DDP problem where node values change dynamically and we query tree MWIS path products.",
+    tier: "killer"
+  },
+  {
+    name: "Hamiltonian Cycles on Grid (Plug DP)",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/MMAX/",
+    difficulty: "Legendary",
+    concepts: ["Plug DP", "Connectivity Profiles"],
+    why: "Demands base-3 bracket-sequence plug states cell-by-cell to find Hamiltonian Cycles on a grid.",
+    tier: "legendary"
+  }
+]} />
+
+---
+
+## References
+
+1. **Codeforces Blog** — [Dynamic DP on Trees](https://codeforces.com/blog/entry/63026)
+2. **OI Wiki** — [DSU on Tree](https://oi-wiki.org/graph/dsu-on-tree/)
+3. **OI Wiki** — [Plug DP & Connectivity](https://oi-wiki.org/dp/plug/)

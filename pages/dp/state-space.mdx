@@ -1,0 +1,283 @@
+---
+title: Bitmask, Digit & Profile DP
+description: Advanced state representation using bitwise masks, SOS DP, digit-by-digit transitions, and cell-by-cell broken profiles
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic Programming: Bitmask, Digit & Profile DP
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DP Foundations", href: "/dp/foundations" },
+  { title: "Bit Manipulation Basics", href: "/math/bitmask" }
+]} />
+
+When the subproblem structure cannot be represented by simple linear dimensions or trees, we must compress complex structural states. This module covers compressing sets (Bitmask), counting number patterns (Digit DP), and representing boundary configurations (Profile/Broken Profile DP).
+
+---
+
+## 1. Bitmask DP
+When solving problems involving subsets of a small universe (typically $N \le 20$), we compress a boolean array of size $N$ into a single integer $0 \le \text{mask} < 2^N$, where the $i$-th bit is $1$ if element $i$ is in the subset, and $0$ otherwise.
+
+### Bitwise Cheat Sheet:
+* **Check $i$-th element presence**: `(mask & (1 << i))`
+* **Add $i$-th element**: `mask | (1 << i)`
+* **Remove $i$-th element**: `mask ^ (1 << i)` (only if present) or `mask & ~(1 << i)`
+* **Toggle $i$-th element**: `mask ^ (1 << i)`
+
+### Classic Model: Traveling Salesperson Problem (TSP)
+Find the shortest Hamiltonian path visiting all $N$ vertices exactly once, starting at vertex $0$.
+* $dp[\text{mask}][u]$: Minimum distance to visit the subset of vertices represented by `mask`, ending at vertex $u$.
+
+```cpp
+// TSP transition: O(N^2 * 2^N)
+vector<vector<ll>> dp(1 << N, vector<ll>(N, 1e18));
+dp[1][0] = 0; // base case: subset containing only node 0, ending at node 0
+
+for (int mask = 1; mask < (1 << N); mask++) {
+    for (int u = 0; u < N; u++) {
+        if (!(mask & (1 << u))) continue; // u must be in mask
+        if (dp[mask][u] == 1e18) continue;
+        
+        for (int v = 0; v < N; v++) {
+            if (mask & (1 << v)) continue; // v must not be visited yet
+            dp[mask | (1 << v)][v] = min(dp[mask | (1 << v)][v], dp[mask][u] + dist[u][v]);
+        }
+    }
+}
+```
+
+---
+
+## 2. Iterating Over Submasks of a Mask in $O(3^N)$
+Often, we need to iterate over all submasks for *every* mask. A naive loop over all pairs is $O(4^N)$. However, we can skip invalid submasks using a beautiful bitwise decrement loop:
+
+```cpp
+// Iterate over all submasks of 'mask'
+for (int sub = mask; sub > 0; sub = (sub - 1) & mask) {
+    // sub is a valid subset of mask!
+}
+// Note: This does not visit the empty mask (0). Handle 0 separately.
+```
+
+<Callout type="proof" title="Why Submask Iteration is O(3^N)">
+The number of bits in a mask of size $N$ is $k$. A mask with $k$ set bits has $2^k$ submasks. The number of masks of size $N$ with exactly $k$ set bits is $\binom{N}{k}$. Thus, the total number of operations over all masks is:
+$$\sum_{k=0}^{N} \binom{N}{k} 2^k$$
+By the Binomial Theorem, $(1 + x)^N = \sum_{k=0}^{N} \binom{N}{k} x^k$. Setting $x = 2$, we get:
+$$\sum_{k=0}^{N} \binom{N}{k} 2^k = (1 + 2)^N = 3^N$$
+Hence, iterating over submasks of all masks takes exactly $O(3^N)$ time.
+</Callout>
+
+---
+
+## 3. Sum Over Subsets (SOS) DP
+Given an array $A$ of size $2^N$, we want to calculate a prefix sum over subsets: $F[\text{mask}] = \sum_{\text{sub} \subseteq \text{mask}} A[\text{sub}]$ for all masks.
+* A naive submask loop takes $O(3^N)$.
+* **SOS DP** solves this in **$O(N \cdot 2^N)$** by processing one bit dimension at a time (similar to multidimensional prefix sums / Fast Walsh-Hadamard Transform).
+
+```cpp
+// F initially equals A
+vector<int> F = A;
+for (int i = 0; i < N; i++) {
+    for (int mask = 0; mask < (1 << N); mask++) {
+        if (mask & (1 << i)) {
+            F[mask] += F[mask ^ (1 << i)];
+        }
+    }
+}
+```
+
+---
+
+## 4. Digit DP
+Digit DP counts the numbers in a range $[L, R]$ that satisfy a specific property (e.g. "no consecutive adjacent identical digits").
+We solve this as $solve(R) - solve(L - 1)$ (using a string representation of the number limit).
+
+### State Variables:
+* `idx`: The digit position we are currently placing (from left to right).
+* `tight`: Boolean flag. If `true`, we are constrained by the prefix of the limit number. We can only place digits up to `limit_string[idx]`. If `false`, we can place any digit from $0$ to $9$.
+* `leading_zero`: Boolean flag. If `true`, all digits placed so far are $0$ (which might not count as the actual start of a number, e.g. for counting consecutive digits).
+
+```cpp
+// Digit DP template for counting numbers without consecutive equal digits
+string S;
+ll dp[20][10][2][2]; // [idx][prev_digit][tight][leading_zero]
+
+ll dfs(int idx, int prev, bool tight, bool lead) {
+    if (idx == S.length()) return 1; // successfully placed all digits
+    if (dp[idx][prev][tight][lead] != -1) return dp[idx][prev][tight][lead];
+
+    ll ans = 0;
+    int limit = tight ? (S[idx] - '0') : 9;
+
+    for (int d = 0; d <= limit; d++) {
+        bool next_tight = tight && (d == limit);
+        bool next_lead = lead && (d == 0);
+        
+        // Custom constraint: no consecutive identical digits
+        if (!next_lead && d == prev) continue;
+        
+        ans += dfs(idx + 1, d, next_tight, next_lead);
+    }
+    return dp[idx][prev][tight][lead] = ans;
+}
+
+ll solve(ll x) {
+    if (x < 0) return 0;
+    S = to_string(x);
+    memset(dp, -1, sizeof(dp));
+    return dfs(0, 0, true, true);
+}
+```
+
+---
+
+## 5. Profile & Broken Profile DP (Tiling / Plug DP)
+Used to solve grid tiling problems (e.g. tiling an $N \times M$ grid with $2 \times 1$ dominoes where $N \le 10$, $M \le 10^3$).
+
+### Broken Profile DP (Cell-by-Cell DP)
+Instead of transitioning row-by-row (which has $O(4^N)$ transitions), we transition cell-by-cell $(i, j)$ in column-major order. We keep a bitmask profile of size $N$ representing the boundary of filled cells.
+
+When standing at cell $(i, j)$ with mask representing the "broken profile" (the $i$-th bit represents whether the cell above us is already covered by a vertical domino falling from the previous row):
+* If the $i$-th bit of the mask is $1$: we **must** leave it uncovered (the vertical domino ends here). The bit becomes $0$ in the next mask.
+* If the $i$-th bit is $0$: we can:
+  1. Put a horizontal domino (needs cell to the left to be free, which is tracked).
+  2. Put a vertical domino (places a block falling into the next row).
+  3. Leave it empty (if no tiling is required).
+
+```cpp
+// CSES Counting Tilings (Tiling N x M grid with 2x1 dominoes)
+// O(N * M * 2^N) time, O(2^N) space
+int N, M;
+vector<vector<int>> dp(1 << N, vector<int>(1 << N, 0));
+
+// Broken Profile transition cell-by-cell
+void solve_tiling() {
+    vector<int> dp(1 << N, 0);
+    dp[0] = 1; // base case (empty grid has 1 way)
+    
+    for (int j = 0; j < M; j++) {
+        for (int i = 0; i < N; i++) {
+            vector<int> next_dp(1 << N, 0);
+            for (int mask = 0; mask < (1 << N); mask++) {
+                if (dp[mask] == 0) continue;
+                
+                // If the current cell is already covered by a vertical tile from above
+                if (mask & (1 << i)) {
+                    // Must leave it, the tile terminates here. The i-th bit turns 0.
+                    next_dp[mask ^ (1 << i)] = (next_dp[mask ^ (1 << i)] + dp[mask]) % MOD;
+                } else {
+                    // Option 1: Place a vertical domino going down into the next row
+                    // (Sets the i-th bit to 1 in the next_dp)
+                    next_dp[mask | (1 << i)] = (next_dp[mask | (1 << i)] + dp[mask]) % MOD;
+                    
+                    // Option 2: Place a horizontal domino to the left
+                    // (Requires the cell above us to be free AND not on the top row)
+                    if (i > 0 && !(mask & (1 << (i - 1)))) {
+                        next_dp[mask | (1 << (i - 1))] = (next_dp[mask | (1 << (i - 1))] + dp[mask]) % MOD;
+                    }
+                }
+            }
+            dp = move(next_dp);
+        }
+    }
+    cout << dp[0] << "\n"; // The answer is when no pending vertical blocks cross the bottom
+}
+```
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Matching",
+    platform: "AtCoder",
+    link: "https://atcoder.jp/contests/dp/tasks/dp_o",
+    difficulty: "Medium",
+    concepts: ["Bitmask DP", "Matchings"],
+    why: "Classic O(N * 2^N) bipartite matching subset assignment.",
+    tier: "warmup"
+  },
+  {
+    name: "Counting Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2220",
+    difficulty: "Medium",
+    concepts: ["Digit DP"],
+    why: "Standard digit-by-digit counting avoiding adjacent duplicate values.",
+    tier: "standard"
+  },
+  {
+    name: "Elevator Rides",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1653",
+    difficulty: "Hard",
+    concepts: ["Bitmask DP", "Minimization"],
+    why: "Highly elegant 2-state compressed bitmask representation of a bin packing variation.",
+    tier: "standard"
+  },
+  {
+    name: "Counting Tilings",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2181",
+    difficulty: "Hard",
+    concepts: ["Broken Profile DP", "Grid Tiling"],
+    why: "The gold standard problem for cell-by-cell Broken Profile DP.",
+    tier: "advanced"
+  },
+  {
+    name: "Hamiltonian Flights",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1690",
+    difficulty: "Medium",
+    concepts: ["Bitmask DP", "TSP"],
+    why: "Count the number of Hamiltonian paths in a directed graph.",
+    tier: "standard"
+  },
+  {
+    name: "Compatible Numbers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/165/E",
+    difficulty: "2200",
+    concepts: ["SOS DP", "Bitwise AND"],
+    why: "Incredibly clever application of SOS DP to find numbers with disjoint bit settings.",
+    tier: "advanced"
+  },
+  {
+    name: "Vessels",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/371/D",
+    difficulty: "1800",
+    concepts: ["Bitmask-like DSU", "Transitions"],
+    why: "Merges segment tracking with state propagation.",
+    tier: "standard"
+  },
+  {
+    name: "Hamiltonian Cycles (Plug DP / Connectivity)",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/MMAX/",
+    difficulty: "Legendary",
+    concepts: ["Connectivity DP", "Plug DP"],
+    why: "Requires tracking grid connectivity profiles (bracket sequences/parentheses plug states) to find Hamiltonian cycles on grids.",
+    tier: "legendary"
+  }
+]} />
+
+---
+
+## References
+
+1. **Codeforces Blog** — [SOS DP Tutorial](https://codeforces.com/blog/entry/45223)
+2. **OI Wiki** — [Broken Profile DP & Plug DP](https://oi-wiki.org/dp/plug/)
+3. **USACO Guide** — [Bitmask DP Module](https://usaco.guide/gold/dp-bitmasks)

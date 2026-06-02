@@ -1,0 +1,285 @@
+---
+title: DP Foundations & Classic Models
+description: Core principles of dynamic programming, state design, dimension reduction, and classic models
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic Programming: Foundations & Classics
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-beginner">Beginner</span>
+  <span className="badge badge-easy">Easy</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Recursion & Backtracking", href: "/roadmaps" },
+  { title: "Big-O Asymptotic Notation", href: "/ds/foundations" }
+]} />
+
+Before diving into complex geometric and algebraic optimizations, you must master the core foundations of Dynamic Programming. This module bridges the gap between basic recursion and professional competitive programming DP.
+
+---
+
+## Memoization (Top-Down) vs. Tabulation (Bottom-Up)
+
+Every DP problem can be solved in two ways:
+
+### 1. Top-Down (Memoization)
+You solve the problem by writing a recursive function, but you store the results of each state in an array/hashmap to avoid recomputation.
+
+* **Pros**: Intuitive to write; only visits reachable states (highly efficient in sparse state spaces).
+* **Cons**: Recursion stack overhead; potential stack overflow on deep recursive paths; harder to optimize space.
+
+```cpp
+// Fibonacci Top-Down Memoization
+vector<ll> memo(N, -1);
+ll fib(int n) {
+    if (n <= 1) return n;
+    if (memo[n] != -1) return memo[n];
+    return memo[n] = fib(n - 1) + fib(n - 2);
+}
+```
+
+### 2. Bottom-Up (Tabulation)
+You solve the problem iteratively, filling up a DP table starting from the smallest base cases up to the target state.
+
+* **Pros**: No recursion overhead; extremely easy to analyze space and perform **dimension reduction** optimizations; predictable cache locality.
+* **Cons**: Visits all states in the defined space even if they are unreachable.
+
+```cpp
+// Fibonacci Bottom-Up Tabulation
+vector<ll> dp(n + 1);
+dp[0] = 0; dp[1] = 1;
+for (int i = 2; i <= n; i++) {
+    dp[i] = dp[i - 1] + dp[i - 2];
+}
+```
+
+---
+
+## The Dynamic Programming DAG
+
+Any DP state-transition system can be modeled as a **Directed Acyclic Graph (DAG)**:
+* **Nodes**: Represent distinct DP states.
+* **Edges**: Directed edges $u \to v$ represent that computing state $u$ requires the value of state $v$.
+* **Ordering**: Bottom-up tabulation is equivalent to computing values in the **topological sort order** of the DAG.
+
+<Callout type="warning" title="Cyclic Dependencies">
+If your state transitions contain cycles (e.g., $dp[i]$ depends on $dp[j]$ and $dp[j]$ depends on $dp[i]$), it is **not** a valid DP. You must break the cycle by adding a dimension to the state (e.g., time, step index, or element count) or solve it as a system of linear equations (using Gaussian Elimination or Markov Chains).
+</Callout>
+
+---
+
+## State & Space reduction (Sliding Row Trick)
+
+In bottom-up DP, if the transition for $dp[i][j]$ only relies on the previous row $dp[i - 1]$, you do not need a full 2D array. You can reduce the space complexity from $O(NM)$ to $O(M)$ by storing only two rows, or even a single row traversed in a specific direction!
+
+### Two-Row Buffer:
+```cpp
+vector<vector<int>> dp(2, vector<int>(M));
+for (int i = 1; i <= N; i++) {
+    for (int j = 0; j < M; j++) {
+        dp[i & 1][j] = dp[(i - 1) & 1][prev_state] + cost;
+    }
+}
+// The result is in dp[N & 1][target]
+```
+
+---
+
+## Classic DP Models
+
+### 1. Longest Common Subsequence (LCS)
+Given two strings $S$ and $T$, find the length of their longest common subsequence.
+
+<FormulaBox title="Recurrence Relation" formulas={[
+  {
+    name: "LCS State",
+    latex: "dp[i][j] = \\text{LCS of } S[1..i] \\text{ and } T[1..j]"
+  },
+  {
+    name: "LCS Transition",
+    latex: "dp[i][j] = \\begin{cases} dp[i-1][j-1] + 1 & \\text{if } S[i] = T[j] \\\\ \\max(dp[i-1][j], dp[i][j-1]) & \\text{if } S[i] \\neq T[j] \\end{cases}"
+  }
+]} />
+
+#### C++ Space-Optimized Implementation ($O(M)$ space)
+```cpp
+int lcs(const string& S, const string& T) {
+    int n = S.length(), m = T.length();
+    vector<int> prev(m + 1, 0), curr(m + 1, 0);
+    for (int i = 1; i <= n; i++) {
+        for (int j = 1; j <= m; j++) {
+            if (S[i-1] == T[j-1]) {
+                curr[j] = prev[j-1] + 1;
+            } else {
+                curr[j] = max(prev[j], curr[j-1]);
+            }
+        }
+        prev = curr;
+    }
+    return prev[m];
+}
+```
+
+---
+
+### 2. Longest Increasing Subsequence (LIS) in $O(N \log N)$
+Given an array, find the length of the longest strictly increasing subsequence.
+
+* **Naive DP**: $dp[i] = 1 + \max_{j < i, A[j] < A[i]} dp[j]$ which is $O(N^2)$.
+* **Binary Search / Patience Sorting**: Maintain an active vector `tails` where `tails[i]` stores the smallest tail of all increasing subsequences of length $i + 1$ found so far.
+
+```cpp
+int lis(const vector<int>& A) {
+    vector<int> tails;
+    for (int x : A) {
+        auto it = lower_bound(tails.begin(), tails.end(), x); // Use upper_bound for non-decreasing
+        if (it == tails.end()) {
+            tails.push_back(x);
+        } else {
+            *it = x;
+        }
+    }
+    return tails.size();
+}
+```
+
+---
+
+### 3. The Knapsack Family
+
+#### A. 0/1 Knapsack (Single item usage)
+Each item has a weight $W[i]$ and value $V[i]$. Maximize value with weight limit $C$.
+* **Space Optimization**: Traverse the capacity index $w$ **backwards** to prevent using the same item multiple times.
+
+```cpp
+int knapsack01(int C, const vector<int>& W, const vector<int>& V) {
+    vector<int> dp(C + 1, 0);
+    for (size_t i = 0; i < W.size(); i++) {
+        for (int w = C; w >= W[i]; w--) {
+            dp[w] = max(dp[w], dp[w - W[i]] + V[i]);
+        }
+    }
+    return dp[C];
+}
+```
+
+#### B. Unbounded Knapsack (Infinite item usage)
+* **Space Optimization**: Traverse the capacity index $w$ **forwards** so that updates propagate, allowing the same item to be chosen repeatedly.
+
+```cpp
+int unboundedKnapsack(int C, const vector<int>& W, const vector<int>& V) {
+    vector<int> dp(C + 1, 0);
+    for (size_t i = 0; i < W.size(); i++) {
+        for (int w = W[i]; w <= C; w++) {
+            dp[w] = max(dp[w], dp[w - W[i]] + V[i]);
+        }
+    }
+    return dp[C];
+}
+```
+
+---
+
+## Complexity Reference Table
+
+<ComplexityTable rows={[
+  { operation: "Fibonacci (Memoized / Tabulated)", time: "O(n)", space: "O(n) -> O(1)" },
+  { operation: "Longest Common Subsequence", time: "O(NM)", space: "O(NM) -> O(min(N,M))" },
+  { operation: "Longest Increasing Subsequence (Naive)", time: "O(N^2)", space: "O(N)" },
+  { operation: "Longest Increasing Subsequence (Binary Search)", time: "O(N log N)", space: "O(N)" },
+  { operation: "0/1 & Unbounded Knapsack", time: "O(NC)", space: "O(NC) -> O(C)" }
+]} />
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Dice Combinations",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1633",
+    difficulty: "Beginner",
+    concepts: ["Basic Recurrence", "Counting DP"],
+    why: "Perfect warmup to check modulo arithmetic and state transition rules.",
+    tier: "warmup"
+  },
+  {
+    name: "Minimizing Coins",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1634",
+    difficulty: "Easy",
+    concepts: ["Coin Change", "Minimization DP"],
+    why: "Classic shortest path DAG representation.",
+    tier: "warmup"
+  },
+  {
+    name: "Book Shop",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1158",
+    difficulty: "Easy",
+    concepts: ["0/1 Knapsack", "Space Reduction"],
+    why: "Practice 1D array space optimization over weights.",
+    tier: "standard"
+  },
+  {
+    name: "Longest Increasing Subsequence",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1145",
+    difficulty: "Medium",
+    concepts: ["LIS", "Binary Search"],
+    why: "Implements patience sorting style O(N log N) logic.",
+    tier: "standard"
+  },
+  {
+    name: "Office Keys",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/830/problem/A",
+    difficulty: "1600",
+    concepts: ["Sorting + DP", "Matchings"],
+    why: "Integrates sorting greedy properties with classic knapsack-style matching decisions.",
+    tier: "advanced"
+  },
+  {
+    name: "Consecutive Subsequence",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/977/problem/F",
+    difficulty: "1500",
+    concepts: ["Map-based LIS", "Path Retrieval"],
+    why: "Requires finding the actual LIS subsequence in O(N) using custom maps.",
+    tier: "standard"
+  },
+  {
+    name: "Flowers",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/474/problem/D",
+    difficulty: "1400",
+    concepts: ["Prefix Sums + DP"],
+    why: "Combines fast transitions with range query optimizations.",
+    tier: "standard"
+  },
+  {
+    name: "Multiset (IOI 2048 style)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/1381/B",
+    difficulty: "1800",
+    concepts: ["Knapsack", "Parenthesis Matching"],
+    why: "An excellent problem reducing a complex string rotation permutation down to a 0/1 Knapsack.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **cp-algorithms** — [Dynamic Programming](https://cp-algorithms.com/)
+2. **USACO Guide** — [Introduction to DP](https://usaco.guide/gold/intro-dp)
+3. **CLRS** — Chapter 15: *Dynamic Programming*

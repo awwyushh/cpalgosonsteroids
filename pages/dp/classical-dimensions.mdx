@@ -1,0 +1,298 @@
+---
+title: Tree, Grid & Interval DP
+description: Multidimensional grid transitions, DP on intervals, Tree DP, Tree Rerooting, and Tree Knapsack optimizations
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic Programming: Tree, Grid & Interval DP
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-easy">Easy</span>
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DP Foundations", href: "/dp/foundations" },
+  { title: "Depth First Search (DFS)", href: "/ds/graph-structures" }
+]} />
+
+Once you understand 1D and simple 2D transitions, the next step is structuring transitions over more complex domains: structural grids, contiguous subsegments (intervals), and hierarchical trees.
+
+---
+
+## 1. Grid & Path DP
+In Grid DP, you traverse a 2D matrix (usually from top-left $(0,0)$ to bottom-right $(N-1, M-1)$) where legal movements are constrained (e.g., only right and down).
+
+<FormulaBox title="Grid Path Recurrence" formulas={[
+  {
+    name: "Max Path Sum on Grid",
+    latex: "dp[i][j] = A[i][j] + \\max(dp[i-1][j], dp[i][j-1])"
+  }
+]} />
+
+#### Optimization Trick:
+Since you only need the previous row to compute the current row, you can reduce space to $O(M)$ by using a single-row DP table updated in-place:
+```cpp
+vector<ll> dp(M, -1e18);
+dp[0] = A[0][0]; // base case
+for (int i = 0; i < N; i++) {
+    for (int j = 0; j < M; j++) {
+        if (i == 0 && j == 0) continue;
+        ll up = (i > 0) ? dp[j] : -1e18;
+        ll left = (j > 0) ? dp[j - 1] : -1e18;
+        dp[j] = A[i][j] + max(up, left);
+    }
+}
+```
+
+---
+
+## 2. Interval DP
+Interval DP solves problems on contiguous ranges $[i, j]$ of an array. The solution is computed by combining smaller, nested sub-intervals.
+
+### General Structure:
+The loop order is **crucial**:
+1. Iterate over the **length** of the interval $L$ from $1$ to $N$.
+2. Iterate over the **starting point** $i$ from $1$ to $N - L + 1$.
+3. Compute the **ending point** $j = i + L - 1$.
+4. Iterate over the **split point** $k$ from $i$ to $j - 1$ to compute transitions.
+
+<FormulaBox title="Matrix Chain Multiplication Recurrence" formulas={[
+  {
+    name: "MCM State",
+    latex: "dp[i][j] = \\text{Minimum cost to multiply matrices } A_i \\times A_{i+1} \\dots \\times A_j"
+  },
+  {
+    name: "MCM Transition",
+    latex: "dp[i][j] = \\min_{i \\le k < j} \\left( dp[i][k] + dp[k+1][j] + p_{i-1} \\cdot p_k \\cdot p_j \\right)"
+  }
+]} />
+
+```cpp
+// Interval DP template for MCM
+vector<vector<ll>> dp(N, vector<ll>(N, 1e18));
+for (int i = 0; i < N; i++) dp[i][i] = 0; // base case (length 1)
+
+for (int len = 2; len <= N; len++) {
+    for (int i = 0; i <= N - len; i++) {
+        int j = i + len - 1;
+        for (int k = i; k < j; k++) {
+            dp[i][j] = min(dp[i][j], dp[i][k] + dp[k+1][j] + P[i] * P[k+1] * P[j+1]);
+        }
+    }
+}
+```
+**Complexity**: $O(N^3)$ states and transitions.
+
+---
+
+## 3. Tree DP
+Trees are naturally recursive structures, making them ideal for bottom-up DP. Transitions are calculated by computing DP states for child subtrees and merging them at the parent node via a Depth First Search (DFS).
+
+### Classic Model: Maximum Independent Set on a Tree
+Given a tree, select a subset of nodes of maximum size such that no two selected nodes are adjacent.
+* $dp[u][0]$: Max independent set size in subtree of $u$, **excluding** node $u$.
+* $dp[u][1]$: Max independent set size in subtree of $u$, **including** node $u$.
+
+```cpp
+void dfs(int u, int p) {
+    dp[u][0] = 0;
+    dp[u][1] = 1;
+    for (int v : adj[u]) {
+        if (v == p) continue;
+        dfs(v, u);
+        dp[u][0] += max(dp[v][0], dp[v][1]); // If u is excluded, children can be included or excluded
+        dp[u][1] += dp[v][0];               // If u is included, children MUST be excluded
+    }
+}
+```
+
+---
+
+## 4. Subtree-Size Optimization (Tree Knapsack)
+When performing a knapsack-style DP on a tree (where at each node $u$, we merge DP arrays of size equal to the size of the subtrees), a naive bound seems to yield $O(N^3)$. However, by only looping up to the subtree size of children merged so far, the complexity reduces to **exactly $O(N^2)$**!
+
+<Callout type="theorem" title="Complexity of Tree Knapsack Merge">
+The merging loop at node $u$ combines a child of subtree size $S_v$ with the accumulated subtree size $S_u$. The number of operations is proportional to $S_u \cdot S_v$. This is exactly the number of pairs of nodes $(x, y)$ such that $x \in S_u$ and $y \in S_v$, and their lowest common ancestor is $u$. Since any pair of nodes has a unique LCA, the total sum of operations over all nodes is bounded by the total number of node pairs: $\sum_{u} S_u S_v = \binom{N}{2} = O(N^2)$.
+</Callout>
+
+```cpp
+// O(N^2) Tree Knapsack Merge
+vector<int> sz(N, 1);
+vector<vector<int>> dp(N, vector<int>(K + 1, 0));
+
+void dfs_knapsack(int u, int p) {
+    dp[u][1] = val[u]; // base case (using 1 item at u)
+    sz[u] = 1;
+    
+    for (int v : adj[u]) {
+        if (v == p) continue;
+        dfs_knapsack(v, u);
+        
+        vector<int> next_dp(K + 1, 0);
+        // CRITICAL: Limit loops strictly by subtree size
+        for (int i = 0; i <= min(K, sz[u]); i++) {
+            for (int j = 0; j <= min(K - i, sz[v]); j++) {
+                next_dp[i + j] = max(next_dp[i + j], dp[u][i] + dp[v][j]);
+            }
+        }
+        sz[u] += sz[v];
+        dp[u] = move(next_dp);
+    }
+}
+```
+
+---
+
+## 5. Tree Rerooting DP (In-and-Out DP)
+For some tree problems, you need to find the answer for *every* node if it were the root of the tree. A naive approach runs $N$ independent tree DPs in $O(N^2)$. **Tree Rerooting** solves this in **$O(N)$** using a two-pass DFS:
+
+1. **First Pass (DFS 1)**: Choose an arbitrary root (e.g., node $0$) and compute the answer for every node's subtree bottom-up.
+2. **Second Pass (DFS 2)**: Walk down the tree, and transition the parent's global answer to the child. Specifically, you "subtract" the child's contribution from the parent's global state and merge the remainder back into the child.
+
+### C++ Tree Rerooting Template (Maximum Distance to any Node)
+Let's find the maximum path distance from *every* node to all other nodes.
+* For each node, we must store the top two maximum distances in its subtree (since when rerooting to a child $v$, if the maximum path from parent $u$ went through $v$, we must use the second-best path from $u$).
+
+```cpp
+struct Reroot {
+    int n;
+    vector<vector<int>> adj;
+    vector<int> max_depth, sec_depth, best_child, global_max;
+
+    Reroot(int n) : n(n), adj(n), max_depth(n, 0), sec_depth(n, 0), best_child(n, -1), global_max(n, 0) {}
+
+    void add_edge(int u, int v) {
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    // First Pass: Bottom-Up Depth
+    void dfs1(int u, int p) {
+        for (int v : adj[u]) {
+            if (v == p) continue;
+            dfs1(v, u);
+            int d = max_depth[v] + 1;
+            if (d > max_depth[u]) {
+                sec_depth[u] = max_depth[u];
+                max_depth[u] = d;
+                best_child[u] = v;
+            } else if (d > sec_depth[u]) {
+                sec_depth[u] = d;
+            }
+        }
+    }
+
+    // Second Pass: Top-Down Rerooting
+    void dfs2(int u, int p, int parent_contrib) {
+        global_max[u] = max(max_depth[u], parent_contrib);
+
+        for (int v : adj[u]) {
+            if (v == p) continue;
+            // Contribution of parent to child v
+            // If v was the best child of u, u's alternate path must use the second best depth
+            int use_depth = (best_child[u] == v) ? sec_depth[u] : max_depth[u];
+            int next_contrib = max(parent_contrib, use_depth) + 1;
+            dfs2(v, u, next_contrib);
+        }
+    }
+
+    void solve() {
+        dfs1(0, -1);
+        dfs2(0, -1, 0);
+    }
+};
+```
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Grid Paths",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1638",
+    difficulty: "Easy",
+    concepts: ["Grid DP", "Counting paths"],
+    why: "Perfect starting point for grid state transitions with obstacles.",
+    tier: "warmup"
+  },
+  {
+    name: "Edit Distance",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1639",
+    difficulty: "Easy",
+    concepts: ["2D Grid DP", "String Alignment"],
+    why: "Classic standard edit distance Levenshtein metric.",
+    tier: "standard"
+  },
+  {
+    name: "Tree Matching",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1130",
+    difficulty: "Medium",
+    concepts: ["Tree DP", "Greedy/Matching"],
+    why: "Simple two-state tree DP for independent edge matchings.",
+    tier: "standard"
+  },
+  {
+    name: "Tree Distances I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1132",
+    difficulty: "Medium",
+    concepts: ["Tree Rerooting", "Tree Diameters"],
+    why: "The ultimate introductory problem for tree rerooting (In-and-Out).",
+    tier: "advanced"
+  },
+  {
+    name: "Tree Distances II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1133",
+    difficulty: "Medium",
+    concepts: ["Tree Rerooting", "Subtree Math"],
+    why: "Rerooting by dynamically updating child and parent node counts and sum of distances.",
+    tier: "advanced"
+  },
+  {
+    name: "Choosing Capital for Treeland",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/219/D",
+    difficulty: "1800",
+    concepts: ["Tree Rerooting", "Edge Reversals"],
+    why: "Rerooting to find the node that minimizes directed edge reversals.",
+    tier: "advanced"
+  },
+  {
+    name: "Subtree Groups (Tree Knapsack)",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2220",
+    difficulty: "Hard",
+    concepts: ["Tree Knapsack", "Subtree Size Optimization"],
+    why: "Demands the exact O(N^2) Tree Knapsack merge optimization to pass in time.",
+    tier: "killer"
+  },
+  {
+    name: "Misha and LCP on Tree",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/960/problem/F",
+    difficulty: "2300",
+    concepts: ["Tree DP", "Segment Tree on Tree Nodes"],
+    why: "A killer tree problem where each tree node maintains a segment tree to query DP values on paths.",
+    tier: "killer"
+  }
+]} />
+
+---
+
+## References
+
+1. **USACO Guide** — [Introduction to Tree DP](https://usaco.guide/gold/all-ancestors)
+2. **cp-algorithms** — [Tree DP & Rerooting](https://cp-algorithms.com/)
+3. **OI Wiki** — [Interval DP](https://oi-wiki.org/dp/interval/)

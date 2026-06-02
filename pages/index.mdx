@@ -45,6 +45,12 @@ Think: cp-algorithms + USACO Guide + KACTL + OI Wiki + ICPC Notebook, but unifie
     tags={["segment tree", "treap", "LCT", "wavelet tree"]}
   />
   <TopicCard
+    title="Dynamic Programming"
+    href="/dp"
+    description="From basic LIS/LCS to tree rerooting, bitmask, digit, and advanced optimizations: CHT, Aliens, Knuth, and Slope Trick."
+    tags={["tree rerooting", "SOS DP", "CHT", "Aliens trick", "Slope trick"]}
+  />
+  <TopicCard
     title="Roadmaps"
     href="/roadmaps"
     description="Structured learning paths from beginner to ICPC World Finals level."
@@ -195,6 +201,55 @@ Think: cp-algorithms + USACO Guide + KACTL + OI Wiki + ICPC Notebook, but unifie
     description="O((n+q)√n) offline range queries. Simple yet powerful."
     difficulty="medium"
     time="3h"
+  />
+</TopicGrid>
+
+---
+
+## Quick Jump — Dynamic Programming
+
+<TopicGrid>
+  <TopicCard
+    title="Tree Rerooting"
+    href="/dp/classical-dimensions"
+    description="O(N) double DFS (In-and-Out) to compute optimal paths for all roots."
+    difficulty="medium"
+    time="3h"
+  />
+  <TopicCard
+    title="Digit DP"
+    href="/dp/state-space"
+    description="Counting numbers in ranges [L, R] satisfying digit conditions."
+    difficulty="medium"
+    time="2h"
+  />
+  <TopicCard
+    title="Sum Over Subsets (SOS)"
+    href="/dp/state-space"
+    description="O(N 2^N) prefix subset sums over bitwise masks."
+    difficulty="hard"
+    time="3h"
+  />
+  <TopicCard
+    title="Convex Hull Trick"
+    href="/dp/geometric"
+    description="Linear slope envelopes in O(1) amortized or O(log N) using Li Chao Trees."
+    difficulty="hard"
+    time="4h"
+  />
+  <TopicCard
+    title="Aliens Trick"
+    href="/dp/geometric"
+    description="Lagrangian relaxation to remove exact cardinality constraints via penalty binary search."
+    difficulty="expert"
+    time="5h"
+  />
+  <TopicCard
+    title="Slope Trick"
+    href="/dp/speedups"
+    description="Maintaining piecewise linear convex functions using priority queues."
+    difficulty="expert"
+    time="5h"
   />
 </TopicGrid>
 

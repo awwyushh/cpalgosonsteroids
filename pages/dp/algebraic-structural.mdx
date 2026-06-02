@@ -1,0 +1,241 @@
+---
+title: Algebraic & SOS DP Optimizations
+description: Matrix exponentiation for linear recurrences, tropical min-plus semirings for shortest paths, and FWHT bitwise convolutions
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic Programming: Algebraic & Structural Optimizations
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-medium">Medium</span>
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+</div>
+
+<Prerequisites items={[
+  { title: "Linear Algebra & Matrices", href: "/math/linear-algebra" },
+  { title: "Bitmask & SOS DP", href: "/dp/state-space" }
+]} />
+
+When DP transitions are linear or follow strict algebraic properties, we can speed up execution dramatically. This module covers reducing $O(N)$ linear recurrences to $O(\log N)$ using Matrix Exponentiation, running shortest path optimization queries in $O(\log N)$ over Tropical Semirings, and computing bitwise DP convolutions in $O(K 2^K)$ using FWHT.
+
+---
+
+## 1. Linear Matrix Exponentiation for DP
+When a DP transition is a linear recurrence of the form:
+$$dp[i] = c_1 dp[i-1] + c_2 dp[i-2] + \dots + c_k dp[i-k]$$
+we can represent the step as a matrix-vector multiplication. By raising the transition matrix to the power of $N$ using binary exponentiation, we solve for the $N$-th term in **$O(k^3 \log N)$** time.
+
+### Mathematical Formulation:
+Let the state vector at step $i$ be $\vec{V}_i = \begin{bmatrix} dp[i] \\ dp[i-1] \\ \vdots \\ dp[i-k+1] \end{bmatrix}$. We seek a transition matrix $T$ of size $k \times k$ such that:
+$$T \cdot \vec{V}_{i-1} = \vec{V}_i$$
+For Fibonacci $dp[i] = dp[i-1] + dp[i-2]$:
+$$\begin{bmatrix} 1 & 1 \\ 1 & 0 \end{bmatrix} \begin{bmatrix} dp[i-1] \\ dp[i-2] \end{bmatrix} = \begin{bmatrix} dp[i-1] + dp[i-2] \\ dp[i-1] \end{bmatrix} = \begin{bmatrix} dp[i] \\ dp[i-1] \end{bmatrix}$$
+Thus:
+$$\vec{V}_N = T^{N-1} \cdot \vec{V}_1$$
+
+### C++ Matrix Exponentiation Template:
+```cpp
+const int MOD = 1e9 + 7;
+typedef vector<vector<ll>> Matrix;
+
+Matrix multiply(const Matrix& A, const Matrix& B) {
+    int n = A.size(), m = B[0].size(), p = A[0].size();
+    Matrix C(n, vector<ll>(m, 0));
+    for (int i = 0; i < n; i++) {
+        for (int k = 0; k < p; k++) {
+            if (A[i][k] == 0) continue;
+            for (int j = 0; j < m; j++) {
+                C[i][j] = (C[i][j] + A[i][k] * B[k][j]) % MOD;
+            }
+        }
+    }
+    return C;
+}
+
+Matrix power(Matrix A, ll exp) {
+    int n = A.size();
+    Matrix res(n, vector<ll>(n, 0));
+    for (int i = 0; i < n; i++) res[i][i] = 1; // Identity matrix
+    while (exp > 0) {
+        if (exp & 1) res = multiply(res, A);
+        A = multiply(A, A);
+        exp >>= 1;
+    }
+    return res;
+}
+```
+
+---
+
+## 2. Tropical Semiring Matrix Exponentiation (Min-Plus Algebra)
+What if our DP transition is *not* a linear sum, but an optimization of the form:
+$$dp[i][u] = \min_{v} (dp[i-1][v] + cost[v][u])$$
+This is the standard transition to find the shortest path of exactly $i$ steps in a graph from $v$ to $u$.
+
+A standard matrix multiplication is defined as:
+$$C_{ij} = \sum_k A_{ik} \cdot B_{kj}$$
+In the **Min-Plus Tropical Semiring** $\mathbb{R} \cup \{\infty\}$, we redefine our algebraic operators:
+* **Addition** $(a \oplus b)$ becomes $\min(a, b)$
+* **Multiplication** $(a \otimes b)$ becomes $a + b$
+
+Substituting these into the matrix multiplication formula:
+$$C_{ij} = \min_{k} (A_{ik} + B_{kj})$$
+
+<Callout type="theorem" title="Semiring Associativity">
+For matrix exponentiation to work, the algebraic system must form a **semiring**. The Min-Plus algebra is indeed a semiring because:
+1. **Addition ($\min$)** is associative and commutative, with identity $\infty$.
+2. **Multiplication ($+$)** is associative and commutative, with identity $0$.
+3. **Multiplication distributes over addition**: $a + \min(b, c) = \min(a + b, a + c)$.
+Since matrix multiplication over this semiring is associative, we can compute the shortest path of exactly $N$ steps in a graph of $V$ vertices in **$O(V^3 \log N)$** time!
+</Callout>
+
+### C++ Min-Plus Matrix Exponentiation Template:
+```cpp
+const ll INF = 1e18;
+typedef vector<vector<ll>> MinPlusMatrix;
+
+MinPlusMatrix multiply_min_plus(const MinPlusMatrix& A, const MinPlusMatrix& B) {
+    int n = A.size();
+    MinPlusMatrix C(n, vector<ll>(n, INF));
+    for (int i = 0; i < n; i++) {
+        for (int k = 0; k < n; k++) {
+            if (A[i][k] == INF) continue;
+            for (int j = 0; j < n; j++) {
+                if (B[k][j] == INF) continue;
+                C[i][j] = min(C[i][j], A[i][k] + B[k][j]);
+            }
+        }
+    }
+    return C;
+}
+
+MinPlusMatrix power_min_plus(MinPlusMatrix A, ll exp) {
+    int n = A.size();
+    MinPlusMatrix res(n, vector<ll>(n, INF));
+    for (int i = 0; i < n; i++) res[i][i] = 0; // Min-Plus identity matrix (0 on diagonal, INF elsewhere)
+    while (exp > 0) {
+        if (exp & 1) res = multiply_min_plus(res, A);
+        A = multiply_min_plus(A, A);
+        exp >>= 1;
+    }
+    return res;
+}
+```
+
+---
+
+## 3. Fast Walsh-Hadamard Transform (FWHT) for Bitwise DP
+Suppose we are given two arrays $A$ and $B$, and we want to compute their bitwise XOR convolution:
+$$C[i] = \sum_{j \oplus k = i} A[j] \cdot B[k]$$
+This is extremely common in bitmask DP when we transition states by XORing values together.
+* A naive evaluation takes $O(4^N)$ or $O(3^N)$ submask steps.
+* **FWHT** transforms $A$ and $B$ into a Fourier-like frequency domain where the convolution becomes a **pointwise multiplication**, and transforms it back in **$O(N \cdot 2^N)$** time!
+
+### C++ FWHT Template (XOR Convolution):
+```cpp
+void fwht_xor(vector<ll>& a, bool invert) {
+    int n = a.size();
+    for (int len = 1; len < n; len <<= 1) {
+        for (int i = 0; i < n; i += (len << 1)) {
+            for (int j = 0; j < len; j++) {
+                ll u = a[i + j];
+                ll v = a[i + len + j];
+                a[i + j] = u + v;
+                a[i + len + j] = u - v;
+                if (invert) {
+                    a[i + j] /= 2;
+                    a[i + len + j] /= 2;
+                }
+            }
+        }
+    }
+}
+
+vector<ll> xor_convolution(vector<ll> A, vector<ll> B) {
+    fwht_xor(A, false);
+    fwht_xor(B, false);
+    vector<ll> C(A.size());
+    for (size_t i = 0; i < A.size(); i++) {
+        C[i] = A[i] * B[i];
+    }
+    fwht_xor(C, true);
+    return C;
+}
+```
+* **For AND Convolution**: Use $u = u + v$ and $v = v$ (invert: $u = u - v$ and $v = v$).
+* **For OR Convolution**: Use $u = u$ and $v = u + v$ (invert: $u = u$ and $v = v - u$).
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Fibonacci Numbers",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1722",
+    difficulty: "Easy",
+    concepts: ["Linear Recurrences", "Matrix Exponentiation"],
+    why: "Perfect introductory problem to test your 2x2 C++ matrix exponentiation template.",
+    tier: "warmup"
+  },
+  {
+    name: "Graph Paths I",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1723",
+    difficulty: "Medium",
+    concepts: ["Adjacency Matrix", "Matrix Exponentiation"],
+    why: "Count the number of paths of length K between 1 and N using standard matrix multiplication.",
+    tier: "standard"
+  },
+  {
+    name: "Graph Paths II",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1724",
+    difficulty: "Hard",
+    concepts: ["Tropical Semirings", "Min-Plus Exponentiation"],
+    why: "The ultimate implementation sandbox for Min-Plus Matrix Exponentiation to find the shortest path with exactly K edges.",
+    tier: "standard"
+  },
+  {
+    name: "XOR Sum (FWHT)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/914/problem/G",
+    difficulty: "2500",
+    concepts: ["FWHT", "XOR Convolution", "Fibonacci DP"],
+    why: "An elite problem requiring three convolutions: an OR convolution (using SOS), an XOR convolution (using FWHT), and an AND convolution.",
+    tier: "killer"
+  },
+  {
+    name: "Shortest Path Query",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/576/problem/D",
+    difficulty: "2400",
+    concepts: ["Bitsets", "Matrix Exponentiation", "Shortest Paths"],
+    why: "Solve dynamically changing graph reachability under edge availability using boolean matrix multiplication.",
+    tier: "advanced"
+  },
+  {
+    name: "Count Subsets (FWHT)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/problemset/problem/662/C",
+    difficulty: "2200",
+    concepts: ["FWHT", "Bitmask Optimization"],
+    why: "Fast XOR convolution to count minimum coin flips on a grid in O(N 2^N).",
+    tier: "advanced"
+  }
+]} />
+
+---
+
+## References
+
+1. **cp-algorithms** — [Matrix Exponentiation](https://cp-algorithms.com/algebra/matrix-exponentiation.html)
+2. **Codeforces Blog** — [Fast Walsh-Hadamard Transform](https://codeforces.com/blog/entry/71854)
+3. **USACO Guide** — [Matrix Exponentiation in Graph Paths](https://usaco.guide/plat/matrix-exponentiation)

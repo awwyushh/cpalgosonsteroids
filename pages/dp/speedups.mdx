@@ -1,0 +1,279 @@
+---
+title: Advanced DP Speedups & Monotonicity
+description: Divide & Conquer DP, Knuth's optimization, Slope Trick, Monotonic Queue optimization, and Monge matrix SMAWK row-minimums
+---
+
+import { Callout } from '../../components/Callout'
+import { ComplexityTable } from '../../components/ComplexityTable'
+import { Prerequisites } from '../../components/Prerequisites'
+import { ProblemTable } from '../../components/ProblemTable'
+import { FormulaBox } from '../../components/FormulaBox'
+
+# Dynamic Programming: Advanced Speedups & Monotonicity
+
+<div className="flex gap-2 mb-4">
+  <span className="badge badge-hard">Hard</span>
+  <span className="badge badge-expert">Expert</span>
+  <span className="badge badge-legendary">Legendary</span>
+</div>
+
+<Prerequisites items={[
+  { title: "DP Foundations", href: "/dp/foundations" },
+  { title: "Classical Dimensions", href: "/dp/classical-dimensions" },
+  { title: "Monotonic Deques & Priority Queues", href: "/ds/heap" }
+]} />
+
+When state transitions have optimal decision boundaries that are monotonic, we can bypass searching the entire state space. This module covers Divide & Conquer DP, Knuth's interval reduction, Slope Trick (maintaining piecewise linear convex functions), Monotonic Queue sliding windows, and the row-minimum SMAWK algorithm.
+
+---
+
+## 1. Divide & Conquer (D&C) DP
+D&C DP applies to recurrences of the form:
+$$dp[i][j] = \min_{k < j} (dp[i-1][k] + C(k, j))$$
+This has a naive runtime of $O(K \cdot N^2)$ where $K$ is the row count.
+
+### The Monotonicity Property:
+Let $opt[i][j]$ be the optimal split point $k$ that minimizes $dp[i][j]$. If the optimal decision index satisfies:
+$$opt[i][j] \le opt[i][j+1]$$
+we say the transitions exhibit **decision monotonicity**.
+
+<Callout type="theorem" title="Quadrangle Inequality (QI) / Monge Arrays">
+Decision monotonicity is guaranteed if the transition cost function $C(a, b)$ is a **Monge Array** (or satisfies the Quadrangle Inequality):
+$$C(a, c) + C(b, d) \le C(a, d) + C(b, c) \quad \text{for } a \le b \le c \le d$$
+Intuitively: the cost of cross-overlapping pairs is smaller than or equal to the cost of nested pairs.
+</Callout>
+
+### D&C DP Algorithm ($O(K \cdot N \log N)$ total):
+At each row $i$, we define a recursive function `solve(l, r, opt_l, opt_r)`:
+1. Compute the midpoint $mid = (l + r)/2$.
+2. Naively search for the optimal split point $opt \in [opt\_l, \min(mid, opt\_r)]$ that minimizes $dp[i][mid]$.
+3. Since decision monotonicity holds:
+   * Any state to the left of $mid$ has its optimum in $[opt\_l, opt]$.
+   * Any state to the right of $mid$ has its optimum in $[opt, opt\_r]$.
+4. Recursively call `solve(l, mid-1, opt_l, opt)` and `solve(mid+1, r, opt, opt_r)`.
+
+```cpp
+// C++ Divide & Conquer DP Row Transition Template
+vector<ll> dp_prev, dp_curr;
+
+void compute(int l, int r, int opt_l, int opt_r) {
+    if (l > r) return;
+    int mid = l + (r - l) / 2;
+    
+    int opt = -1;
+    ll best_val = 1e18;
+    
+    // Search for optimal split point in the bounded range
+    for (int k = opt_l; k <= min(mid, opt_r); k++) {
+        ll val = dp_prev[k] + get_cost(k + 1, mid);
+        if (val < best_val) {
+            best_val = val;
+            opt = k;
+        }
+    }
+    
+    dp_curr[mid] = best_val;
+    
+    // Divide and Conquer search space
+    compute(l, mid - 1, opt_l, opt);
+    compute(mid + 1, r, opt, opt_r);
+}
+```
+
+---
+
+## 2. Knuth's Optimization ($O(N^2)$ interval DP)
+Knuth's optimization applies to interval DP of the form:
+$$dp[i][j] = \min_{i < k < j} (dp[i][k] + dp[k][j]) + C(i, j)$$
+A naive split point search over $k$ takes $O(N^3)$ total time.
+
+### Bounding the Split Point:
+If the cost function $C(i, j)$ satisfies the Quadrangle Inequality and is monotonic, Knuth proved that the optimal split point $opt[i][j]$ satisfies:
+$$opt[i][j-1] \le opt[i][j] \le opt[i+1][j]$$
+
+By restricting our search loop for $k$ to $[opt[i][j-1], opt[i+1][j]]$, the sum of the search ranges telescopes perfectly over the DP table. The complexity reduces to **exactly $O(N^2)$**!
+
+```cpp
+// C++ Knuth Optimization Interval DP
+vector<vector<ll>> dp(N, vector<ll>(N, 1e18));
+vector<vector<int>> opt(N, vector<int>(N, 0));
+
+for (int i = 0; i < N - 1; i++) {
+    dp[i][i+1] = 0; // base case (length 1)
+    opt[i][i+1] = i;
+}
+
+for (int len = 2; len <= N; len++) {
+    for (int i = 0; i <= N - len; i++) {
+        int j = i + len - 1;
+        
+        // Knuth's restricted range
+        int k_start = opt[i][j-1];
+        int k_end = opt[i+1][j];
+        
+        for (int k = k_start; k <= k_end; k++) {
+            ll val = dp[i][k] + dp[k][j] + cost[i][j];
+            if (val < dp[i][j]) {
+                dp[i][j] = val;
+                opt[i][j] = k;
+            }
+        }
+    }
+}
+```
+
+---
+
+## 3. Slope Trick
+Slope Trick is a highly niche, elite technique used to maintain a **piecewise linear convex function** $f(x)$ under operations.
+A function $f(x)$ is piecewise linear and convex if its derivative (slope) is a non-decreasing step function.
+
+### Representation of $f(x)$:
+We represent $f(x)$ using three parameters:
+1. $f_{min}$: The minimum value of the function.
+2. `L`: A max-heap storing the x-coordinates of slope-changing points where the slope increments by $1$ in the region $x \le x_{min}$ (slopes are negative).
+3. `R`: A min-heap storing the x-coordinates of slope-changing points where the slope increments by $1$ in the region $x \ge x_{min}$ (slopes are positive).
+
+### Example Application: CSES "Increasing Subarray II"
+*“Given an array $A$, find the minimum operations to make the array strictly increasing (i.e. $A[i] < A[i+1]$).”*
+First, transform the array: $B[i] = A[i] - i$. Now the condition is to make $B$ non-decreasing ($B[i] \le B[i+1]$).
+Let $f_i(x)$ be the minimum cost to make prefix $1..i$ non-decreasing, ending with value $\le x$.
+* Transition: $f_i(x) = |B[i] - x| + \min_{y \le x} f_{i-1}(y)$.
+
+### Slope Trick Implementation ($O(N \log N)$):
+```cpp
+// Slope Trick solution for making array non-decreasing
+ll solve_slope_trick(const vector<ll>& A) {
+    priority_queue<ll> L; // Max-heap representing negative slopes
+    ll ans = 0;
+    
+    for (int i = 0; i < A.size(); i++) {
+        ll val = A[i] - i; // coordinate transformation
+        
+        L.push(val);
+        // If the current element breaks the sorted order
+        if (L.top() > val) {
+            ans += L.top() - val; // The height of the minimum shifts up
+            L.pop();
+            L.push(val); // Insert the new slope transition point
+        }
+    }
+    return ans;
+}
+```
+
+---
+
+## 4. Monotonic Queue Optimization (Sliding Window DP)
+Monotonic Queue optimization solves DP recurrences of the form:
+$$dp[i] = A[i] + \min_{i-W \le j < i} (dp[j] + cost[j])$$
+By maintaining a double-ended queue (`std::deque`) of indices where the values are stored in strictly increasing order, we can query the minimum of the sliding window of size $W$ in **$O(1)$ amortized** time.
+
+```cpp
+struct MonotonicQueueDP {
+    deque<int> dq; // Stores indices of candidates
+    
+    void insert(int idx, const vector<ll>& cost) {
+        while (!dq.empty() && cost[dq.back()] >= cost[idx]) {
+            dq.pop_back();
+        }
+        dq.push_back(idx);
+    }
+    
+    void remove_old(int min_idx) {
+        while (!dq.empty() && dq.front() < min_idx) {
+            dq.pop_front();
+        }
+    }
+    
+    int get_best() {
+        return dq.front();
+    }
+};
+```
+
+---
+
+## 5. SMAWK Algorithm (Row-Minimums in $O(N + M)$)
+If we are given an $N \times M$ matrix $A$ that is **totally monotone** (which means for any $a < b$ and $c < d$, if $A[a][c] > A[b][c]$ then $A[a][d] > A[b][d]$), we can find the minimum element in *every single row* of the matrix in **$O(N + M)$** time!
+
+While highly theoretical, SMAWK can be used to optimize D&C DP transitions from $O(N \log N)$ to **$O(N)$** on Monge matrices.
+
+---
+
+## Problems Checklist
+
+<ProblemTable problems={[
+  {
+    name: "Sliding Window Cost",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/1077",
+    difficulty: "Easy",
+    concepts: ["Monotonic Queue", "Prefix Sums"],
+    why: "Perfect practice for sliding window operations and median costs.",
+    tier: "warmup"
+  },
+  {
+    name: "Subarray Squares",
+    platform: "CSES",
+    link: "https://cses.fi/problemset/task/2084",
+    difficulty: "Hard",
+    concepts: ["Divide & Conquer DP", "Quadrangle Inequality"],
+    why: "Classic O(K N log N) transition optimization of a prefix partition sum of squares.",
+    tier: "standard"
+  },
+  {
+    name: "Ciel and Gondolas",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/321/problem/E",
+    difficulty: "2200",
+    concepts: ["Divide & Conquer DP", "Fast I/O"],
+    why: "Requires high-speed D&C DP implementation to partition gondola assignments with strict time limits.",
+    tier: "advanced"
+  },
+  {
+    name: "Breaking String",
+    platform: "SPOJ",
+    link: "https://www.spoj.com/problems/BRKSTRNG/",
+    difficulty: "Hard",
+    concepts: ["Knuth Optimization"],
+    why: "Standard application of Knuth's split-point optimization on a string cutting task.",
+    tier: "standard"
+  },
+  {
+    name: "Buy Low Sell High",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/865/problem/D",
+    difficulty: "2400",
+    concepts: ["Slope Trick", "Greedy Heap"],
+    why: "A spectacular stock optimization problem that reduces to a simple Slope Trick using priority queues.",
+    tier: "advanced"
+  },
+  {
+    name: "Landscape Improved",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/613/problem/D",
+    difficulty: "2600",
+    concepts: ["Slope Trick", "Binary Search"],
+    why: "An elite problem where we maintain slope profiles of soil heights to optimize landscape excavation.",
+    tier: "killer"
+  },
+  {
+    name: "Yura and String (SMAWK)",
+    platform: "Codeforces",
+    link: "https://codeforces.com/contest/960/problem/F",
+    difficulty: "Legendary",
+    concepts: ["SMAWK", "Totally Monotone Matrices"],
+    why: "Requires $O(N + M)$ row-minimum searching to satisfy tight constraints on subsegment matches.",
+    tier: "legendary"
+  }
+]} />
+
+---
+
+## References
+
+1. **OI Wiki** — [Divide & Conquer DP](https://oi-wiki.org/dp/opt/div-and-conquer/)
+2. **Codeforces Blog** — [Slope Trick Explained](https://codeforces.com/blog/entry/77891)
+3. **OI Wiki** — [Knuth's Optimization](https://oi-wiki.org/dp/opt/knuth/)
+4. **Wikipedia** — [SMAWK Algorithm](https://en.wikipedia.org/wiki/SMAWK_algorithm)

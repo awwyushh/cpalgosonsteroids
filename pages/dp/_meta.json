@@ -1,0 +1,10 @@
+{
+  "index": "Overview",
+  "foundations": "1. Foundations & Classic Models",
+  "classical-dimensions": "2. Tree, Grid & Interval DP",
+  "state-space": "3. Bitmask, Digit & Profile DP",
+  "algebraic-structural": "4. Algebraic & SOS Optimizations",
+  "geometric": "5. Convex Hull Trick & Aliens",
+  "speedups": "6. Advanced Speedups & Monotonicity",
+  "dynamic-dp": "7. Dynamic DP & Tree Convolutions"
+}

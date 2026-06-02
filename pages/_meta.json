@@ -11,6 +11,10 @@
     "title": "🌲 Data Structures",
     "type": "page"
   },
+  "dp": {
+    "title": "🧠 Dynamic Programming",
+    "type": "page"
+  },
   "roadmaps": {
     "title": "🗺️ Roadmaps",
     "type": "page"
